@@ -30,7 +30,7 @@ async def test_from_graphql_schema():
 
     schema, _ = api.build_schema()
 
-    mcp_server = add_tools_from_schema(schema)  
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         # Test query
