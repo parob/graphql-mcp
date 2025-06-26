@@ -161,7 +161,7 @@ def _add_tools_from_fields(
         tool_decorator(tool_func)
 
 
-async def add_query_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
+def add_query_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
     """Adds tools to a FastMCP server from the query fields of a GraphQL schema."""
     if schema.query_type:
         _add_tools_from_fields(
@@ -169,7 +169,7 @@ async def add_query_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
         )
 
 
-async def add_mutation_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
+def add_mutation_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
     """Adds tools to a FastMCP server from the mutation fields of a GraphQL schema."""
     if schema.mutation_type:
         _add_tools_from_fields(
@@ -177,7 +177,7 @@ async def add_mutation_tools_from_schema(server: FastMCP, schema: GraphQLSchema)
         )
 
 
-async def from_graphql_schema(
+def add_tools_from_schema(
     schema: GraphQLSchema, server: FastMCP | None = None
 ) -> FastMCP:
     """
@@ -192,11 +192,14 @@ async def from_graphql_schema(
     :return: The populated FastMCP server instance.
     """
     if server is None:
-        server = FastMCP(name=schema.description or "GraphQL Server")
+        server_name = "GraphQL"
+        if schema.query_type and schema.query_type.name:
+            server_name = schema.query_type.name
+        server = FastMCP(name=server_name)
 
     # Process mutations first, so that queries can overwrite them if a name collision occurs.
-    await add_mutation_tools_from_schema(server, schema)
-    await add_query_tools_from_schema(server, schema)
+    add_mutation_tools_from_schema(server, schema)
+    add_query_tools_from_schema(server, schema)
 
     return server
 

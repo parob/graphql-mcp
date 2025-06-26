@@ -9,7 +9,7 @@ from fastmcp.client import Client
 from mcp.types import TextContent
 from typing import cast
 
-from graphql_mcp.server import from_graphql_schema
+from graphql_mcp.server import add_tools_from_schema
 
 
 @pytest.mark.asyncio
@@ -30,7 +30,7 @@ async def test_from_graphql_schema():
 
     schema, _ = api.build_schema()
 
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)  
 
     async with Client(mcp_server) as client:
         # Test query
@@ -85,7 +85,7 @@ async def test_from_graphql_schema_nested():
 
     schema, _ = api.build_schema()
 
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("author", {})
@@ -175,7 +175,7 @@ async def test_from_graphql_schema_advanced():
             return Item(**items_db[id])
 
     schema, _ = api.build_schema()
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         # 1. Test list return
@@ -236,7 +236,7 @@ async def test_from_graphql_schema_with_existing_server():
         return "existing"
 
     # 2. Populate the server from the schema
-    await from_graphql_schema(schema, server=mcp_server)
+    add_tools_from_schema(schema, server=mcp_server)
 
     # 3. Verify both the old and new tools exist
     async with Client(mcp_server) as client:
@@ -282,7 +282,7 @@ async def test_from_graphql_schema_core_only():
 
     schema = GraphQLSchema(query=query_type)
 
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         # Test query
@@ -318,7 +318,7 @@ async def test_error_handling():
         },
     )
     schema = GraphQLSchema(query=query_type)
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         with pytest.raises(ToolError, match="This is a test error"):
@@ -361,7 +361,7 @@ async def test_from_graphql_schema_with_pydantic_input():
 
     schema, _ = api.build_schema()
 
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         input_data = CreateItemInput(name="My Pydantic Item", price=99.99)
@@ -392,7 +392,7 @@ async def test_from_graphql_schema_with_pydantic_output():
 
     schema, _ = api.build_schema()
 
-    mcp_server = await from_graphql_schema(schema)
+    mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("get_item", {})
