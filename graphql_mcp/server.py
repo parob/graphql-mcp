@@ -5,7 +5,7 @@ import uuid
 import json
 
 from datetime import date, datetime
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable
 
 from fastmcp import FastMCP
 
@@ -16,7 +16,6 @@ from graphql import (
     GraphQLInputObjectType,
     GraphQLList,
     GraphQLNonNull,
-    GraphQLScalarType,
     GraphQLSchema,
     GraphQLString,
     GraphQLInt,

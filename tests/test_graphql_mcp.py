@@ -3,7 +3,7 @@ import pytest
 import enum
 
 from pydantic import BaseModel
-from graphql_api import GraphQLAPI, api
+from graphql_api import GraphQLAPI
 from fastmcp import FastMCP
 from fastmcp.client import Client
 from mcp.types import TextContent
@@ -137,7 +137,6 @@ async def test_from_graphql_schema_advanced():
             """Updates the status of an item."""
             self._data["name"] = new_name
             return self
-
 
     @api.type(is_root_type=True)
     class Root:
