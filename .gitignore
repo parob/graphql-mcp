@@ -1,0 +1,12 @@
+.idea
+.DS_Store
+.coverage
+.pytest_cache
+
+env
+venv
+tests/logs/
+objectql.egg-info
+dist
+tests/htmlcov
+*.pyc

@@ -1,0 +1,81 @@
+name: Python Package CI/CD
+
+on:
+  push:
+    branches:
+      - main # Or your default branch
+    tags:
+      - '*.*.*' # For publishing to PyPI
+  pull_request:
+    branches:
+      - main # Or your default branch
+
+jobs:
+  build_and_test:
+    name: Build and Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"] # Your Pipfile specifies 3.13
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Pipenv
+      run: pip install pipenv
+
+    - name: Install dependencies
+      run: pipenv install --dev
+
+    - name: Lint with Flake8
+      run: pipenv run flake8 .
+
+    - name: Test with Pytest
+      run: pipenv run pytest
+
+  publish:
+    name: Publish to PyPI
+    needs: build_and_test # Ensure tests pass before publishing
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    permissions:
+      id-token: write
+    
+    steps:
+    - name: Validate tag format (e.g., 1.0.0)
+      run: |
+        TAG_NAME="${{ github.ref_name }}"
+        if ! [[ "$TAG_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Tag '$TAG_NAME' is not in the required X.Y.Z numeric format (e.g., 1.0.0)."
+          exit 1
+        fi
+        echo "Tag '$TAG_NAME' is valid."
+      shell: bash
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13' # Use your project's primary Python version
+
+    - name: Install build dependencies
+      run: python -m pip install --upgrade pip build twine
+
+    - name: Update VERSION file
+      run: echo "${{ github.ref_name }}" > VERSION
+      shell: bash
+
+    - name: Build package
+      run: python -m build --sdist --wheel .
+
+    - name: Publish package to PyPI
+      run: python -m twine upload dist/* --skip-existing
