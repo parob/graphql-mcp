@@ -5,9 +5,13 @@ import uuid
 import json
 
 from datetime import date, datetime
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from fastmcp import FastMCP
+
+from fastmcp.server.http import (
+    StarletteWithLifespan
+)
 
 from graphql import (
     GraphQLArgument,
@@ -36,6 +40,19 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         add_tools_from_schema(graphql_schema, mcp)
         return mcp
 
+    def http_app(
+        self,
+        path: str | None = None,
+        middleware: list[ASGIMiddleware] | None = None,
+        json_response: bool | None = None,
+        stateless_http: bool | None = None,
+        transport: Literal["http", "streamable-http", "sse"] = "http",
+        **kwargs
+    ) -> StarletteWithLifespan:
+        app = super().http_app(path, middleware, json_response, stateless_http, transport, **kwargs)
+        app.add_middleware(MCPRedirectMiddleware)
+        return app
+
 
 try:
     from graphql_api import GraphQLAPI
@@ -53,9 +70,10 @@ try:
 
         @classmethod
         def from_api(cls, api: GraphQLAPI, *args, **kwargs):
-            mcp = FastMCP(*args, **kwargs)
+            mcp = GraphQLMCPServer(*args, **kwargs)
             add_tools_from_schema(api.build_schema()[0], mcp)
             return mcp
+
 
 except ImportError:
     HAS_GRAPHQL_API = False
@@ -291,3 +309,18 @@ def _create_tool_function(
     wrapper.__annotations__ = annotations
 
     return wrapper
+
+
+class MCPRedirectMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp
+    ) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope['type'] == 'http' and scope['path'] == '/mcp':
+            scope['path'] = '/mcp/'
+            if 'raw_path' in scope:
+                scope['raw_path'] = b'/mcp/'
+        await self.app(scope, receive, send)
