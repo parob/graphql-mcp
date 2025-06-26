@@ -9,6 +9,8 @@ from typing import Any, Callable, Literal
 
 from fastmcp import FastMCP
 
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.server.http import (
     StarletteWithLifespan
 )
