@@ -1,3 +1,4 @@
+from calendar import c
 import enum
 import inspect
 import re
@@ -27,7 +28,17 @@ from graphql import (
     is_leaf_type,
 )
 
+class GraphQLMCPServer(FastMCP): # type: ignore
+
+    @classmethod
+    def from_schema(cls, graphql_schema: GraphQLSchema, *args, **kwargs):
+        mcp = FastMCP(*args, **kwargs)
+        add_tools_from_schema(graphql_schema, mcp)
+        return mcp
+    
+
 try:
+    from graphql_api import GraphQLAPI
     from graphql_api.types import (
         GraphQLUUID,
         GraphQLDateTime,
@@ -37,6 +48,15 @@ try:
     )
 
     HAS_GRAPHQL_API = True
+
+    class GraphQLMCPServer(GraphQLMCPServer):
+
+        @classmethod
+        def from_api(cls, api: GraphQLAPI, *args, **kwargs):
+            mcp = FastMCP(*args, **kwargs)
+            add_tools_from_schema(api.build_schema()[0], mcp)
+            return mcp
+    
 except ImportError:
     HAS_GRAPHQL_API = False
     GraphQLUUID = object()

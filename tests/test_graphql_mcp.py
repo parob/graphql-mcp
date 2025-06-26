@@ -3,17 +3,22 @@ import pytest
 import enum
 
 from pydantic import BaseModel
-from graphql_api import GraphQLAPI
 from fastmcp import FastMCP
 from fastmcp.client import Client
 from mcp.types import TextContent
 from typing import cast
 
-from graphql_mcp.server import add_tools_from_schema
+from graphql_api import field
+from graphql_mcp.server import add_tools_from_schema, GraphQLMCPServer
 
 
 @pytest.mark.asyncio
 async def test_from_graphql_schema():
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
     api = GraphQLAPI()
 
     @api.type(is_root_type=True)
@@ -59,6 +64,10 @@ async def test_from_graphql_schema_nested():
     """
     Tests the schema mapping with a nested object type.
     """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
     api = GraphQLAPI()
 
     @api.type
@@ -99,6 +108,10 @@ async def test_from_graphql_schema_advanced():
     """
     Tests more advanced schema features like enums, lists, and mutations on data.
     """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
     api = GraphQLAPI()
 
     class Status(enum.Enum):
@@ -217,6 +230,10 @@ async def test_from_graphql_schema_with_existing_server():
     """
     Tests that the schema mapping can be applied to an existing FastMCP server.
     """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
     api = GraphQLAPI()
 
     @api.type(is_root_type=True)
@@ -251,6 +268,70 @@ async def test_from_graphql_schema_with_existing_server():
 
         result_new = await client.call_tool("new_tool", {})
         assert cast(TextContent, result_new[0]).text == "new"
+
+
+@pytest.mark.asyncio
+async def test_from_schema_class_method():
+    """
+    Tests the GraphQLMCPServer.from_schema class method.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    api = GraphQLAPI()
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def hello(self) -> str:
+            return "world"
+
+    schema, _ = api.build_schema()
+
+    mcp_server = GraphQLMCPServer.from_schema(schema, name="TestServer")
+    assert isinstance(mcp_server, FastMCP)
+    assert mcp_server.name == "TestServer"
+
+    async with Client(mcp_server) as client:
+        tools = await client.list_tools()
+        assert "hello" in [t.name for t in tools]
+
+        result = await client.call_tool("hello", {})
+        assert cast(TextContent, result[0]).text == "world"
+
+
+@pytest.mark.asyncio
+async def test_from_graphql_api_class_method():
+    """
+    Tests the GraphQLMCPServer.from_graphql_api class method.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api is not installed")
+
+
+    class MyAPI:
+
+        @field
+        def hello_from_api(self, name: str = "Test") -> str:
+            return f"Hello, {name}"
+        
+    api = GraphQLAPI(root_type=MyAPI)
+
+
+    mcp_server = GraphQLMCPServer.from_api(api, name="TestFromAPI")
+    assert isinstance(mcp_server, FastMCP)
+    assert mcp_server.name == "TestFromAPI"
+
+    async with Client(mcp_server) as client:
+        tools = await client.list_tools()
+        assert "hello_from_api" in [t.name for t in tools]
+
+        result = await client.call_tool("hello_from_api", {"name": "Works"})
+        assert cast(TextContent, result[0]).text == "Hello, Works"
 
 
 @pytest.mark.asyncio
@@ -330,6 +411,11 @@ async def test_from_graphql_schema_with_pydantic_input():
     """
     Tests that a mutation with a pydantic model as input is correctly handled.
     """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
     api = GraphQLAPI()
 
     class CreateItemInput(BaseModel):
@@ -376,6 +462,11 @@ async def test_from_graphql_schema_with_pydantic_output():
     """
     Tests that a query that returns a pydantic model is correctly handled.
     """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
     api = GraphQLAPI()
 
     class ItemOutput(BaseModel):
