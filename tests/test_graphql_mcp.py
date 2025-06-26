@@ -312,15 +312,13 @@ async def test_from_graphql_api_class_method():
     except ImportError:
         pytest.skip("graphql-api is not installed")
 
-
     class MyAPI:
 
         @field
         def hello_from_api(self, name: str = "Test") -> str:
             return f"Hello, {name}"
-        
-    api = GraphQLAPI(root_type=MyAPI)
 
+    api = GraphQLAPI(root_type=MyAPI)
 
     mcp_server = GraphQLMCPServer.from_api(api, name="TestFromAPI")
     assert isinstance(mcp_server, FastMCP)
