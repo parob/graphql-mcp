@@ -36,4 +36,4 @@ def test_mcp_redirect_rewrites_to_trailing_slash():
 
     # 3. Different paths should not be affected by the middleware.
     response = client.get("/mcp-other")
-    assert response.status_code == 404 
+    assert response.status_code == 404
