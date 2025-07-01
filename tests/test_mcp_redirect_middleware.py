@@ -14,6 +14,11 @@ def create_app():
         # Return the path seen by the endpoint so we can assert the rewrite happened.
         return PlainTextResponse(request.url.path)
 
+    # Additional route to test nested path behaviour.
+    @app.route("/prefix/mcp/")
+    async def prefixed_mcp_endpoint(request):  # type: ignore
+        return PlainTextResponse(request.url.path)
+
     # Attach the middleware under test.
     app.add_middleware(MCPRedirectMiddleware)
     return app
@@ -37,3 +42,8 @@ def test_mcp_redirect_rewrites_to_trailing_slash():
     # 3. Different paths should not be affected by the middleware.
     response = client.get("/mcp-other")
     assert response.status_code == 404
+
+    # 4. Nested path ending with /mcp should also be rewritten.
+    response = client.get("/prefix/mcp")
+    assert response.status_code == 200
+    assert response.text == "/prefix/mcp/"

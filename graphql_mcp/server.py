@@ -321,8 +321,14 @@ class MCPRedirectMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope['type'] == 'http' and scope['path'] == '/mcp':
-            scope['path'] = '/mcp/'
-            if 'raw_path' in scope:
-                scope['raw_path'] = b'/mcp/'
+        if scope['type'] == 'http':
+            path = scope['path']
+            # If the request path ends with '/mcp' but does not already have the
+            # trailing slash, rewrite it so downstream routing sees the
+            # canonical path with the slash.
+            if path.endswith('/mcp') and not path.endswith('/mcp/'):
+                new_path = path + '/'
+                scope['path'] = new_path
+                if 'raw_path' in scope:
+                    scope['raw_path'] = new_path.encode()
         await self.app(scope, receive, send)
