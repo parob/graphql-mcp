@@ -132,10 +132,9 @@ async def test_from_graphql_schema_nested_mutation():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("book_set_title", {"title":"Test"})
+        result = await client.call_tool("book_set_title", {"title": "Test"})
         data = json.loads(cast(TextContent, result[0]).text)
         assert data == "Title set to Test"
-
 
 
 @pytest.mark.asyncio
@@ -524,7 +523,6 @@ async def test_from_graphql_schema_with_pydantic_output():
         assert data["name"] == "A Pydantic Item"
         assert data["price"] == 42.0
         assert data["isOffer"] is True
-
 
 
 @pytest.mark.asyncio
