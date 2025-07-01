@@ -5,7 +5,7 @@ import uuid
 import json
 
 from datetime import date, datetime
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, Tuple
 
 from fastmcp import FastMCP
 
@@ -31,6 +31,7 @@ from graphql import (
     get_named_type,
     graphql_sync,
     is_leaf_type,
+    GraphQLObjectType,
 )
 
 
@@ -241,6 +242,9 @@ def add_tools_from_schema(
     add_mutation_tools_from_schema(server, schema)
     add_query_tools_from_schema(server, schema)
 
+    # After top-level queries and mutations, add tools for nested mutations
+    _add_nested_tools_from_schema(server, schema)
+
     return server
 
 
@@ -332,3 +336,141 @@ class MCPRedirectMiddleware:
                 if 'raw_path' in scope:
                     scope['raw_path'] = new_path.encode()
         await self.app(scope, receive, send)
+
+
+# ---------------------------------------------------------------------------
+# Recursive nested tool generation (any depth)
+# ---------------------------------------------------------------------------
+
+
+def _create_recursive_tool_function(
+    path: list[tuple[str, GraphQLField]],
+    operation_type: str,
+    schema: GraphQLSchema,
+) -> Tuple[str, Callable]:
+    """Builds a FastMCP tool that resolves an arbitrarily deep field chain."""
+
+    # Collect parameters & GraphQL variable definitions
+    parameters: list[inspect.Parameter] = []
+    annotations: dict[str, Any] = {}
+    arg_defs: list[str] = []
+
+    for idx, (field_name, field_def) in enumerate(path):
+        for arg_name, arg_def in field_def.args.items():
+            # Use plain arg name for the leaf field to match expectations; prefix for others.
+            var_name = arg_name if idx == len(path) - 1 else f"{field_name}_{arg_name}"
+            python_type = _map_graphql_type_to_python_type(arg_def.type)
+            annotations[var_name] = python_type
+            default = (
+                arg_def.default_value
+                if arg_def.default_value is not inspect.Parameter.empty
+                else inspect.Parameter.empty
+            )
+            parameters.append(
+                inspect.Parameter(
+                    var_name,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=default,
+                    annotation=python_type,
+                )
+            )
+            arg_defs.append(f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
+
+    # Build nested call string
+    def _build_call(index: int) -> str:
+        field_name, field_def = path[index]
+        # Build argument string for this field
+        if field_def.args:
+            arg_str_parts = []
+            for arg in field_def.args.keys():
+                var_name = arg if index == len(path) - 1 else f"{field_name}_{arg}"
+                arg_str_parts.append(f"{arg}: ${var_name}")
+            arg_str = ", ".join(arg_str_parts)
+            call = f"{field_name}({arg_str})"
+        else:
+            call = field_name
+
+        # If leaf
+        if index == len(path) - 1:
+            selection_set = _build_selection_set(field_def.type)
+            return f"{call} {selection_set}"
+
+        # Otherwise recurse
+        return f"{call} {{ {_build_call(index + 1)} }}"
+
+    graphql_body = _build_call(0)
+
+    arg_def_str = ", ".join(arg_defs)
+    operation_header = (
+        f"{operation_type} ({arg_def_str})" if arg_def_str else operation_type
+    )
+    query_str = f"{operation_header} {{ {graphql_body} }}"
+
+    # Tool wrapper
+    def wrapper(**kwargs):
+        processed_kwargs: dict[str, Any] = {}
+        for k, v in kwargs.items():
+            if isinstance(v, enum.Enum):
+                processed_kwargs[k] = v.value
+            elif hasattr(v, "model_dump"):
+                processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, dict):
+                processed_kwargs[k] = json.dumps(v)
+            else:
+                processed_kwargs[k] = v
+
+        result = graphql_sync(schema, query_str, variable_values=processed_kwargs)
+
+        if result.errors:
+            raise result.errors[0]
+
+        # Walk down the path to extract the nested value
+        data_cursor = result.data
+        for field_name, _ in path:
+            if data_cursor is None:
+                break
+            data_cursor = data_cursor.get(field_name) if isinstance(data_cursor, dict) else None
+
+        # Serialize scalars to JSON strings so FastMCP emits TextContent with valid JSON
+        if isinstance(data_cursor, (dict, list)):
+            return data_cursor
+        return json.dumps(data_cursor)
+
+    tool_name = _to_snake_case("_".join(name for name, _ in path))
+    wrapper.__signature__ = inspect.Signature(parameters)
+    wrapper.__doc__ = path[-1][1].description
+    wrapper.__name__ = tool_name
+    wrapper.__annotations__ = annotations
+
+    return tool_name, wrapper
+
+
+def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
+    """Recursively registers tools for any nested field chain that includes arguments."""
+
+    visited_types: set[str] = set()
+
+    def recurse(parent_type, operation_type: str, path: list[tuple[str, GraphQLField]]):
+        type_name = parent_type.name if hasattr(parent_type, "name") else None
+        if type_name and type_name in visited_types:
+            return
+        if type_name:
+            visited_types.add(type_name)
+
+        for field_name, field_def in parent_type.fields.items():
+            named_type = get_named_type(field_def.type)
+            new_path = path + [(field_name, field_def)]
+
+            if len(new_path) > 1 and field_def.args:
+                # Register tool for paths with depth >=2
+                tool_name, tool_func = _create_recursive_tool_function(new_path, operation_type, schema)
+                server.tool(name=tool_name)(tool_func)
+
+            if isinstance(named_type, GraphQLObjectType):
+                recurse(named_type, operation_type, new_path)
+
+    # Start from both query and mutation roots
+    if schema.query_type:
+        recurse(schema.query_type, "query", [])
+    if schema.mutation_type:
+        recurse(schema.mutation_type, "mutation", [])

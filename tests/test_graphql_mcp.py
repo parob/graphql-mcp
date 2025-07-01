@@ -104,6 +104,41 @@ async def test_from_graphql_schema_nested():
 
 
 @pytest.mark.asyncio
+async def test_from_graphql_schema_nested_mutation():
+    """
+    Tests the schema mapping with a nested object type.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+    api = GraphQLAPI()
+
+    @api.type
+    class Book:
+
+        @api.field(mutable=True)
+        def set_title(self, title: str) -> str:
+            return "Title set to " + title
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def book(self) -> Book:
+            return Book()
+
+    schema, _ = api.build_schema()
+
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("book_set_title", {"title":"Test"})
+        data = json.loads(cast(TextContent, result[0]).text)
+        assert data == "Title set to Test"
+
+
+
+@pytest.mark.asyncio
 async def test_from_graphql_schema_advanced():
     """
     Tests more advanced schema features like enums, lists, and mutations on data.
@@ -489,3 +524,86 @@ async def test_from_graphql_schema_with_pydantic_output():
         assert data["name"] == "A Pydantic Item"
         assert data["price"] == 42.0
         assert data["isOffer"] is True
+
+
+
+@pytest.mark.asyncio
+async def test_deep_nested_mutation():
+    """Validates tools generated for mutations nested three levels deep."""
+
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    api = GraphQLAPI()
+
+    @api.type
+    class Post:
+        def __init__(self):
+            self._title = "Original"
+
+        @api.field
+        def title(self) -> str:
+            return self._title
+
+        @api.field(mutable=True)
+        def update_title(self, new_title: str) -> str:
+            self._title = new_title
+            return self._title
+
+    @api.type
+    class User:
+        @api.field
+        def posts(self) -> Post:
+            return Post()
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def user(self) -> User:
+            return User()
+
+    schema, _ = api.build_schema()
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("user_posts_update_title", {"newTitle": "Updated"})
+        assert json.loads(cast(TextContent, result[0]).text) == "Updated"
+
+
+@pytest.mark.asyncio
+async def test_deep_nested_query_with_args():
+    """Validates tools generated for deep nested queries with arguments."""
+
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    api = GraphQLAPI()
+
+    @api.type
+    class CalculatorLevel2:
+        @api.field
+        def add(self, a: int, b: int) -> int:
+            return a + b
+
+    @api.type
+    class CalculatorLevel1:
+        @api.field
+        def calc2(self) -> CalculatorLevel2:
+            return CalculatorLevel2()
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def calc1(self) -> CalculatorLevel1:
+            return CalculatorLevel1()
+
+    schema, _ = api.build_schema()
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("calc1_calc2_add", {"a": 3, "b": 4})
+        assert json.loads(cast(TextContent, result[0]).text) == 7
