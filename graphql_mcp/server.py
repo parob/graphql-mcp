@@ -29,7 +29,7 @@ from graphql import (
     GraphQLBoolean,
     GraphQLID,
     get_named_type,
-    graphql_sync,
+    graphql,
     is_leaf_type,
     GraphQLObjectType,
 )
@@ -275,7 +275,7 @@ def _create_tool_function(
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
-    def wrapper(**kwargs):
+    async def wrapper(**kwargs):
         # Convert enums to their values for graphql_sync
         processed_kwargs = {}
         for k, v in kwargs.items():
@@ -298,7 +298,7 @@ def _create_tool_function(
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
         # Execute the query
-        result = graphql_sync(schema, query_str, variable_values=processed_kwargs)
+        result = await graphql(schema, query_str, variable_values=processed_kwargs)
 
         if result.errors:
             # For simplicity, just raise the first error
@@ -407,7 +407,7 @@ def _create_recursive_tool_function(
     query_str = f"{operation_header} {{ {graphql_body} }}"
 
     # Tool wrapper
-    def wrapper(**kwargs):
+    async def wrapper(**kwargs):
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
@@ -419,7 +419,7 @@ def _create_recursive_tool_function(
             else:
                 processed_kwargs[k] = v
 
-        result = graphql_sync(schema, query_str, variable_values=processed_kwargs)
+        result = await graphql(schema, query_str, variable_values=processed_kwargs)
 
         if result.errors:
             raise result.errors[0]

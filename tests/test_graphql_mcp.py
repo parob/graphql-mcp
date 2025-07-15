@@ -603,5 +603,36 @@ async def test_deep_nested_query_with_args():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("calc1_calc2_add", {"a": 3, "b": 4})
-        assert json.loads(cast(TextContent, result[0]).text) == 7
+        result = await client.call_tool("calc1_calc2_add", {"a": 10, "b": 20})
+        data = json.loads(cast(TextContent, result[0]).text)
+        assert data == 30
+
+
+@pytest.mark.asyncio
+async def test_from_graphql_schema_async_field():
+    """
+    Tests the schema mapping with an async field.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    api = GraphQLAPI()
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        async def hello_async(self, name: str) -> str:
+            """Returns a greeting asynchronously."""
+            import asyncio
+            await asyncio.sleep(0.01)
+            return f"Hello, {name}"
+
+    schema, _ = api.build_schema()
+
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("hello_async", {"name": "World"})
+        assert cast(TextContent, result[0]).text == "Hello, World"
