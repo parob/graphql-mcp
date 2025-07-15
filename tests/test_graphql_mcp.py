@@ -40,11 +40,11 @@ async def test_from_graphql_schema():
     async with Client(mcp_server) as client:
         # Test query
         result = await client.call_tool("hello", {"name": "World"})
-        assert cast(TextContent, result[0]).text == "Hello, World"
+        assert cast(TextContent, result.content[0]).text == "Hello, World"
 
         # Test mutation
         result = await client.call_tool("add", {"a": 5, "b": 3})
-        assert cast(TextContent, result[0]).text == "8"
+        assert cast(TextContent, result.content[0]).text == "8"
 
         # Test tool listing
         tools = await client.list_tools()
@@ -98,7 +98,7 @@ async def test_from_graphql_schema_nested():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("author", {})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data["name"] == "Douglas Adams"
         assert data["book"]["title"] == "The Hitchhiker's Guide to the Galaxy"
 
@@ -133,7 +133,7 @@ async def test_from_graphql_schema_nested_mutation():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("book_set_title", {"title": "Test"})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data == "Title set to Test"
 
 
@@ -227,24 +227,24 @@ async def test_from_graphql_schema_advanced():
     async with Client(mcp_server) as client:
         # 1. Test list return
         result = await client.call_tool("items", {})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert len(data) == 2
         assert data[0]["name"] == "Task 1"
 
         # 2. Test query with arguments
         result = await client.call_tool("item", {"id": 1})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data["name"] == "Task 1"
         assert data["status"] == "PENDING"
 
         # 3. Test mutation
         result = await client.call_tool("update_item_status", {"id": 1, "status": "COMPLETED"})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data["status"] == "COMPLETED"
 
         # 4. Test enum argument
         result = await client.call_tool("filter_items", {"completed": True, "status": "COMPLETED"})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         if isinstance(data, dict):
             data = [data]
         assert len(data) == 1
@@ -298,10 +298,10 @@ async def test_from_graphql_schema_with_existing_server():
 
         # 4. Verify both tools are callable
         result_existing = await client.call_tool("existing_tool", {})
-        assert cast(TextContent, result_existing[0]).text == "existing"
+        assert cast(TextContent, result_existing.content[0]).text == "existing"
 
         result_new = await client.call_tool("new_tool", {})
-        assert cast(TextContent, result_new[0]).text == "new"
+        assert cast(TextContent, result_new.content[0]).text == "new"
 
 
 @pytest.mark.asyncio
@@ -333,7 +333,7 @@ async def test_from_schema_class_method():
         assert "hello" in [t.name for t in tools]
 
         result = await client.call_tool("hello", {})
-        assert cast(TextContent, result[0]).text == "world"
+        assert cast(TextContent, result.content[0]).text == "world"
 
 
 @pytest.mark.asyncio
@@ -363,7 +363,7 @@ async def test_from_graphql_api_class_method():
         assert "hello_from_api" in [t.name for t in tools]
 
         result = await client.call_tool("hello_from_api", {"name": "Works"})
-        assert cast(TextContent, result[0]).text == "Hello, Works"
+        assert cast(TextContent, result.content[0]).text == "Hello, Works"
 
 
 @pytest.mark.asyncio
@@ -400,7 +400,7 @@ async def test_from_graphql_schema_core_only():
     async with Client(mcp_server) as client:
         # Test query
         result = await client.call_tool("hello", {"name": "core"})
-        assert cast(TextContent, result[0]).text == "Hello, core"
+        assert cast(TextContent, result.content[0]).text == "Hello, core"
 
         tools = await client.list_tools()
         assert len(tools) == 1
@@ -484,7 +484,7 @@ async def test_from_graphql_schema_with_pydantic_input():
     async with Client(mcp_server) as client:
         input_data = CreateItemInput(name="My Pydantic Item", price=99.99)
         result = await client.call_tool("create_item", {"input": input_data})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data["name"] == "Test Item"
         assert data["price"] == 12.34
 
@@ -519,7 +519,7 @@ async def test_from_graphql_schema_with_pydantic_output():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("get_item", {})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data["name"] == "A Pydantic Item"
         assert data["price"] == 42.0
         assert data["isOffer"] is True
@@ -567,7 +567,7 @@ async def test_deep_nested_mutation():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("user_posts_update_title", {"newTitle": "Updated"})
-        assert json.loads(cast(TextContent, result[0]).text) == "Updated"
+        assert json.loads(cast(TextContent, result.content[0]).text) == "Updated"
 
 
 @pytest.mark.asyncio
@@ -604,7 +604,7 @@ async def test_deep_nested_query_with_args():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("calc1_calc2_add", {"a": 10, "b": 20})
-        data = json.loads(cast(TextContent, result[0]).text)
+        data = json.loads(cast(TextContent, result.content[0]).text)
         assert data == 30
 
 
@@ -635,4 +635,4 @@ async def test_from_graphql_schema_async_field():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("hello_async", {"name": "World"})
-        assert cast(TextContent, result[0]).text == "Hello, World"
+        assert cast(TextContent, result.content[0]).text == "Hello, World"

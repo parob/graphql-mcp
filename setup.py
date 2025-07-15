@@ -27,7 +27,7 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=[
         "graphql-core~=3.1",
-        "fastmcp~=2.9",
+        "fastmcp>=2.10.5",
         "graphql-api>=1.3.0"
     ],
     extras_require={
@@ -37,7 +37,7 @@ setup(
             "pytest-cov~=2.10",
             "coverage~=5.2",
             "faker~=4.1",
-            "fastmcp~=2.9",
+            "fastmcp>=2.10.5",
             "pytest-asyncio~=0.18",
         ]
     },
