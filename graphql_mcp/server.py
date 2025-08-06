@@ -38,7 +38,8 @@ from graphql import (
 
 logger = logging.getLogger(__name__)
 
-class GraphQLMCPServer(FastMCP): # type: ignore
+
+class GraphQLMCPServer(FastMCP):  # type: ignore
 
     @classmethod
     def from_schema(cls, graphql_schema: GraphQLSchema, *args, **kwargs):
@@ -89,7 +90,7 @@ try:
         def http_app(self, *args, **kwargs):
             app = super().http_app(*args, **kwargs)
             if self.graphql_http_server:
-                from graphql_http_server import GraphQLHTTPServer # type: ignore
+                from graphql_http_server import GraphQLHTTPServer  # type: ignore
 
                 if isinstance(self.auth, JWTVerifier):
                     graphql_app = GraphQLHTTPServer.from_api(
