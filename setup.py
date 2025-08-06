@@ -26,18 +26,19 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     install_requires=[
-        "graphql-core~=3.1",
-        "fastmcp>=2.10.5",
-        "graphql-api>=1.3.0"
+        "graphql-core~=3.2",
+        "fastmcp>=2.11.2",
+        "graphql-api>=1.4.12",
+        "graphql-http-server>=1.5.7"
     ],
     extras_require={
         "dev": [
-            "graphql-api>=1.3.0",
+            "graphql-api>=1.4.12",
             "pytest~=5.4",
             "pytest-cov~=2.10",
             "coverage~=5.2",
             "faker~=4.1",
-            "fastmcp>=2.10.5",
+            "fastmcp>=2.11.2",
             "pytest-asyncio~=0.18",
         ]
     },

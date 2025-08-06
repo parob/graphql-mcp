@@ -3,6 +3,7 @@ import inspect
 import re
 import uuid
 import json
+import logging
 
 from datetime import date, datetime
 from typing import Any, Callable, Literal, Tuple
@@ -14,6 +15,7 @@ from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.server.http import (
     StarletteWithLifespan
 )
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 from graphql import (
     GraphQLArgument,
@@ -34,8 +36,9 @@ from graphql import (
     GraphQLObjectType,
 )
 
+logger = logging.getLogger(__name__)
 
-class GraphQLMCPServer(FastMCP):  # type: ignore
+class GraphQLMCPServer(FastMCP): # type: ignore
 
     @classmethod
     def from_schema(cls, graphql_schema: GraphQLSchema, *args, **kwargs):
@@ -72,10 +75,40 @@ try:
     class GraphQLMCPServer(GraphQLMCPServer):
 
         @classmethod
-        def from_api(cls, api: GraphQLAPI, *args, **kwargs):
-            mcp = GraphQLMCPServer(*args, **kwargs)
+        def from_api(cls, api: GraphQLAPI, graphql_http_server: bool = True, *args, **kwargs):
+            mcp = GraphQLMCPServer(api=api, graphql_http_server=graphql_http_server, *args, **kwargs)
             add_tools_from_schema(api.build_schema()[0], mcp)
+
             return mcp
+
+        def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.api = api
+            self.graphql_http_server = graphql_http_server
+
+        def http_app(self, *args, **kwargs):
+            app = super().http_app(*args, **kwargs)
+            if self.graphql_http_server:
+                from graphql_http_server import GraphQLHTTPServer # type: ignore
+
+                if isinstance(self.auth, JWTVerifier):
+                    graphql_app = GraphQLHTTPServer.from_api(
+                        api=self.api,
+                        auth_enabled=True,
+                        auth_jwks_uri=self.auth.jwks_uri,
+                        auth_issuer=self.auth.issuer,
+                        auth_audience=self.auth.audience
+                    ).app
+                else:
+                    graphql_app = GraphQLHTTPServer.from_api(
+                        api=self.api,
+                        auth_enabled=False,
+                    ).app
+                    if self.auth:
+                        logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTPServer. Please use a different auth mechanism, or disable GraphQLHTTPServer.")
+
+                app.mount("/", graphql_app)
+            return app
 
 
 except ImportError:
