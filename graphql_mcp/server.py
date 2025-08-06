@@ -15,7 +15,14 @@ from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.server.http import (
     StarletteWithLifespan
 )
-from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+try:
+    from fastmcp.server.auth.providers.bearer import BearerAuthProvider as JWTVerifier
+except ImportError:
+    try:
+        from fastmcp.server.auth.providers.jwt import JWTVerifier
+    except ImportError:
+        JWTVerifier = None
 
 from graphql import (
     GraphQLArgument,
@@ -92,7 +99,7 @@ try:
             if self.graphql_http_server:
                 from graphql_http_server import GraphQLHTTPServer  # type: ignore
 
-                if isinstance(self.auth, JWTVerifier):
+                if JWTVerifier and isinstance(self.auth, JWTVerifier):
                     graphql_app = GraphQLHTTPServer.from_api(
                         api=self.api,
                         auth_enabled=True,
