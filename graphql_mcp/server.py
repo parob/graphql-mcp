@@ -162,11 +162,11 @@ def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
             return bytes
 
     if isinstance(graphql_type, GraphQLEnumType):
-        # Create a Python enum from the GraphQL enum
-        return enum.Enum(
-            graphql_type.name,
-            {k: v.value for k, v in graphql_type.values.items()},
-        )
+        # For input validation, accept enum names as strings. GraphQL variables
+        # for enums are passed as the enum NAME (string), not the underlying value.
+        # Returning str here ensures FastMCP/Pydantic won't reject values like
+        # "AI_MODEL" while still letting GraphQL enforce enum semantics.
+        return str
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # This is complex. For now, we'll treat it as a dict.
@@ -321,7 +321,8 @@ def _create_tool_function(
         processed_kwargs = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
-                processed_kwargs[k] = v.value
+                # GraphQL variables for enums expect the ENUM NAME, not the underlying value
+                processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):  # Check for Pydantic model
                 processed_kwargs[k] = v.model_dump(mode="json")
             elif isinstance(v, dict):
@@ -452,7 +453,8 @@ def _create_recursive_tool_function(
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
-                processed_kwargs[k] = v.value
+                # GraphQL variables for enums expect the ENUM NAME, not the underlying value
+                processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):
                 processed_kwargs[k] = v.model_dump(mode="json")
             elif isinstance(v, dict):
