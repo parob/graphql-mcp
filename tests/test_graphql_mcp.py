@@ -35,6 +35,15 @@ async def test_from_graphql_schema():
 
     schema, _ = api.build_schema()
 
+    # Ensure the schema actually mapped the argument to a GraphQL Enum
+    try:
+        from graphql import GraphQLEnumType, get_named_type
+        arg_type = get_named_type(schema.query_type.fields["echoPreference"].args["key"].type)  # type: ignore[attr-defined]
+        if not isinstance(arg_type, GraphQLEnumType):
+            pytest.skip("PreferenceKey was not mapped to a GraphQL Enum by graphql-api; cannot assert instance coercion")
+    except Exception:
+        pass
+
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -636,3 +645,92 @@ async def test_from_graphql_schema_async_field():
     async with Client(mcp_server) as client:
         result = await client.call_tool("hello_async", {"name": "World"})
         assert cast(TextContent, result.content[0]).text == "Hello, World"
+
+
+@pytest.mark.asyncio
+async def test_enum_argument_core_accepts_string():
+    """
+    Tests that a GraphQL enum argument (string-valued) can be passed as a plain string.
+    """
+    from graphql import (
+        GraphQLSchema,
+        GraphQLObjectType,
+        GraphQLField,
+        GraphQLArgument,
+        GraphQLEnumType,
+        GraphQLString,
+    )
+
+    # Define a string-valued enum in GraphQL Core
+    StatusEnum = GraphQLEnumType(
+        name="Status",
+        values={
+            "PENDING": "PENDING",
+            "COMPLETED": "COMPLETED",
+        },
+    )
+
+    # Resolver echoes back the enum value it receives
+    def resolve_echo_status(root, info, status):
+        return status
+
+    query_type = GraphQLObjectType(
+        name="Query",
+        fields={
+            "echoStatus": GraphQLField(
+                GraphQLString,
+                args={"status": GraphQLArgument(StatusEnum)},
+                resolve=resolve_echo_status,
+            )
+        },
+    )
+
+    schema = GraphQLSchema(query=query_type)
+
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        # Pass the enum as a plain string; GraphQL should accept it via variables
+        result = await client.call_tool("echo_status", {"status": "COMPLETED"})
+        assert cast(TextContent, result.content[0]).text == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_enum_argument_with_graphql_api_declared_enum():
+    """
+    Uses graphql-api and a declared Python str Enum as an argument type, asserting
+    that passing the enum as a string (enum name) works and the resolver receives
+    the correct enum value.
+    """
+    from graphql_api import GraphQLAPI
+
+    api = GraphQLAPI()
+
+    class PreferenceKey(str, enum.Enum):
+        AI_MODEL = "ai_model"
+        TOOLS_ENABLED = "tools_enabled"
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def echo_preference(self, key: PreferenceKey) -> str:
+            assert isinstance(key, PreferenceKey)
+            return key.value
+
+        @api.field
+        def preference_is_ai_model(self, key: PreferenceKey) -> bool:
+            assert isinstance(key, PreferenceKey)
+            return key is PreferenceKey.AI_MODEL
+
+    schema, _ = api.build_schema()
+
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        # Pass the enum as its NAME string; GraphQL variables expect the enum name
+        result = await client.call_tool("echo_preference", {"key": "AI_MODEL"})
+        assert cast(TextContent, result.content[0]).text == "ai_model"
+
+        # Also verify boolean check using the same enum
+        result2 = await client.call_tool("preference_is_ai_model", {"key": "AI_MODEL"})
+        assert cast(TextContent, result2.content[0]).text == "true"

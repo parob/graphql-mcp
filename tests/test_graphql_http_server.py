@@ -4,7 +4,7 @@ from starlette.testclient import TestClient
 
 try:
     from graphql_api import GraphQLAPI
-    from graphql_http_server import GraphQLHTTPServer
+    from graphql_http_server import GraphQLHTTPServer  # type: ignore
     HAS_DEPENDENCIES = True
 except ImportError:
     HAS_DEPENDENCIES = False
