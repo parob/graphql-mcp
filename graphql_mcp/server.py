@@ -339,7 +339,10 @@ def _create_tool_function(
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
                 # GraphQL variables for enums expect the ENUM NAME, not the underlying value
-                processed_kwargs[k] = v.name
+                if isinstance(v.value, str):
+                    processed_kwargs[k] = v.value
+                else:
+                    processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):  # Check for Pydantic model
                 processed_kwargs[k] = v.model_dump(mode="json")
             elif isinstance(v, dict):

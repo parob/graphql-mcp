@@ -16,6 +16,7 @@ class DemoApp:
 
     @api.field
     def set_preference_test(self, key: PreferenceKey, value: str) -> bool:
+        """Set a preference"""
         if isinstance(key, PreferenceKey):
             return True
         else:
