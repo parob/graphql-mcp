@@ -28,12 +28,12 @@ setup(
     install_requires=[
         "graphql-core~=3.2",
         "fastmcp>=2.11.2",
-        "graphql-api>=1.4.12",
+        "graphql-api>=1.4.13",
         "graphql-http-server>=1.5.7"
     ],
     extras_require={
         "dev": [
-            "graphql-api>=1.4.12",
+            "graphql-api>=1.4.13",
             "pytest~=5.4",
             "pytest-cov~=2.10",
             "coverage~=5.2",

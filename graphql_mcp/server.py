@@ -330,6 +330,24 @@ def _create_tool_function(
             else:
                 processed_kwargs[k] = v
 
+        # Normalize enum inputs so callers can pass either enum NAME or VALUE as string
+        if field.args:
+            for arg_name, arg_def in field.args.items():
+                if arg_name in processed_kwargs:
+                    named = get_named_type(arg_def.type)
+                    if isinstance(named, GraphQLEnumType):
+                        val = processed_kwargs[arg_name]
+                        if isinstance(val, str):
+                            # If not already a valid NAME, try to map VALUE->NAME
+                            if val not in named.values:
+                                for enum_name, enum_value in named.values.items():
+                                    try:
+                                        if str(enum_value.value) == val:
+                                            processed_kwargs[arg_name] = enum_name
+                                            break
+                                    except Exception:
+                                        continue
+
         operation_type = "mutation" if is_mutation else "query"
         arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
         selection_set = _build_selection_set(field.type)
@@ -460,6 +478,24 @@ def _create_recursive_tool_function(
                 processed_kwargs[k] = json.dumps(v)
             else:
                 processed_kwargs[k] = v
+
+        # Normalize enum inputs for nested paths (support enum VALUE or NAME)
+        for idx, (field_name, field_def) in enumerate(path):
+            if field_def.args:
+                for arg in field_def.args.keys():
+                    var_name = arg if idx == len(path) - 1 else f"{field_name}_{arg}"
+                    if var_name in processed_kwargs:
+                        named = get_named_type(field_def.args[arg].type)
+                        if isinstance(named, GraphQLEnumType):
+                            val = processed_kwargs[var_name]
+                            if isinstance(val, str) and val not in named.values:
+                                for enum_name, enum_value in named.values.items():
+                                    try:
+                                        if str(enum_value.value) == val:
+                                            processed_kwargs[var_name] = enum_name
+                                            break
+                                    except Exception:
+                                        continue
 
         result = await graphql(schema, query_str, variable_values=processed_kwargs)
 

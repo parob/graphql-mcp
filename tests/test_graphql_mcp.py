@@ -683,7 +683,7 @@ async def test_enum_argument_mcp_vs_graphql_mapping():
 
     async with Client(mcp_server) as client:
         # GraphQL-generated tool: currently gets a string for the enum
-        r1 = await client.call_tool("set_preference_test", {"key": "AI_MODEL", "value": "x"})
+        r1 = await client.call_tool("set_preference_test", {"key": "ai_model", "value": "x"})
         assert cast(TextContent, r1.content[0]).text.lower() == "true"
 
         # Direct MCP tool: pass the enum VALUE; FastMCP should coerce to Enum instance
@@ -737,3 +737,52 @@ async def test_enum_argument_core_accepts_string():
         # Pass the enum as a plain string; GraphQL should accept it via variables
         result = await client.call_tool("echo_status", {"status": "COMPLETED"})
         assert cast(TextContent, result.content[0]).text == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_enum_argument_with_graphql_api_declared_enum():
+    """
+    Uses graphql-api and a declared Python str Enum as an argument type, asserting
+    that passing the enum as a string (enum name) works and the resolver receives
+    the correct enum value.
+    """
+    from graphql_api import GraphQLAPI
+
+    api = GraphQLAPI()
+
+    class PreferenceKey(str, enum.Enum):
+        AI_MODEL = "ai_model"
+        TOOLS_ENABLED = "tools_enabled"
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def echo_preference(self, key: PreferenceKey) -> str:
+            if isinstance(key, str):
+                try:
+                    key = PreferenceKey[key]
+                except KeyError:
+                    key = PreferenceKey(key)
+            return key.value
+
+        @api.field
+        def preference_is_ai_model(self, key: PreferenceKey) -> bool:
+            if isinstance(key, str):
+                try:
+                    key = PreferenceKey[key]
+                except KeyError:
+                    key = PreferenceKey(key)
+            return key is PreferenceKey.AI_MODEL
+
+    schema, _ = api.build_schema()
+
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        # Pass the enum as its NAME string; GraphQL variables expect the enum name
+        result = await client.call_tool("echo_preference", {"key": "AI_MODEL"})
+        assert cast(TextContent, result.content[0]).text == "ai_model"
+
+        # Also verify boolean check using the same enum
+        result2 = await client.call_tool("preference_is_ai_model", {"key": "AI_MODEL"})
+        assert cast(TextContent, result2.content[0]).text == "true"
