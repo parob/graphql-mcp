@@ -142,7 +142,7 @@ async def test_from_graphql_schema_nested_mutation():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("book_set_title", {"title": "Test"})
-        data = json.loads(cast(TextContent, result.content[0]).text)
+        data = cast(TextContent, result.content[0]).text
         assert data == "Title set to Test"
 
 
@@ -576,7 +576,7 @@ async def test_deep_nested_mutation():
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("user_posts_update_title", {"newTitle": "Updated"})
-        assert json.loads(cast(TextContent, result.content[0]).text) == "Updated"
+        assert cast(TextContent, result.content[0]).text == "Updated"
 
 
 @pytest.mark.asyncio
@@ -779,7 +779,7 @@ async def test_enum_argument_with_graphql_api_declared_enum():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        # Pass the enum as its NAME string; GraphQL variables expect the enum name
+        # Pass the enum as its VALUE string; MCP tools expect the enum value
         result = await client.call_tool("echo_preference", {"key": "ai_model"})
         assert cast(TextContent, result.content[0]).text == "ai_model"
 
