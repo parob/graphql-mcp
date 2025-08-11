@@ -1,4 +1,5 @@
 import enum
+import json
 import pytest
 
 from fastmcp.client import Client
@@ -77,5 +78,54 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
 
         assert_has_wrapped_bool_output(t_direct)
         assert_has_wrapped_bool_output(t_graphql)
+
+
+def test_graphql_api_enum_behavior():
+    """Test to validate graphql-api's enum behavior"""
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+    
+    api = GraphQLAPI()
+
+    @api.type
+    class Tag(str, enum.Enum):
+        PYTHON = "python"
+        JAVASCRIPT = "javascript"
+        RUST = "rust"
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def check_tag(self, tag: Tag) -> bool:
+            return isinstance(tag, Tag)
+
+    executor = api.executor()
+
+    # Using the proper GraphQL Enum variable with the NAME
+    query_enum = """
+        query CheckTag($tag: TagEnum!) {
+            checkTag(tag: $tag)
+        }
+    """
+    result_enum = executor.execute(query_enum, variables={'tag': Tag.PYTHON.name})
+    assert result_enum.data == {'checkTag': True}
+
+    # Schema should contain TagEnum
+    schema, _ = api.build_schema()
+    assert 'TagEnum' in schema.type_map
+
+    # Field argument type should be NonNull(TagEnum)
+    field = schema.query_type.fields['checkTag']
+    arg_type = field.args['tag'].type
+    from graphql import GraphQLNonNull, GraphQLEnumType
+    assert isinstance(arg_type, GraphQLNonNull)
+    assert isinstance(arg_type.of_type, GraphQLEnumType)
+    assert arg_type.of_type.name == 'TagEnum'
+
+    # Invalid variable using underlying value string should error
+    bad = executor.execute(query_enum, variables={'tag': 'python'})
+    assert bad.errors and "does not exist in 'TagEnum'" in bad.errors[0].message
 
 

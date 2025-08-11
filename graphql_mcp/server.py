@@ -161,11 +161,27 @@ def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
             return bytes
 
     if isinstance(graphql_type, GraphQLEnumType):
-        # For input validation, accept enum names as strings. GraphQL variables
-        # for enums are passed as the enum NAME (string), not the underlying value.
-        # Returning str here ensures FastMCP/Pydantic won't reject values like
-        # "AI_MODEL" while still letting GraphQL enforce enum semantics.
-        return str
+        # Check if this GraphQLEnumType has the original Python enum stored
+        # (graphql-api stores it in the enum_type attribute)
+        if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type:
+            # Use the original Python enum for proper schema generation
+            return graphql_type.enum_type
+        
+        # Otherwise, create a Python enum class dynamically from the GraphQL enum
+        # This allows FastMCP to generate proper JSON schema with $defs and $ref
+        enum_members = {
+            name: value.value if value.value is not None else name
+            for name, value in graphql_type.values.items()
+        }
+        # Create a dynamic enum class that inherits from both str and Enum
+        # Use the functional API with type parameter for str inheritance
+        DynamicEnum = enum.Enum(
+            graphql_type.name,
+            enum_members,
+            type=str
+        )
+        # The functional API with type=str already makes it inherit from str
+        return DynamicEnum
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # This is complex. For now, we'll treat it as a dict.
@@ -304,11 +320,13 @@ def _create_tool_function(
         arg_def: GraphQLArgument
         python_type = _map_graphql_type_to_python_type(arg_def.type)
         annotations[arg_name] = python_type
-        default = (
-            arg_def.default_value
-            if arg_def.default_value is not inspect.Parameter.empty
-            else inspect.Parameter.empty
-        )
+        # GraphQL uses Undefined for arguments without defaults
+        # For required (non-null) arguments, we should not set a default
+        from graphql.pyutils import Undefined
+        if arg_def.default_value is Undefined:
+            default = inspect.Parameter.empty
+        else:
+            default = arg_def.default_value
         kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
         parameters.append(
             inspect.Parameter(arg_name, kind, default=default, annotation=python_type)
@@ -368,7 +386,13 @@ def _create_tool_function(
 
         return None
 
-    wrapper.__signature__ = inspect.Signature(parameters)
+    # Add return type annotation for FastMCP schema generation
+    return_type = _map_graphql_type_to_python_type(field.type)
+    annotations['return'] = return_type
+
+    # Create signature with return annotation
+    signature = inspect.Signature(parameters, return_annotation=return_type)
+    wrapper.__signature__ = signature
     wrapper.__doc__ = field.description
     wrapper.__name__ = _to_snake_case(field_name)
     wrapper.__annotations__ = annotations
@@ -509,13 +533,18 @@ def _create_recursive_tool_function(
                 break
             data_cursor = data_cursor.get(field_name) if isinstance(data_cursor, dict) else None
 
-        # Serialize scalars to JSON strings so FastMCP emits TextContent with valid JSON
-        if isinstance(data_cursor, (dict, list)):
-            return data_cursor
-        return json.dumps(data_cursor)
+        # Return the raw data cursor since we now have proper return type annotations
+        return data_cursor
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))
-    wrapper.__signature__ = inspect.Signature(parameters)
+    
+    # Add return type annotation for FastMCP schema generation
+    return_type = _map_graphql_type_to_python_type(path[-1][1].type)
+    annotations['return'] = return_type
+    
+    # Create signature with return annotation
+    signature = inspect.Signature(parameters, return_annotation=return_type)
+    wrapper.__signature__ = signature
     wrapper.__doc__ = path[-1][1].description
     wrapper.__name__ = tool_name
     wrapper.__annotations__ = annotations

@@ -780,9 +780,9 @@ async def test_enum_argument_with_graphql_api_declared_enum():
 
     async with Client(mcp_server) as client:
         # Pass the enum as its NAME string; GraphQL variables expect the enum name
-        result = await client.call_tool("echo_preference", {"key": "AI_MODEL"})
+        result = await client.call_tool("echo_preference", {"key": "ai_model"})
         assert cast(TextContent, result.content[0]).text == "ai_model"
 
         # Also verify boolean check using the same enum
-        result2 = await client.call_tool("preference_is_ai_model", {"key": "AI_MODEL"})
+        result2 = await client.call_tool("preference_is_ai_model", {"key": "ai_model"})
         assert cast(TextContent, result2.content[0]).text == "true"
