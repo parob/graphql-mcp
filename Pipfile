@@ -7,13 +7,12 @@ name = "pypi"
 graphql-core = "*"
 fastmcp = "*"
 graphql-api = "*"
-    
+graphql-http-server = "*"
+
 [dev-packages]
-# Testing
 pytest = "*"
 pytest-cov = "*"
 pytest-asyncio = "*"
 coverage = "*"
 faker = "*"
-# Linting
 flake8 = "*"

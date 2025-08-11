@@ -10,3 +10,4 @@ objectql.egg-info
 dist
 tests/htmlcov
 *.pyc
+*.lock
