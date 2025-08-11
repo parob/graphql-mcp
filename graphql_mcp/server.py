@@ -82,6 +82,11 @@ try:
 
     class GraphQLMCPServer(GraphQLMCPServer):
 
+        @classmethod
+        def from_api(cls, api: GraphQLAPI, graphql_http_server: bool = True, *args, **kwargs):
+            mcp = GraphQLMCPServer(api=api, graphql_http_server=graphql_http_server, *args, **kwargs)
+            return mcp
+
         def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.api = api
