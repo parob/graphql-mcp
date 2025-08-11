@@ -2,10 +2,9 @@ import enum
 import pytest
 
 from fastmcp.client import Client
-from mcp.types import TextContent
-from typing import cast
 
 from graphql_mcp.server import add_tools_from_schema
+from tests.test_graphql_mcp import get_result_text
 
 
 @pytest.mark.asyncio
@@ -39,4 +38,4 @@ async def test_graphql_generated_tool_sends_enum_name_for_variables():
     async with Client(mcp_server) as client:
         # Pass a Python Enum instance; the wrapper should convert to the GraphQL enum NAME
         result = await client.call_tool("echo_preference", {"key": PreferenceKey.AI_MODEL})
-        assert cast(TextContent, result.content[0]).text == "ai_model"
+        assert get_result_text(result) == "ai_model"
