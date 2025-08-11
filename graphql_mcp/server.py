@@ -166,7 +166,7 @@ def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
         if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type:
             # Use the original Python enum for proper schema generation
             return graphql_type.enum_type
-        
+
         # Otherwise, create a Python enum class dynamically from the GraphQL enum
         # This allows FastMCP to generate proper JSON schema with $defs and $ref
         enum_members = {
@@ -537,11 +537,11 @@ def _create_recursive_tool_function(
         return data_cursor
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))
-    
+
     # Add return type annotation for FastMCP schema generation
     return_type = _map_graphql_type_to_python_type(path[-1][1].type)
     annotations['return'] = return_type
-    
+
     # Create signature with return annotation
     signature = inspect.Signature(parameters, return_annotation=return_type)
     wrapper.__signature__ = signature

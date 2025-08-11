@@ -1,5 +1,4 @@
 import enum
-import json
 import pytest
 
 from fastmcp.client import Client
@@ -86,7 +85,7 @@ def test_graphql_api_enum_behavior():
         from graphql_api import GraphQLAPI
     except ImportError:
         pytest.skip("graphql-api not installed")
-    
+
     api = GraphQLAPI()
 
     @api.type
@@ -127,5 +126,3 @@ def test_graphql_api_enum_behavior():
     # Invalid variable using underlying value string should error
     bad = executor.execute(query_enum, variables={'tag': 'python'})
     assert bad.errors and "does not exist in 'TagEnum'" in bad.errors[0].message
-
-
