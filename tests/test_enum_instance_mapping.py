@@ -40,4 +40,3 @@ async def test_graphql_generated_tool_sends_enum_name_for_variables():
         # Pass a Python Enum instance; the wrapper should convert to the GraphQL enum NAME
         result = await client.call_tool("echo_preference", {"key": PreferenceKey.AI_MODEL})
         assert cast(TextContent, result.content[0]).text == "ai_model"
-

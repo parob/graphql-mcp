@@ -738,6 +738,7 @@ async def test_string_enum_argument_mcp_vs_graphql_mapping():
         r2 = await client.call_tool("set_preference", {"key": "a", "value": "x"})
         assert get_result_text(r2).lower() == "true"
 
+
 @pytest.mark.asyncio
 async def test_int_enum_argument_mcp_vs_graphql_mapping():
     """
@@ -777,7 +778,6 @@ async def test_int_enum_argument_mcp_vs_graphql_mapping():
         # Direct MCP tool: pass the enum VALUE; FastMCP should coerce to Enum instance
         r2 = await client.call_tool("set_preference", {"key": 1, "value": "x"})
         assert get_result_text(r2).lower() == "true"
-
 
 
 @pytest.mark.asyncio
