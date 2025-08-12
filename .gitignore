@@ -11,3 +11,4 @@ dist
 tests/htmlcov
 *.pyc
 *.lock
+tests/remote_app.py

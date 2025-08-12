@@ -8,7 +8,7 @@ import logging
 from datetime import date, datetime
 from typing import Any, Callable, Literal, Tuple, Optional, Dict
 
-from fastmcp import FastMCP
+from fastmcp import FastMCP, Context
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.middleware import Middleware as ASGIMiddleware
@@ -49,6 +49,31 @@ from .remote import RemoteGraphQLClient
 logger = logging.getLogger(__name__)
 
 
+def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
+    """
+    Extract bearer token from MCP request context.
+    
+    Args:
+        ctx: FastMCP Context object
+        
+    Returns:
+        Bearer token string if found, None otherwise
+    """
+    if not ctx:
+        return None
+        
+    try:
+        request = ctx.get_http_request()
+        if request and hasattr(request, 'headers'):
+            auth_header = request.headers.get('authorization', '')
+            if auth_header.startswith('Bearer '):
+                return auth_header[7:]  # Remove 'Bearer ' prefix
+    except Exception as e:
+        logger.debug(f"Failed to extract bearer token from context: {e}")
+    
+    return None
+
+
 class GraphQLMCPServer(FastMCP):  # type: ignore
 
     @classmethod
@@ -78,6 +103,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         headers: Optional[Dict[str, str]] = None,
         timeout: int = 30,
         allow_mutations: bool = True,
+        forward_bearer_token: bool = False,
         *args,
         **kwargs
     ):
@@ -90,11 +116,27 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
             headers: Optional additional headers to include in requests
             timeout: Request timeout in seconds
             allow_mutations: Whether to expose mutations as tools (default: True)
+            forward_bearer_token: Whether to forward bearer tokens from MCP requests 
+                to the GraphQL server (default: False).
+                
+                SECURITY WARNING: When enabled, bearer tokens from incoming MCP requests
+                will be forwarded to the remote GraphQL server. This means:
+                - Client authentication tokens will be shared with the remote server
+                - The remote server will have access to the original client's credentials
+                - Only enable this if you trust the remote GraphQL server completely
+                - Consider the security implications of token forwarding in your deployment
+                
             *args: Additional arguments to pass to FastMCP
             **kwargs: Additional keyword arguments to pass to FastMCP
 
         Returns:
             GraphQLMCPServer: A server instance with tools generated from the remote schema
+            
+        Security Considerations:
+            - When forward_bearer_token=True, ensure the remote GraphQL server is trusted
+            - Use HTTPS for the remote URL to protect tokens in transit
+            - Consider implementing token validation or transformation before forwarding
+            - Monitor access logs for both the MCP server and remote GraphQL server
         """
         from .remote import fetch_remote_schema_sync, RemoteGraphQLClient
 
@@ -113,7 +155,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         client = RemoteGraphQLClient(url, request_headers, timeout, bearer_token=bearer_token)
 
         # Add tools from schema with remote client
-        add_tools_from_schema_with_remote(schema, instance, client, allow_mutations=allow_mutations)
+        add_tools_from_schema_with_remote(schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
 
         return instance
 
@@ -370,7 +412,8 @@ def add_tools_from_schema_with_remote(
     schema: GraphQLSchema,
     server: FastMCP,
     remote_client: RemoteGraphQLClient,
-    allow_mutations: bool = True
+    allow_mutations: bool = True,
+    forward_bearer_token: bool = False
 ) -> FastMCP:
     """
     Populates a FastMCP server with tools that execute against a remote GraphQL server.
@@ -379,21 +422,22 @@ def add_tools_from_schema_with_remote(
     :param server: The FastMCP server instance to add tools to
     :param remote_client: The remote GraphQL client for executing queries
     :param allow_mutations: Whether to expose mutations as tools (default: True)
+    :param forward_bearer_token: Whether to forward bearer tokens from MCP requests (default: False)
     :return: The populated FastMCP server instance
     """
     # Process mutations first (if allowed), then queries
     if allow_mutations and schema.mutation_type:
         _add_tools_from_fields_remote(
-            server, schema, schema.mutation_type.fields, remote_client, is_mutation=True
+            server, schema, schema.mutation_type.fields, remote_client, is_mutation=True, forward_bearer_token=forward_bearer_token
         )
 
     if schema.query_type:
         _add_tools_from_fields_remote(
-            server, schema, schema.query_type.fields, remote_client, is_mutation=False
+            server, schema, schema.query_type.fields, remote_client, is_mutation=False, forward_bearer_token=forward_bearer_token
         )
 
     # Add nested tools for remote schema
-    _add_nested_tools_from_schema_remote(server, schema, remote_client, allow_mutations=allow_mutations)
+    _add_nested_tools_from_schema_remote(server, schema, remote_client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
 
     return server
 
@@ -588,6 +632,10 @@ def _create_recursive_tool_function(
 
     # Tool wrapper
     async def wrapper(**kwargs):
+        # Extract context and bearer token
+        ctx = kwargs.pop("ctx", None)
+        bearer_token = _extract_bearer_token_from_context(ctx)
+        
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
@@ -691,12 +739,13 @@ def _add_tools_from_fields_remote(
     fields: dict[str, Any],
     remote_client: RemoteGraphQLClient,
     is_mutation: bool,
+    forward_bearer_token: bool = False,
 ):
     """Add tools from fields that execute against a remote GraphQL server."""
     for field_name, field in fields.items():
         snake_case_name = _to_snake_case(field_name)
         tool_func = _create_remote_tool_function(
-            field_name, field, schema, remote_client, is_mutation=is_mutation
+            field_name, field, schema, remote_client, is_mutation=is_mutation, forward_bearer_token=forward_bearer_token
         )
         tool_decorator = server.tool(name=snake_case_name)
         tool_decorator(tool_func)
@@ -708,6 +757,7 @@ def _create_remote_tool_function(
     schema: GraphQLSchema,
     remote_client: RemoteGraphQLClient,
     is_mutation: bool = False,
+    forward_bearer_token: bool = False,
 ) -> Callable:
     """
     Creates a function that executes against a remote GraphQL server.
@@ -733,7 +783,22 @@ def _create_remote_tool_function(
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
+    # Add Context parameter for bearer token extraction
+    parameters.append(
+        inspect.Parameter(
+            "ctx",
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=None,
+            annotation=Optional[Context]
+        )
+    )
+    annotations["ctx"] = Optional[Context]
+
     async def wrapper(**kwargs):
+        # Extract context and bearer token (only if configured to forward)
+        ctx = kwargs.pop("ctx", None)
+        bearer_token = _extract_bearer_token_from_context(ctx) if forward_bearer_token else None
+        
         # Process arguments
         processed_kwargs = {}
         for k, v in kwargs.items():
@@ -775,9 +840,11 @@ def _create_remote_tool_function(
         if not arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
-        # Execute against remote server
+        # Execute against remote server with optional bearer token override
         try:
-            result = await remote_client.execute(query_str, processed_kwargs)
+            result = await remote_client.execute_with_token(
+                query_str, processed_kwargs, bearer_token_override=bearer_token
+            )
             return result.get(field_name) if result else None
         except Exception as e:
             raise Exception(f"Remote GraphQL execution failed: {e}")
@@ -801,6 +868,7 @@ def _create_recursive_remote_tool_function(
     operation_type: str,
     schema: GraphQLSchema,
     remote_client: RemoteGraphQLClient,
+    forward_bearer_token: bool = False,
 ) -> Tuple[str, Callable]:
     """Builds a FastMCP tool that resolves a nested field chain against a remote server."""
 
@@ -828,6 +896,17 @@ def _create_recursive_remote_tool_function(
                 )
             )
             arg_defs.append(f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
+
+    # Add Context parameter for bearer token extraction
+    parameters.append(
+        inspect.Parameter(
+            "ctx",
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=None,
+            annotation=Optional[Context]
+        )
+    )
+    annotations["ctx"] = Optional[Context]
 
     # Build nested call string
     def _build_call(index: int) -> str:
@@ -858,6 +937,10 @@ def _create_recursive_remote_tool_function(
 
     # Tool wrapper
     async def wrapper(**kwargs):
+        # Extract context and bearer token (only if configured to forward)
+        ctx = kwargs.pop("ctx", None)
+        bearer_token = _extract_bearer_token_from_context(ctx) if forward_bearer_token else None
+        
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
@@ -887,9 +970,11 @@ def _create_recursive_remote_tool_function(
                                     except Exception:
                                         continue
 
-        # Execute against remote server
+        # Execute against remote server with optional bearer token override
         try:
-            result = await remote_client.execute(query_str, processed_kwargs)
+            result = await remote_client.execute_with_token(
+                query_str, processed_kwargs, bearer_token_override=bearer_token
+            )
 
             # Walk down the path to extract the nested value
             data_cursor = result
@@ -922,7 +1007,8 @@ def _add_nested_tools_from_schema_remote(
     server: FastMCP,
     schema: GraphQLSchema,
     remote_client: RemoteGraphQLClient,
-    allow_mutations: bool = True
+    allow_mutations: bool = True,
+    forward_bearer_token: bool = False
 ):
     """Recursively registers tools for nested fields that execute against a remote server."""
 
@@ -942,7 +1028,7 @@ def _add_nested_tools_from_schema_remote(
             if len(new_path) > 1 and field_def.args:
                 # Register tool for paths with depth >=2
                 tool_name, tool_func = _create_recursive_remote_tool_function(
-                    new_path, operation_type, schema, remote_client
+                    new_path, operation_type, schema, remote_client, forward_bearer_token=forward_bearer_token
                 )
                 server.tool(name=tool_name)(tool_func)
 

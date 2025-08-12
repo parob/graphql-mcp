@@ -153,6 +153,39 @@ class RemoteGraphQLClient:
                 return False
         return False
 
+    async def execute_with_token(
+        self,
+        query: str,
+        variables: Optional[Dict[str, Any]] = None,
+        operation_name: Optional[str] = None,
+        retry_on_auth_error: bool = True,
+        bearer_token_override: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a GraphQL query with an optional bearer token override.
+        
+        Args:
+            query: The GraphQL query string
+            variables: Optional variables for the query
+            operation_name: Optional operation name
+            retry_on_auth_error: Whether to retry with refreshed token on 401/403
+            bearer_token_override: Optional bearer token to use instead of the client's token
+            
+        Returns:
+            The GraphQL response data
+            
+        Raises:
+            Exception: If the query fails
+        """
+        # Prepare headers, using override token if provided
+        headers = self.headers.copy()
+        if bearer_token_override:
+            headers["Authorization"] = f"Bearer {bearer_token_override}"
+        
+        return await self._execute_request(
+            query, variables, operation_name, retry_on_auth_error, headers
+        )
+
     async def execute(
         self,
         query: str,
@@ -174,6 +207,21 @@ class RemoteGraphQLClient:
 
         Raises:
             Exception: If the query fails
+        """
+        return await self._execute_request(
+            query, variables, operation_name, retry_on_auth_error, self.headers
+        )
+
+    async def _execute_request(
+        self,
+        query: str,
+        variables: Optional[Dict[str, Any]],
+        operation_name: Optional[str],
+        retry_on_auth_error: bool,
+        headers: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """
+        Internal method to execute a GraphQL request with specified headers.
         """
         payload = {
             "query": query,
@@ -197,7 +245,7 @@ class RemoteGraphQLClient:
             async with session.post(
                 self.url,
                 json=payload,
-                headers=self.headers,
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=self.timeout)
             ) as response:
                 # Handle authentication errors
@@ -206,9 +254,10 @@ class RemoteGraphQLClient:
                         # Retry with refreshed token
                         if close_session:
                             await session.close()
-                        return await self.execute(
+                        return await self._execute_request(
                             query, variables, operation_name,
-                            retry_on_auth_error=False
+                            retry_on_auth_error=False,
+                            headers=headers  # Use the updated headers with new token
                         )
 
                 if response.status != 200:
@@ -224,9 +273,10 @@ class RemoteGraphQLClient:
                         if await self.refresh_token():
                             if close_session:
                                 await session.close()
-                            return await self.execute(
+                            return await self._execute_request(
                                 query, variables, operation_name,
-                                retry_on_auth_error=False
+                                retry_on_auth_error=False,
+                                headers=headers  # Use the updated headers with new token
                             )
 
                     raise Exception(f"GraphQL errors: {result['errors']}")
