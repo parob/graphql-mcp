@@ -814,7 +814,12 @@ async def test_dict_mcp_vs_graphql_mapping():
 
         # Direct MCP tool: pass the enum VALUE; FastMCP should coerce to Enum instance
         r2 = await client.call_tool("get_preference", {})
-        assert get_result_text(r2) == '{"key":"ai_model","value":"x"}'
+        # Normalize JSON format - FastMCP may use pretty-printing
+        import json
+        result_text = get_result_text(r2)
+        expected_data = {"key": "ai_model", "value": "x"}
+        actual_data = json.loads(result_text)
+        assert actual_data == expected_data
 
 
 @pytest.mark.asyncio
