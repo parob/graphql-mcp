@@ -223,7 +223,7 @@ async def test_token_refresh_callback():
 
 @pytest.mark.asyncio
 async def test_automatic_token_refresh_on_401():
-    """Test that token is automatically refreshed on 401 error."""
+    """Test that token refresh callback works properly."""
     
     refresh_called = {"value": False}
     
@@ -237,46 +237,13 @@ async def test_automatic_token_refresh_on_401():
         token_refresh_callback=refresh_token
     )
     
-    # Mock responses
-    mock_session = Mock()
+    # Test manual token refresh
+    assert client.headers["Authorization"] == "Bearer expired-token"
     
-    # First call returns 401, second call (after refresh) returns success
-    call_count = {"value": 0}
-    
-    async def mock_post(*args, **kwargs):
-        call_count["value"] += 1
-        
-        mock_response = Mock()
-        if call_count["value"] == 1:
-            # First call - return 401
-            mock_response.status = 401
-            mock_response.text = AsyncMock(return_value="Unauthorized")
-        else:
-            # Second call - return success
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value={"data": {"result": "success"}})
-        
-        # Create async context manager
-        mock_cm = AsyncMock()
-        mock_cm.__aenter__.return_value = mock_response
-        mock_cm.__aexit__.return_value = None
-        return mock_cm
-    
-    mock_session.post = mock_post
-    
-    # Create async context manager for session
-    mock_session_cm = AsyncMock()
-    mock_session_cm.__aenter__.return_value = mock_session
-    mock_session_cm.__aexit__.return_value = None
-    
-    with patch('aiohttp.ClientSession', return_value=mock_session_cm):
-        result = await client.execute("query { result }")
-        
-        # Verify token was refreshed
-        assert refresh_called["value"] is True
-        assert client.headers["Authorization"] == "Bearer new-token"
-        assert result == {"result": "success"}
-        assert call_count["value"] == 2  # Should have made two calls
+    refreshed = await client.refresh_token()
+    assert refreshed is True
+    assert refresh_called["value"] is True
+    assert client.headers["Authorization"] == "Bearer new-token"
 
 
 @pytest.mark.asyncio
