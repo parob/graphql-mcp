@@ -225,7 +225,7 @@ def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
 
     if isinstance(graphql_type, GraphQLEnumType):
         # Use the original Python enum for proper schema generation
-        if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type: # type: ignore
+        if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type:  # type: ignore
             return graphql_type.enum_type  # type: ignore
 
         # Otherwise, create a Python enum class dynamically from the GraphQL enum

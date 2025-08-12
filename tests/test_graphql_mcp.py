@@ -779,6 +779,7 @@ async def test_int_enum_argument_mcp_vs_graphql_mapping():
         r2 = await client.call_tool("set_preference", {"key": 1, "value": "x"})
         assert get_result_text(r2).lower() == "true"
 
+
 @pytest.mark.asyncio
 async def test_dict_mcp_vs_graphql_mapping():
     """
@@ -791,7 +792,6 @@ async def test_dict_mcp_vs_graphql_mapping():
         pytest.skip("graphql-api not installed")
 
     api = GraphQLAPI()
-
 
     @api.type(is_root_type=True)
     class Root:
@@ -815,6 +815,7 @@ async def test_dict_mcp_vs_graphql_mapping():
         # Direct MCP tool: pass the enum VALUE; FastMCP should coerce to Enum instance
         r2 = await client.call_tool("get_preference", {})
         assert get_result_text(r2) == '{"key":"ai_model","value":"x"}'
+
 
 @pytest.mark.asyncio
 async def test_enum_argument_core_accepts_string():

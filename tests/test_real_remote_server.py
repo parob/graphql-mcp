@@ -3,9 +3,8 @@
 import asyncio
 import pytest
 from threading import Thread
-import time
 import uvicorn
-from graphql_api import GraphQLAPI, field
+from graphql_api import GraphQLAPI
 from graphql_http_server import GraphQLHTTPServer
 
 from graphql_mcp.server import GraphQLMCPServer
@@ -24,12 +23,12 @@ class TestRoot:
     def hello(self, name: str = "World") -> str:
         """Returns a greeting."""
         return f"Hello, {name}!"
-    
+
     @test_api.field
     def add(self, a: int, b: int) -> int:
         """Adds two numbers."""
         return a + b
-    
+
     @test_api.field(mutable=True)
     def multiply(self, x: int, y: int) -> int:
         """Multiplies two numbers."""
@@ -50,7 +49,7 @@ def run_test_server():
     """Run the test GraphQL server in a thread."""
     graphql_server = GraphQLHTTPServer.from_api(api=test_api, auth_enabled=False)
     app = graphql_server.app
-    
+
     # Run the server
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="error")
 
@@ -58,44 +57,44 @@ def run_test_server():
 @pytest.mark.asyncio
 async def test_real_remote_graphql_server():
     """Test against a real GraphQL server running locally."""
-    
+
     # Start the GraphQL server in a background thread
     server_thread = Thread(target=run_test_server, daemon=True)
     server_thread.start()
-    
+
     # Give the server time to start
     await asyncio.sleep(2)
-    
+
     try:
         # Create MCP server from the remote URL
         mcp_server = GraphQLMCPServer.from_remote_url(
             url="http://127.0.0.1:8765/graphql",
             name="Test Remote GraphQL"
         )
-        
+
         # Test with the MCP client
         async with Client(mcp_server) as client:
             # List available tools
             tools = await client.list_tools()
             tool_names = {tool.name for tool in tools}
-            
+
             # Check that our tools are available
             assert "hello" in tool_names
             assert "add" in tool_names
             assert "multiply" in tool_names
-            
+
             # Test the hello tool
             result = await client.call_tool("hello", {"name": "Remote"})
             assert get_result_text(result) == "Hello, Remote!"
-            
+
             # Test the add tool
             result = await client.call_tool("add", {"a": 10, "b": 20})
             assert str(get_result_text(result)) == "30"
-            
+
             # Test the multiply tool (mutation)
             result = await client.call_tool("multiply", {"x": 5, "y": 6})
             assert str(get_result_text(result)) == "30"
-            
+
     except Exception as e:
         pytest.fail(f"Test failed: {e}")
 
@@ -103,10 +102,10 @@ async def test_real_remote_graphql_server():
 @pytest.mark.asyncio
 async def test_remote_server_with_authentication():
     """Test remote server with authentication headers."""
-    
+
     # This test demonstrates how authentication headers would work
     # In a real scenario, you'd have a server that requires auth
-    
+
     try:
         # Attempt to create MCP server with auth headers
         mcp_server = GraphQLMCPServer.from_remote_url(
@@ -118,11 +117,11 @@ async def test_remote_server_with_authentication():
             timeout=10,
             name="Authenticated Remote GraphQL"
         )
-        
+
         # The server should be created successfully even with headers
         # (our test server doesn't require auth, but it should accept the headers)
         assert mcp_server is not None
-        
+
     except Exception as e:
         # If the server isn't running, skip this test
         if "Connection refused" in str(e):

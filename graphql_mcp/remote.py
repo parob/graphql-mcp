@@ -220,9 +220,7 @@ class RemoteGraphQLClient:
                 if "errors" in result:
                     # Check for authentication-related errors in GraphQL response
                     error_messages = str(result['errors']).lower()
-                    if ('unauthorized' in error_messages or
-                        'authentication' in error_messages or
-                        'forbidden' in error_messages) and retry_on_auth_error:
+                    if ('unauthorized' in error_messages or 'authentication' in error_messages or 'forbidden' in error_messages) and retry_on_auth_error:
                         if await self.refresh_token():
                             if close_session:
                                 await session.close()

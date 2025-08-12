@@ -1,10 +1,10 @@
 """Tests for remote GraphQL server functionality."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
+from unittest.mock import AsyncMock, patch, Mock
 from graphql import GraphQLSchema, GraphQLObjectType, GraphQLField, GraphQLString, GraphQLInt, GraphQLArgument
 
-from graphql_mcp.server import GraphQLMCPServer, add_tools_from_schema_with_remote
+from graphql_mcp.server import add_tools_from_schema_with_remote
 from graphql_mcp.remote import RemoteGraphQLClient, fetch_remote_schema
 from fastmcp import FastMCP
 from fastmcp.client import Client
