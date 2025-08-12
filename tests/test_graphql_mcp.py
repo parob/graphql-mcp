@@ -779,6 +779,42 @@ async def test_int_enum_argument_mcp_vs_graphql_mapping():
         r2 = await client.call_tool("set_preference", {"key": 1, "value": "x"})
         assert get_result_text(r2).lower() == "true"
 
+@pytest.mark.asyncio
+async def test_dict_mcp_vs_graphql_mapping():
+    """
+    Reproduces that GraphQL-generated tools deliver enum args as strings while
+    a directly-registered MCP tool with Enum annotation receives an Enum.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    api = GraphQLAPI()
+
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def get_preference_gql(self) -> dict:
+            # Returns whether we actually received the Enum instance
+            return {"key": "ai_model", "value": "x"}
+
+    mcp_server = GraphQLMCPServer(api=api)
+
+    # Add a direct MCP tool that expects the Enum annotation
+    @mcp_server.tool
+    def get_preference() -> dict:
+        return {"key": "ai_model", "value": "x"}
+
+    async with Client(mcp_server) as client:
+        # GraphQL-generated tool: currently gets a string for the enum
+        r1 = await client.call_tool("get_preference_gql", {})
+        assert get_result_text(r1) == '{"key": "ai_model", "value": "x"}'
+
+        # Direct MCP tool: pass the enum VALUE; FastMCP should coerce to Enum instance
+        r2 = await client.call_tool("get_preference", {})
+        assert get_result_text(r2) == '{"key":"ai_model","value":"x"}'
 
 @pytest.mark.asyncio
 async def test_enum_argument_core_accepts_string():

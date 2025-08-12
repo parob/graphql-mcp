@@ -119,6 +119,7 @@ def test_graphql_api_enum_behavior():
     assert 'TagEnum' in schema.type_map
 
     # Field argument type should be NonNull(TagEnum)
+    assert schema.query_type is not None
     field = schema.query_type.fields['checkTag']
     arg_type = field.args['tag'].type
     from graphql import GraphQLNonNull, GraphQLEnumType

@@ -29,7 +29,8 @@ setup(
         "graphql-core~=3.2",
         "fastmcp>=2.11.2",
         "graphql-api>=1.4.13",
-        "graphql-http-server>=1.5.7"
+        "graphql-http-server>=1.5.7",
+        "aiohttp>=3.8.0"
     ],
     extras_require={
         "dev": [

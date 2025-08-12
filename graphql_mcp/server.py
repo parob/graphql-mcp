@@ -6,7 +6,7 @@ import json
 import logging
 
 from datetime import date, datetime
-from typing import Any, Callable, Literal, Tuple
+from typing import Any, Callable, Literal, Tuple, Optional, Dict
 
 from fastmcp import FastMCP
 
@@ -43,16 +43,79 @@ from graphql import (
     GraphQLObjectType,
 )
 
+from .remote import RemoteGraphQLClient
+
+
 logger = logging.getLogger(__name__)
 
 
 class GraphQLMCPServer(FastMCP):  # type: ignore
 
     @classmethod
-    def from_schema(cls, graphql_schema: GraphQLSchema, *args, **kwargs):
-        mcp = FastMCP(*args, **kwargs)
-        add_tools_from_schema(graphql_schema, mcp)
-        return mcp
+    def from_schema(cls, graphql_schema: GraphQLSchema, allow_mutations: bool = True, *args, **kwargs):
+        """
+        Create a GraphQLMCPServer from a GraphQL schema.
+
+        Args:
+            graphql_schema: The GraphQL schema
+            allow_mutations: Whether to expose mutations as tools (default: True)
+            *args: Additional arguments to pass to FastMCP
+            **kwargs: Additional keyword arguments to pass to FastMCP
+
+        Returns:
+            GraphQLMCPServer: A server instance with tools generated from the schema
+        """
+        # Create a FastMCP instance and add tools from schema
+        instance = FastMCP(*args, **kwargs)
+        add_tools_from_schema(graphql_schema, instance, allow_mutations=allow_mutations)
+        return instance
+
+    @classmethod
+    def from_remote_url(
+        cls,
+        url: str,
+        bearer_token: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
+        timeout: int = 30,
+        allow_mutations: bool = True,
+        *args,
+        **kwargs
+    ):
+        """
+        Create a GraphQLMCPServer from a remote GraphQL endpoint.
+
+        Args:
+            url: The GraphQL endpoint URL
+            bearer_token: Optional Bearer token for authentication
+            headers: Optional additional headers to include in requests
+            timeout: Request timeout in seconds
+            allow_mutations: Whether to expose mutations as tools (default: True)
+            *args: Additional arguments to pass to FastMCP
+            **kwargs: Additional keyword arguments to pass to FastMCP
+
+        Returns:
+            GraphQLMCPServer: A server instance with tools generated from the remote schema
+        """
+        from .remote import fetch_remote_schema_sync, RemoteGraphQLClient
+
+        # Prepare headers with bearer token if provided
+        request_headers = headers.copy() if headers else {}
+        if bearer_token:
+            request_headers["Authorization"] = f"Bearer {bearer_token}"
+
+        # Fetch the schema from the remote server
+        schema = fetch_remote_schema_sync(url, request_headers, timeout)
+
+        # Create a FastMCP server instance
+        instance = FastMCP(*args, **kwargs)
+
+        # Create a remote client for executing queries
+        client = RemoteGraphQLClient(url, request_headers, timeout, bearer_token=bearer_token)
+
+        # Add tools from schema with remote client
+        add_tools_from_schema_with_remote(schema, instance, client, allow_mutations=allow_mutations)
+
+        return instance
 
     def http_app(
         self,
@@ -83,15 +146,15 @@ try:
     class GraphQLMCPServer(GraphQLMCPServer):
 
         @classmethod
-        def from_api(cls, api: GraphQLAPI, graphql_http_server: bool = True, *args, **kwargs):
-            mcp = GraphQLMCPServer(api=api, graphql_http_server=graphql_http_server, *args, **kwargs)
+        def from_api(cls, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):
+            mcp = GraphQLMCPServer(api=api, graphql_http_server=graphql_http_server, allow_mutations=allow_mutations, *args, **kwargs)
             return mcp
 
-        def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, *args, **kwargs):
+        def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.api = api
             self.graphql_http_server = graphql_http_server
-            add_tools_from_schema(api.build_schema()[0], self)
+            add_tools_from_schema(api.build_schema()[0], self, allow_mutations=allow_mutations)
 
         def http_app(self, *args, **kwargs):
             app = super().http_app(*args, **kwargs)
@@ -161,26 +224,20 @@ def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
             return bytes
 
     if isinstance(graphql_type, GraphQLEnumType):
-        # Check if this GraphQLEnumType has the original Python enum stored
-        # (graphql-api stores it in the enum_type attribute)
-        if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type:
-            # Use the original Python enum for proper schema generation
-            return graphql_type.enum_type
+        # Use the original Python enum for proper schema generation
+        if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type: # type: ignore
+            return graphql_type.enum_type  # type: ignore
 
         # Otherwise, create a Python enum class dynamically from the GraphQL enum
-        # This allows FastMCP to generate proper JSON schema with $defs and $ref
         enum_members = {
             name: value.value if value.value is not None else name
             for name, value in graphql_type.values.items()
         }
-        # Create a dynamic enum class that inherits from both str and Enum
-        # Use the functional API with type parameter for str inheritance
         DynamicEnum = enum.Enum(
             graphql_type.name,
             enum_members,
             type=str
         )
-        # The functional API with type=str already makes it inherit from str
         return DynamicEnum
 
     if isinstance(graphql_type, GraphQLInputObjectType):
@@ -275,7 +332,9 @@ def add_mutation_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
 
 
 def add_tools_from_schema(
-    schema: GraphQLSchema, server: FastMCP | None = None
+    schema: GraphQLSchema,
+    server: FastMCP | None = None,
+    allow_mutations: bool = True
 ) -> FastMCP:
     """
     Populates a FastMCP server with tools generated from a GraphQLSchema.
@@ -286,6 +345,7 @@ def add_tools_from_schema(
 
     :param schema: The GraphQLSchema to map.
     :param server: An optional existing FastMCP server instance to add tools to.
+    :param allow_mutations: Whether to expose mutations as tools (default: True).
     :return: The populated FastMCP server instance.
     """
     if server is None:
@@ -294,12 +354,46 @@ def add_tools_from_schema(
             server_name = schema.query_type.name
         server = FastMCP(name=server_name)
 
-    # Process mutations first, so that queries can overwrite them if a name collision occurs.
-    add_mutation_tools_from_schema(server, schema)
+    # Process mutations first (if allowed), so that queries can overwrite them if a name collision occurs.
+    if allow_mutations:
+        add_mutation_tools_from_schema(server, schema)
+
     add_query_tools_from_schema(server, schema)
 
     # After top-level queries and mutations, add tools for nested mutations
-    _add_nested_tools_from_schema(server, schema)
+    _add_nested_tools_from_schema(server, schema, allow_mutations=allow_mutations)
+
+    return server
+
+
+def add_tools_from_schema_with_remote(
+    schema: GraphQLSchema,
+    server: FastMCP,
+    remote_client: RemoteGraphQLClient,
+    allow_mutations: bool = True
+) -> FastMCP:
+    """
+    Populates a FastMCP server with tools that execute against a remote GraphQL server.
+
+    :param schema: The GraphQLSchema from the remote server
+    :param server: The FastMCP server instance to add tools to
+    :param remote_client: The remote GraphQL client for executing queries
+    :param allow_mutations: Whether to expose mutations as tools (default: True)
+    :return: The populated FastMCP server instance
+    """
+    # Process mutations first (if allowed), then queries
+    if allow_mutations and schema.mutation_type:
+        _add_tools_from_fields_remote(
+            server, schema, schema.mutation_type.fields, remote_client, is_mutation=True
+        )
+
+    if schema.query_type:
+        _add_tools_from_fields_remote(
+            server, schema, schema.query_type.fields, remote_client, is_mutation=False
+        )
+
+    # Add nested tools for remote schema
+    _add_nested_tools_from_schema_remote(server, schema, remote_client, allow_mutations=allow_mutations)
 
     return server
 
@@ -555,7 +649,7 @@ def _create_recursive_tool_function(
     return tool_name, wrapper
 
 
-def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
+def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema, allow_mutations: bool = True):
     """Recursively registers tools for any nested field chain that includes arguments."""
 
     visited_types: set[str] = set()
@@ -582,5 +676,281 @@ def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
     # Start from both query and mutation roots
     if schema.query_type:
         recurse(schema.query_type, "query", [])
-    if schema.mutation_type:
+    if allow_mutations and schema.mutation_type:
+        recurse(schema.mutation_type, "mutation", [])
+
+
+# ---------------------------------------------------------------------------
+# Remote GraphQL support functions
+# ---------------------------------------------------------------------------
+
+
+def _add_tools_from_fields_remote(
+    server: FastMCP,
+    schema: GraphQLSchema,
+    fields: dict[str, Any],
+    remote_client: RemoteGraphQLClient,
+    is_mutation: bool,
+):
+    """Add tools from fields that execute against a remote GraphQL server."""
+    for field_name, field in fields.items():
+        snake_case_name = _to_snake_case(field_name)
+        tool_func = _create_remote_tool_function(
+            field_name, field, schema, remote_client, is_mutation=is_mutation
+        )
+        tool_decorator = server.tool(name=snake_case_name)
+        tool_decorator(tool_func)
+
+
+def _create_remote_tool_function(
+    field_name: str,
+    field: GraphQLField,
+    schema: GraphQLSchema,
+    remote_client: RemoteGraphQLClient,
+    is_mutation: bool = False,
+) -> Callable:
+    """
+    Creates a function that executes against a remote GraphQL server.
+    """
+    parameters = []
+    arg_defs = []
+    annotations = {}
+
+    for arg_name, arg_def in field.args.items():
+        arg_def: GraphQLArgument
+        python_type = _map_graphql_type_to_python_type(arg_def.type)
+        annotations[arg_name] = python_type
+
+        from graphql.pyutils import Undefined
+        if arg_def.default_value is Undefined:
+            default = inspect.Parameter.empty
+        else:
+            default = arg_def.default_value
+
+        kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        parameters.append(
+            inspect.Parameter(arg_name, kind, default=default, annotation=python_type)
+        )
+        arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
+
+    async def wrapper(**kwargs):
+        # Process arguments
+        processed_kwargs = {}
+        for k, v in kwargs.items():
+            if isinstance(v, enum.Enum):
+                if isinstance(v.value, str):
+                    processed_kwargs[k] = v.value
+                else:
+                    processed_kwargs[k] = v.name
+            elif hasattr(v, "model_dump"):
+                processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, dict):
+                processed_kwargs[k] = v
+            else:
+                processed_kwargs[k] = v
+
+        # Normalize enum inputs
+        if field.args:
+            for arg_name, arg_def in field.args.items():
+                if arg_name in processed_kwargs:
+                    named = get_named_type(arg_def.type)
+                    if isinstance(named, GraphQLEnumType):
+                        val = processed_kwargs[arg_name]
+                        if isinstance(val, str):
+                            if val not in named.values:
+                                for enum_name, enum_value in named.values.items():
+                                    try:
+                                        if str(enum_value.value) == val:
+                                            processed_kwargs[arg_name] = enum_name
+                                            break
+                                    except Exception:
+                                        continue
+
+        # Build GraphQL query
+        operation_type = "mutation" if is_mutation else "query"
+        arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
+        selection_set = _build_selection_set(field.type)
+
+        query_str = f"{operation_type} ({', '.join(arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
+        if not arg_defs:
+            query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
+
+        # Execute against remote server
+        try:
+            result = await remote_client.execute(query_str, processed_kwargs)
+            return result.get(field_name) if result else None
+        except Exception as e:
+            raise Exception(f"Remote GraphQL execution failed: {e}")
+
+    # Add return type annotation
+    return_type = _map_graphql_type_to_python_type(field.type)
+    annotations['return'] = return_type
+
+    # Create signature
+    signature = inspect.Signature(parameters, return_annotation=return_type)
+    wrapper.__signature__ = signature
+    wrapper.__doc__ = field.description
+    wrapper.__name__ = _to_snake_case(field_name)
+    wrapper.__annotations__ = annotations
+
+    return wrapper
+
+
+def _create_recursive_remote_tool_function(
+    path: list[tuple[str, GraphQLField]],
+    operation_type: str,
+    schema: GraphQLSchema,
+    remote_client: RemoteGraphQLClient,
+) -> Tuple[str, Callable]:
+    """Builds a FastMCP tool that resolves a nested field chain against a remote server."""
+
+    # Collect parameters & GraphQL variable definitions
+    parameters: list[inspect.Parameter] = []
+    annotations: dict[str, Any] = {}
+    arg_defs: list[str] = []
+
+    for idx, (field_name, field_def) in enumerate(path):
+        for arg_name, arg_def in field_def.args.items():
+            var_name = arg_name if idx == len(path) - 1 else f"{field_name}_{arg_name}"
+            python_type = _map_graphql_type_to_python_type(arg_def.type)
+            annotations[var_name] = python_type
+            default = (
+                arg_def.default_value
+                if arg_def.default_value is not inspect.Parameter.empty
+                else inspect.Parameter.empty
+            )
+            parameters.append(
+                inspect.Parameter(
+                    var_name,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=default,
+                    annotation=python_type,
+                )
+            )
+            arg_defs.append(f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
+
+    # Build nested call string
+    def _build_call(index: int) -> str:
+        field_name, field_def = path[index]
+        if field_def.args:
+            arg_str_parts = []
+            for arg in field_def.args.keys():
+                var_name = arg if index == len(path) - 1 else f"{field_name}_{arg}"
+                arg_str_parts.append(f"{arg}: ${var_name}")
+            arg_str = ", ".join(arg_str_parts)
+            call = f"{field_name}({arg_str})"
+        else:
+            call = field_name
+
+        if index == len(path) - 1:
+            selection_set = _build_selection_set(field_def.type)
+            return f"{call} {selection_set}"
+
+        return f"{call} {{ {_build_call(index + 1)} }}"
+
+    graphql_body = _build_call(0)
+
+    arg_def_str = ", ".join(arg_defs)
+    operation_header = (
+        f"{operation_type} ({arg_def_str})" if arg_def_str else operation_type
+    )
+    query_str = f"{operation_header} {{ {graphql_body} }}"
+
+    # Tool wrapper
+    async def wrapper(**kwargs):
+        processed_kwargs: dict[str, Any] = {}
+        for k, v in kwargs.items():
+            if isinstance(v, enum.Enum):
+                processed_kwargs[k] = v.name
+            elif hasattr(v, "model_dump"):
+                processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, dict):
+                processed_kwargs[k] = v
+            else:
+                processed_kwargs[k] = v
+
+        # Normalize enum inputs
+        for idx, (field_name, field_def) in enumerate(path):
+            if field_def.args:
+                for arg in field_def.args.keys():
+                    var_name = arg if idx == len(path) - 1 else f"{field_name}_{arg}"
+                    if var_name in processed_kwargs:
+                        named = get_named_type(field_def.args[arg].type)
+                        if isinstance(named, GraphQLEnumType):
+                            val = processed_kwargs[var_name]
+                            if isinstance(val, str) and val not in named.values:
+                                for enum_name, enum_value in named.values.items():
+                                    try:
+                                        if str(enum_value.value) == val:
+                                            processed_kwargs[var_name] = enum_name
+                                            break
+                                    except Exception:
+                                        continue
+
+        # Execute against remote server
+        try:
+            result = await remote_client.execute(query_str, processed_kwargs)
+
+            # Walk down the path to extract the nested value
+            data_cursor = result
+            for field_name, _ in path:
+                if data_cursor is None:
+                    break
+                data_cursor = data_cursor.get(field_name) if isinstance(data_cursor, dict) else None
+
+            return data_cursor
+        except Exception as e:
+            raise Exception(f"Remote GraphQL execution failed: {e}")
+
+    tool_name = _to_snake_case("_".join(name for name, _ in path))
+
+    # Add return type annotation
+    return_type = _map_graphql_type_to_python_type(path[-1][1].type)
+    annotations['return'] = return_type
+
+    # Create signature
+    signature = inspect.Signature(parameters, return_annotation=return_type)
+    wrapper.__signature__ = signature
+    wrapper.__doc__ = path[-1][1].description
+    wrapper.__name__ = tool_name
+    wrapper.__annotations__ = annotations
+
+    return tool_name, wrapper
+
+
+def _add_nested_tools_from_schema_remote(
+    server: FastMCP,
+    schema: GraphQLSchema,
+    remote_client: RemoteGraphQLClient,
+    allow_mutations: bool = True
+):
+    """Recursively registers tools for nested fields that execute against a remote server."""
+
+    visited_types: set[str] = set()
+
+    def recurse(parent_type, operation_type: str, path: list[tuple[str, GraphQLField]]):
+        type_name = parent_type.name if hasattr(parent_type, "name") else None
+        if type_name and type_name in visited_types:
+            return
+        if type_name:
+            visited_types.add(type_name)
+
+        for field_name, field_def in parent_type.fields.items():
+            named_type = get_named_type(field_def.type)
+            new_path = path + [(field_name, field_def)]
+
+            if len(new_path) > 1 and field_def.args:
+                # Register tool for paths with depth >=2
+                tool_name, tool_func = _create_recursive_remote_tool_function(
+                    new_path, operation_type, schema, remote_client
+                )
+                server.tool(name=tool_name)(tool_func)
+
+            if isinstance(named_type, GraphQLObjectType):
+                recurse(named_type, operation_type, new_path)
+
+    # Start from both query and mutation roots
+    if schema.query_type:
+        recurse(schema.query_type, "query", [])
+    if allow_mutations and schema.mutation_type:
         recurse(schema.mutation_type, "mutation", [])

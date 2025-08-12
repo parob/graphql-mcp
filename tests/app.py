@@ -22,6 +22,11 @@ class DemoApp:
         else:
             return False
 
+    @api.field
+    def get_preference_test(self) -> dict:
+        """Get a preference"""
+        return {"key": "ai_model", "value": "x"}
+
 
 mcp_server = GraphQLMCPServer(api=api)
 
