@@ -632,8 +632,6 @@ def _create_recursive_tool_function(
 
     # Tool wrapper
     async def wrapper(**kwargs):
-        # Extract context and bearer token
-        ctx = kwargs.pop("ctx", None)
 
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
