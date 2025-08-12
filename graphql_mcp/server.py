@@ -52,16 +52,16 @@ logger = logging.getLogger(__name__)
 def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     """
     Extract bearer token from MCP request context.
-    
+
     Args:
         ctx: FastMCP Context object
-        
+
     Returns:
         Bearer token string if found, None otherwise
     """
     if not ctx:
         return None
-        
+
     try:
         request = ctx.get_http_request()
         if request and hasattr(request, 'headers'):
@@ -70,7 +70,7 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
                 return auth_header[7:]  # Remove 'Bearer ' prefix
     except Exception as e:
         logger.debug(f"Failed to extract bearer token from context: {e}")
-    
+
     return None
 
 
@@ -116,22 +116,22 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
             headers: Optional additional headers to include in requests
             timeout: Request timeout in seconds
             allow_mutations: Whether to expose mutations as tools (default: True)
-            forward_bearer_token: Whether to forward bearer tokens from MCP requests 
+            forward_bearer_token: Whether to forward bearer tokens from MCP requests
                 to the GraphQL server (default: False).
-                
+
                 SECURITY WARNING: When enabled, bearer tokens from incoming MCP requests
                 will be forwarded to the remote GraphQL server. This means:
                 - Client authentication tokens will be shared with the remote server
                 - The remote server will have access to the original client's credentials
                 - Only enable this if you trust the remote GraphQL server completely
                 - Consider the security implications of token forwarding in your deployment
-                
+
             *args: Additional arguments to pass to FastMCP
             **kwargs: Additional keyword arguments to pass to FastMCP
 
         Returns:
             GraphQLMCPServer: A server instance with tools generated from the remote schema
-            
+
         Security Considerations:
             - When forward_bearer_token=True, ensure the remote GraphQL server is trusted
             - Use HTTPS for the remote URL to protect tokens in transit
@@ -634,8 +634,7 @@ def _create_recursive_tool_function(
     async def wrapper(**kwargs):
         # Extract context and bearer token
         ctx = kwargs.pop("ctx", None)
-        bearer_token = _extract_bearer_token_from_context(ctx)
-        
+
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):
@@ -798,7 +797,7 @@ def _create_remote_tool_function(
         # Extract context and bearer token (only if configured to forward)
         ctx = kwargs.pop("ctx", None)
         bearer_token = _extract_bearer_token_from_context(ctx) if forward_bearer_token else None
-        
+
         # Process arguments
         processed_kwargs = {}
         for k, v in kwargs.items():
@@ -940,7 +939,7 @@ def _create_recursive_remote_tool_function(
         # Extract context and bearer token (only if configured to forward)
         ctx = kwargs.pop("ctx", None)
         bearer_token = _extract_bearer_token_from_context(ctx) if forward_bearer_token else None
-        
+
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
             if isinstance(v, enum.Enum):

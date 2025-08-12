@@ -60,14 +60,14 @@ async def test_nested_measurement_manager_query():
 
     # Mock the remote client
     mock_client = AsyncMock(spec=RemoteGraphQLClient)
-    mock_client.execute = AsyncMock()
+    mock_client.execute_with_token = AsyncMock()
 
     # Create MCP server with the schema and remote client
     mcp_server = FastMCP(name="TestNestedServer")
     add_tools_from_schema_with_remote(schema, mcp_server, mock_client)
 
     # Mock the expected nested response
-    mock_client.execute.return_value = {
+    mock_client.execute_with_token.return_value = {
         "measurementManager": {
             "getSensors": {
                 "totalCount": 42
@@ -96,10 +96,10 @@ async def test_nested_measurement_manager_query():
         assert "totalCount" in str(response_data) or "42" in str(response_data)
 
         # Verify the remote client was called correctly
-        assert mock_client.execute.call_count >= 1
+        assert mock_client.execute_with_token.call_count >= 1
 
         # Check that the generated query includes the nested structure
-        call_args = mock_client.execute.call_args_list[0]
+        call_args = mock_client.execute_with_token.call_args_list[0]
         query = call_args[0][0]
         assert "measurementManager" in query
         assert "getSensors" in query
@@ -164,14 +164,14 @@ async def test_nested_query_with_arguments():
 
     # Mock the remote client
     mock_client = AsyncMock(spec=RemoteGraphQLClient)
-    mock_client.execute = AsyncMock()
+    mock_client.execute_with_token = AsyncMock()
 
     # Create MCP server
     mcp_server = FastMCP(name="TestComplexNestedServer")
     add_tools_from_schema_with_remote(schema, mcp_server, mock_client)
 
     # Mock nested response with arguments
-    mock_client.execute.return_value = {
+    mock_client.execute_with_token.return_value = {
         "measurementManager": {
             "getSensors": {
                 "sensors": {
@@ -204,7 +204,7 @@ async def test_nested_query_with_arguments():
         assert "sensor-123" in str(response_data) or "Temperature Sensor" in str(response_data) or "23" in str(response_data)
 
         # Verify the query was constructed correctly with all arguments
-        call_args = mock_client.execute.call_args[0]
+        call_args = mock_client.execute_with_token.call_args[0]
         query = call_args[0]
         variables = call_args[1]
 
@@ -351,14 +351,14 @@ async def test_real_world_nested_query_pattern():
 
     # Mock remote client
     mock_client = AsyncMock(spec=RemoteGraphQLClient)
-    mock_client.execute = AsyncMock()
+    mock_client.execute_with_token = AsyncMock()
 
     # Create MCP server
     mcp_server = FastMCP(name="TestUserNestedServer")
     add_tools_from_schema_with_remote(schema, mcp_server, mock_client)
 
     # Mock deeply nested response
-    mock_client.execute.return_value = {
+    mock_client.execute_with_token.return_value = {
         "user": {
             "profile": {
                 "settings": {
@@ -388,7 +388,7 @@ async def test_real_world_nested_query_pattern():
         assert "enabled" in str(response_data) or "true" in str(response_data)
 
         # Verify correct query generation
-        call_args = mock_client.execute.call_args[0]
+        call_args = mock_client.execute_with_token.call_args[0]
         query = call_args[0]
         variables = call_args[1]
 

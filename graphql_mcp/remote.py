@@ -163,17 +163,17 @@ class RemoteGraphQLClient:
     ) -> Dict[str, Any]:
         """
         Execute a GraphQL query with an optional bearer token override.
-        
+
         Args:
             query: The GraphQL query string
             variables: Optional variables for the query
             operation_name: Optional operation name
             retry_on_auth_error: Whether to retry with refreshed token on 401/403
             bearer_token_override: Optional bearer token to use instead of the client's token
-            
+
         Returns:
             The GraphQL response data
-            
+
         Raises:
             Exception: If the query fails
         """
@@ -181,7 +181,7 @@ class RemoteGraphQLClient:
         headers = self.headers.copy()
         if bearer_token_override:
             headers["Authorization"] = f"Bearer {bearer_token_override}"
-        
+
         return await self._execute_request(
             query, variables, operation_name, retry_on_auth_error, headers
         )

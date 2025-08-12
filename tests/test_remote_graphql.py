@@ -158,14 +158,14 @@ async def test_graphql_mcp_server_from_remote_url():
 
     # Mock the remote client
     mock_client = AsyncMock(spec=RemoteGraphQLClient)
-    mock_client.execute = AsyncMock()
+    mock_client.execute_with_token = AsyncMock()
 
     # Test with mocked remote client
     mcp_server = FastMCP(name="TestServer")
     add_tools_from_schema_with_remote(schema, mcp_server, mock_client)
 
     # Set up mock responses
-    mock_client.execute.side_effect = [
+    mock_client.execute_with_token.side_effect = [
         {"hello": "Hello, Alice!"},
         {"add": 8}
     ]
@@ -180,15 +180,15 @@ async def test_graphql_mcp_server_from_remote_url():
         assert str(get_result_text(result)) == "8"
 
         # Verify the remote client was called correctly
-        assert mock_client.execute.call_count == 2
+        assert mock_client.execute_with_token.call_count == 2
 
         # Check the first call (hello)
-        first_call = mock_client.execute.call_args_list[0]
+        first_call = mock_client.execute_with_token.call_args_list[0]
         assert "hello" in first_call[0][0]
         assert first_call[0][1] == {"name": "Alice"}
 
         # Check the second call (add)
-        second_call = mock_client.execute.call_args_list[1]
+        second_call = mock_client.execute_with_token.call_args_list[1]
         assert "add" in second_call[0][0]
         assert second_call[0][1] == {"a": 3, "b": 5}
 
