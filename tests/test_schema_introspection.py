@@ -79,14 +79,15 @@ class TestSchemaIntrospection:
         # name should not convert based on schema
         assert client._should_convert_to_array("name", None, data, "User") is False
 
-    def test_should_convert_to_array_fallback_heuristics(self, client):
-        """Test array conversion fallback to heuristics when no schema info."""
+    def test_should_convert_to_array_no_fallback_heuristics(self, client):
+        """Test that field name heuristics are NOT used when no schema info (as requested)."""
         data = {"users": None, "name": None}
         
-        # users should convert based on field name heuristics
-        assert client._should_convert_to_array("users", None, data) is True
+        # Without schema info, field name heuristics are NOT used (removed as requested)
+        # users should NOT convert based on field name alone
+        assert client._should_convert_to_array("users", None, data) is False
         
-        # name should not convert
+        # name should not convert (same as before)
         assert client._should_convert_to_array("name", None, data) is False
 
     def test_should_convert_to_array_non_null_value(self, client):

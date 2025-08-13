@@ -9,6 +9,7 @@ from datetime import date, datetime
 from typing import Any, Callable, Literal, Tuple, Optional, Dict
 
 from fastmcp import FastMCP, Context
+from fastmcp.exceptions import ToolError
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.middleware import Middleware as ASGIMiddleware
@@ -451,7 +452,7 @@ def add_tools_from_schema_with_remote(
     :param server: The FastMCP server instance to add tools to
     :param remote_client: The remote GraphQL client for executing queries
     :param allow_mutations: Whether to expose mutations as tools (default: True)
-    :param forward_bearer_token: Whether to forward bearer tokens from MCP requests 
+    :param forward_bearer_token: Whether to forward bearer tokens from MCP requests
                                 to the remote server (default: False). Only relevant
                                 for remote servers - local schemas get token context
                                 automatically through FastMCP.
@@ -486,7 +487,7 @@ def _create_tool_function(
 ) -> Callable:
     """
     Creates a function for LOCAL GraphQL schema execution.
-    
+
     This function executes GraphQL operations directly against the provided schema.
     Bearer token authentication is automatically available through FastMCP's Context.
     No token forwarding is needed since execution happens locally.
@@ -798,11 +799,11 @@ def _create_remote_tool_function(
 ) -> Callable:
     """
     Creates a function for REMOTE GraphQL server execution.
-    
+
     This function forwards GraphQL operations to a remote server via RemoteGraphQLClient.
     Unlike local execution, bearer tokens are not automatically available and must be
     explicitly extracted from the MCP request context if forwarding is enabled.
-    
+
     :param forward_bearer_token: Whether to extract bearer token from MCP request
                                context and forward it to the remote server.
     """
@@ -891,7 +892,15 @@ def _create_remote_tool_function(
             )
             return result.get(field_name) if result else None
         except Exception as e:
-            raise Exception(f"Remote GraphQL execution failed: {e}")
+            message = str(e)
+            lower = message.lower()
+            if "timed out" in lower or "504" in lower:
+                raise ToolError("The remote GraphQL endpoint timed out. Try again or narrow the request.")
+            if "unavailable" in lower or "503" in lower or "502" in lower:
+                raise ToolError("The remote GraphQL endpoint is temporarily unavailable. Please try again.")
+            if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
+                raise ToolError("Authentication failed for the remote GraphQL endpoint.")
+            raise ToolError(f"Remote GraphQL execution failed: {message}")
 
     # Add return type annotation
     return_type = _map_graphql_type_to_python_type(field.type)
@@ -1029,7 +1038,15 @@ def _create_recursive_remote_tool_function(
 
             return data_cursor
         except Exception as e:
-            raise Exception(f"Remote GraphQL execution failed: {e}")
+            message = str(e)
+            lower = message.lower()
+            if "timed out" in lower or "504" in lower:
+                raise ToolError("The remote GraphQL endpoint timed out. Try again or narrow the request.")
+            if "unavailable" in lower or "503" in lower or "502" in lower:
+                raise ToolError("The remote GraphQL endpoint is temporarily unavailable. Please try again.")
+            if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
+                raise ToolError("Authentication failed for the remote GraphQL endpoint.")
+            raise ToolError(f"Remote GraphQL execution failed: {message}")
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))
 

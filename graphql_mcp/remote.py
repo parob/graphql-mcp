@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 async def fetch_remote_schema(
     url: str,
     headers: Optional[Dict[str, str]] = None,
-    timeout: int = 30
+    timeout: int = 30,
+    verify_ssl: bool = True
 ) -> GraphQLSchema:
     """
     Fetches a GraphQL schema from a remote server via introspection.
@@ -28,6 +29,7 @@ async def fetch_remote_schema(
         url: The GraphQL endpoint URL
         headers: Optional headers to include in the request (e.g., authorization)
         timeout: Request timeout in seconds
+        verify_ssl: Whether to verify SSL certificates (default: True, set to False for development)
 
     Returns:
         GraphQLSchema: The fetched and built schema
@@ -41,7 +43,15 @@ async def fetch_remote_schema(
         "query": introspection_query,
     }
 
-    async with aiohttp.ClientSession() as session:
+    # Create SSL context based on verify_ssl setting
+    ssl_context = ssl.create_default_context()
+    if not verify_ssl:
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        logger.warning("SSL certificate verification disabled for schema fetch - only use in development!")
+
+    connector = aiohttp.TCPConnector(ssl=ssl_context)
+    async with aiohttp.ClientSession(connector=connector) as session:
         async with session.post(
             url,
             json=payload,
@@ -68,7 +78,8 @@ async def fetch_remote_schema(
 def fetch_remote_schema_sync(
     url: str,
     headers: Optional[Dict[str, str]] = None,
-    timeout: int = 30
+    timeout: int = 30,
+    verify_ssl: bool = True
 ) -> GraphQLSchema:
     """
     Synchronous wrapper for fetching a remote GraphQL schema.
@@ -77,6 +88,7 @@ def fetch_remote_schema_sync(
         url: The GraphQL endpoint URL
         headers: Optional headers to include in the request
         timeout: Request timeout in seconds
+        verify_ssl: Whether to verify SSL certificates (default: True, set to False for development)
 
     Returns:
         GraphQLSchema: The fetched and built schema
@@ -91,7 +103,7 @@ def fetch_remote_schema_sync(
         loop = asyncio.new_event_loop()
         try:
             schema = loop.run_until_complete(
-                fetch_remote_schema(url, headers, timeout)
+                fetch_remote_schema(url, headers, timeout, verify_ssl)
             )
             return schema
         finally:
@@ -100,7 +112,7 @@ def fetch_remote_schema_sync(
         # There's already a loop running, use nest_asyncio or create a task
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, fetch_remote_schema(url, headers, timeout))
+            future = executor.submit(asyncio.run, fetch_remote_schema(url, headers, timeout, verify_ssl))
             return future.result()
 
 
@@ -114,7 +126,9 @@ class RemoteGraphQLClient:
         timeout: int = 30,
         bearer_token: Optional[str] = None,
         token_refresh_callback: Optional[Callable[[], str]] = None,
-        verify_ssl: bool = True
+        verify_ssl: bool = True,
+        undefined_strategy: str = "remove",
+        debug: bool = False
     ):
         """
         Initialize a remote GraphQL client with schema introspection for type-aware transformations.
@@ -126,6 +140,8 @@ class RemoteGraphQLClient:
             bearer_token: Optional Bearer token for authentication
             token_refresh_callback: Optional callback to refresh the bearer token
             verify_ssl: Whether to verify SSL certificates (default: True, set to False for development)
+            undefined_strategy: How to handle Undefined variables ("remove" or "null", default: "remove")
+            debug: Enable verbose debug logging (default: False)
         """
         self.url = url
         self.headers = headers or {}
@@ -133,114 +149,195 @@ class RemoteGraphQLClient:
         self.bearer_token = bearer_token
         self.token_refresh_callback = token_refresh_callback
         self.verify_ssl = verify_ssl
+        self.undefined_strategy = undefined_strategy
+        self.debug = debug
         self._session: Optional[aiohttp.ClientSession] = None
 
         # Schema introspection cache for type-aware transformations
         self._schema_cache = {}
         self._array_fields_cache = {}
+        self._field_type_map = {}  # Maps field names to their return type names
         self._introspected = False
 
         # Add bearer token to headers if provided
         if self.bearer_token:
             self.headers["Authorization"] = f"Bearer {self.bearer_token}"
 
-    def _clean_variables(self, variables: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Convert Undefined values to None to avoid GraphQL validation errors."""
+    def _clean_variables(self, variables: Optional[Dict[str, Any]], strategy: str = "remove") -> Optional[Dict[str, Any]]:
+        """
+        Handle Undefined values in GraphQL variables with configurable strategies.
+
+        Args:
+            variables: The variables dictionary to clean
+            strategy: How to handle Undefined values:
+                - "remove": Remove Undefined values entirely (default, prevents validation errors)
+                - "null": Convert Undefined values to None (alternative approach)
+
+        For non-null GraphQL variables (marked with !), the "remove" strategy completely removes
+        Undefined variables and their declarations from the query. The "null" strategy converts
+        Undefined to None, which may work for some servers but can cause validation errors.
+        """
         if not variables:
             return variables
-            
+
         cleaned = {}
         for key, value in variables.items():
             if value is Undefined:
-                # Convert Undefined to None instead of removing entirely
-                # This prevents GraphQL validation errors for required parameters
-                cleaned[key] = None
+                if strategy == "null":
+                    # Convert Undefined to None (alternative approach)
+                    cleaned[key] = None
+                else:  # strategy == "remove"
+                    # Remove Undefined values entirely (default approach)
+                    # This prevents GraphQL validation errors for non-null parameters
+                    continue
             elif isinstance(value, dict):
                 # Recursively clean nested dictionaries
-                cleaned_nested = self._clean_variables(value)
-                if cleaned_nested is not None:  # Include even empty dicts
+                cleaned_nested = self._clean_variables(value, strategy)
+                if cleaned_nested or strategy == "null":  # Include empty dicts when using null strategy
                     cleaned[key] = cleaned_nested
             elif isinstance(value, list):
-                # Clean lists by converting Undefined values to None and recursively cleaning nested dicts
+                # Clean lists by filtering out Undefined values and recursively cleaning nested structures
                 cleaned_list = []
                 for item in value:
                     if item is Undefined:
-                        cleaned_list.append(None)
+                        if strategy == "null":
+                            cleaned_list.append(None)
+                        else:
+                            # Skip Undefined items entirely
+                            continue
                     elif isinstance(item, dict):
-                        cleaned_item = self._clean_variables(item)
-                        cleaned_list.append(cleaned_item)
+                        cleaned_item = self._clean_variables(item, strategy)
+                        if cleaned_item or strategy == "null":  # Include empty dicts when using null strategy
+                            cleaned_list.append(cleaned_item)
+                    elif isinstance(item, list):
+                        # Recursively clean nested lists
+                        nested_result = self._clean_variables({"temp": item}, strategy)
+                        if nested_result and "temp" in nested_result:
+                            cleaned_list.append(nested_result["temp"])
+                        elif strategy == "null":
+                            cleaned_list.append(None)
                     else:
                         cleaned_list.append(item)
                 cleaned[key] = cleaned_list
             else:
                 cleaned[key] = value
-        
+
         return cleaned if cleaned else None
 
     def _remove_unused_variables_from_query(self, query: str, variables: Optional[Dict[str, Any]]) -> str:
-        """Remove variable declarations from GraphQL query when variables are not provided."""
-        if not variables:
-            # Remove all variable declarations if no variables provided
-            import re
-            # Remove the entire variable declaration part: (...)
-            return re.sub(r'\([^)]*\)', '', query, count=1)
-        
+        """Remove unused variable declarations from the operation header only.
+
+        Behavior (per tests):
+        - If variables is None or empty, remove the entire variable declaration list from the header.
+        - Otherwise, keep only declarations whose names exist in the variables dict.
+        - Do not touch parentheses elsewhere in the query body (e.g., field arguments).
+        """
         import re
-        
-        # Find variable declarations and filter them
-        var_decl_match = re.search(r'\(([^)]+)\)', query)
-        if not var_decl_match:
+
+        # Regex to match the operation header's variable declaration list
+        # Handles: query MyOp(...), mutation MyOp(...), or anonymous: query (...)
+        op_pattern = re.compile(r"\b(query|mutation)\b\s*[A-Za-z_][A-Za-z0-9_]*?\s*\(([^)]*)\)", re.IGNORECASE)
+        anon_op_pattern = re.compile(r"\b(query|mutation)\b\s*\(([^)]*)\)", re.IGNORECASE)
+
+        match = op_pattern.search(query) or anon_op_pattern.search(query)
+        if not match:
             return query
-            
-        original_vars = var_decl_match.group(1)
-        var_declarations = []
-        
-        # Split variable declarations by comma
-        for var_decl in original_vars.split(','):
-            var_decl = var_decl.strip()
-            if var_decl:
-                # Extract variable name (e.g., "$dateGrouping" from "$dateGrouping: DateGrouping!")
-                var_name_match = re.match(r'\$(\w+)', var_decl)
-                if var_name_match:
-                    var_name = var_name_match.group(1)
-                    # Only keep this declaration if we have the variable
-                    if var_name in variables:
-                        var_declarations.append(var_decl)
-        
-        if var_declarations:
-            # Reconstruct the query with filtered variable declarations
-            new_var_part = '(' + ', '.join(var_declarations) + ')'
-            return query.replace(var_decl_match.group(0), new_var_part, 1)
+
+        full_block = match.group(0)
+        vars_block = match.group(2)
+
+        # If no variables provided, strip the entire declaration list
+        if not variables:
+            return query.replace(full_block, full_block.split('(')[0].rstrip())
+
+        kept: list[str] = []
+        for var_decl in vars_block.split(','):
+            decl = var_decl.strip()
+            if not decl:
+                continue
+            name_match = re.match(r"\$([A-Za-z_][A-Za-z0-9_]*)", decl)
+            if name_match:
+                var_name = name_match.group(1)
+                if var_name in variables:
+                    kept.append(decl)
+
+        if kept:
+            new_block = full_block.split('(')[0] + '(' + ', '.join(kept) + ')'
+            return query.replace(full_block, new_block, 1)
         else:
-            # No variables left, remove the declaration part entirely
-            return query.replace(var_decl_match.group(0), '', 1)
+            # Remove parentheses entirely if nothing kept
+            return query.replace(full_block, full_block.split('(')[0].rstrip(), 1)
 
     def _transform_null_arrays(self, data: Any, parent_key: str = '', type_context: Optional[str] = None) -> Any:
         """Transform null values to empty arrays based on GraphQL schema types."""
         if isinstance(data, dict):
             transformed = {}
-            
-            # Try to infer the GraphQL type context from the data structure
-            # This is a simple heuristic - in a real implementation you'd track this more precisely
+
             current_type_context = type_context
-            
+
             for key, value in data.items():
                 if value is None and self._should_convert_to_array(key, value, data, current_type_context):
                     transformed[key] = []
                 else:
-                    # Recursively transform nested structures
-                    transformed[key] = self._transform_null_arrays(value, key, current_type_context)
+                    # For nested objects, get the type context from schema
+                    nested_type_context = self._get_field_type_context(key, current_type_context)
+                    transformed[key] = self._transform_null_arrays(value, key, nested_type_context)
             return transformed
         elif isinstance(data, list):
-            return [self._transform_null_arrays(item, parent_key, type_context) for item in data]
+            # For lists, check if items should have array fields converted based on sibling analysis
+            transformed_items = []
+
+            # Collect all dictionary items to analyze sibling patterns across the list
+            dict_items = [item for item in data if isinstance(item, dict)]
+
+            for item in data:
+                if isinstance(item, dict):
+                    # Create a combined siblings dict from all similar items in the list
+                    combined_siblings = {}
+                    for dict_item in dict_items:
+                        for k, v in dict_item.items():
+                            if k not in combined_siblings and isinstance(v, list):
+                                combined_siblings[k] = v  # Use the first non-null list we find
+
+                    # Transform this item with enhanced sibling context
+                    transformed_item = {}
+                    for key, value in item.items():
+                        if value is None and self._should_convert_to_array(key, value, combined_siblings, type_context):
+                            transformed_item[key] = []
+                        else:
+                            nested_type_context = self._get_field_type_context(key, type_context)
+                            transformed_item[key] = self._transform_null_arrays(value, key, nested_type_context)
+                    transformed_items.append(transformed_item)
+                else:
+                    transformed_items.append(self._transform_null_arrays(item, parent_key, type_context))
+
+            return transformed_items
         else:
             return data
+
+    def _get_field_type_context(self, field_name: str, current_type_context: Optional[str]) -> Optional[str]:
+        """Get the type context for a nested field based on schema introspection."""
+        if not self._introspected:
+            return current_type_context
+
+        # Try the fully qualified field name first (Type.field)
+        if current_type_context:
+            field_key = f"{current_type_context}.{field_name}"
+            if field_key in self._field_type_map:
+                return self._field_type_map[field_key]
+
+        # Fall back to simple field name lookup
+        if field_name in self._field_type_map:
+            return self._field_type_map[field_name]
+
+        # If we can't find it in the schema, return the current context
+        return current_type_context
 
     async def _raw_execute_request(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Raw GraphQL request without transformation - used for introspection."""
         payload = {"query": query}
         if variables:
-            payload["variables"] = variables
+            payload["variables"] = variables  # type: ignore
 
         headers = self.headers.copy()
 
@@ -268,6 +365,8 @@ class RemoteGraphQLClient:
                     raise Exception(f"GraphQL introspection errors: {result['errors']}")
 
                 return result.get("data", {})
+            # If we exit the retry loop without returning, raise a final error
+            raise Exception("Failed to execute query after multiple retry attempts.")
         finally:
             if close_session:
                 await session.close()
@@ -276,7 +375,7 @@ class RemoteGraphQLClient:
         """Perform GraphQL schema introspection to cache field types."""
         if self._introspected:
             return
-            
+
         introspection_query = """
         query IntrospectionQuery {
             __schema {
@@ -294,6 +393,10 @@ class RemoteGraphQLClient:
                                 ofType {
                                     name
                                     kind
+                                    ofType {
+                                        name
+                                        kind
+                                    }
                                 }
                             }
                         }
@@ -302,73 +405,96 @@ class RemoteGraphQLClient:
             }
         }
         """
-        
+
         try:
             result = await self._raw_execute_request(introspection_query)
-            
-            # Parse schema and cache array fields
+
+            # Parse schema and cache array fields and field-to-type mappings
             if "__schema" in result and "types" in result["__schema"]:
                 for type_def in result["__schema"]["types"]:
                     if type_def.get("fields"):
                         type_name = type_def["name"]
                         self._array_fields_cache[type_name] = {}
-                        
+
                         for field in type_def["fields"]:
                             field_name = field["name"]
                             field_type = field["type"]
-                            
+
                             # Check if field is a list type
                             is_list = self._is_list_type(field_type)
                             self._array_fields_cache[type_name][field_name] = is_list
-            
+
+                            # Extract the actual return type name for this field
+                            return_type_name = self._extract_type_name(field_type)
+                            if return_type_name:
+                                # Create mapping from field name to its return type
+                                field_key = f"{type_name}.{field_name}"
+                                self._field_type_map[field_key] = return_type_name
+
+                                # Also create a simple field name mapping as fallback
+                                if field_name not in self._field_type_map:
+                                    self._field_type_map[field_name] = return_type_name
+
             self._introspected = True
             logger.debug(f"Schema introspected, found {len(self._array_fields_cache)} types")
-            
+
         except Exception as e:
             logger.warning(f"Schema introspection failed: {e}")
             # Fall back to heuristic approach if introspection fails
             self._introspected = True
-    
+
     def _is_list_type(self, field_type: Dict) -> bool:
         """Check if a GraphQL field type represents a list."""
         if not field_type:
             return False
-            
+
         # Check if this type is LIST
         if field_type.get("kind") == "LIST":
             return True
-            
+
         # Check if this is NON_NULL wrapping a LIST
         if field_type.get("kind") == "NON_NULL":
             of_type = field_type.get("ofType")
             if of_type and of_type.get("kind") == "LIST":
                 return True
-                
+
         return False
-    
+
+    def _extract_type_name(self, field_type: Dict) -> Optional[str]:
+        """Extract the actual type name from a GraphQL field type definition."""
+        if not field_type:
+            return None
+
+        # If it's a simple named type
+        if field_type.get("name"):
+            return field_type["name"]
+
+        # If it's wrapped (NON_NULL, LIST, etc.), unwrap to find the base type
+        of_type = field_type.get("ofType")
+        if of_type:
+            return self._extract_type_name(of_type)
+
+        return None
+
     def _should_convert_to_array(self, key: str, value: Any, siblings: Dict[str, Any], type_context: Optional[str] = None) -> bool:
         """Determine if a null value should become an empty array based on GraphQL schema types."""
         if value is not None:
             return False
-        
-        # First try to use cached schema information
+
+        # Use cached schema information from introspection
         if self._introspected and type_context:
             type_fields = self._array_fields_cache.get(type_context, {})
             if key in type_fields:
                 return type_fields[key]
-        
-        # If we don't have schema info, fall back to analyzing data structure patterns
+
+        # If we don't have schema info for the specific field, analyze data structure patterns
         # Look at sibling fields to infer if this should be an array
         for sibling_key, sibling_value in siblings.items():
-            if (sibling_key == key and 
-                isinstance(sibling_value, list)):
+            if (sibling_key == key and isinstance(sibling_value, list)):
                 return True
-                
-        # Fallback to field name heuristics as last resort
-        if (key.endswith('s') or key.endswith('es') or 
-            key in ['children', 'items', 'results', 'data', 'list', 'components', 'systems']):
-            return True
-                
+
+        # Without schema information or sibling analysis, default to not converting
+        # This ensures we only convert null to [] when we have solid evidence it should be an array
         return False
 
     def _create_ssl_context(self) -> ssl.SSLContext:
@@ -483,23 +609,45 @@ class RemoteGraphQLClient:
             "query": query,
         }
 
-        # Clean variables to convert Undefined values to None
-        cleaned_variables = self._clean_variables(variables)
-        
-        # Debug logging (only if debug level is enabled)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Original query: {query}")
-            logger.debug(f"Original variables: {variables}")
-            logger.debug(f"Cleaned variables: {cleaned_variables}")
-        
+        # Clean variables using the configured strategy
+        cleaned_variables = self._clean_variables(variables, self.undefined_strategy)
+
+        # For "remove" strategy, also remove variable declarations from query
+        if self.undefined_strategy == "remove":
+            cleaned_query = self._remove_unused_variables_from_query(query, cleaned_variables)
+        else:
+            # For "null" strategy, keep original query since variables are converted to null
+            cleaned_query = query
+
+        # Enhanced debug logging
+        if self.debug or logger.isEnabledFor(logging.DEBUG):
+            debug_msg = f"""
+DEBUG: GraphQL Request Processing:
+- URL: {self.url}
+- Strategy: {self.undefined_strategy}
+- Original query: {query}
+- Original variables: {variables}
+- Cleaned variables: {cleaned_variables}
+- Cleaned query: {cleaned_query}
+            """.strip()
+            if self.debug:
+                print(debug_msg)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(debug_msg)
+
+        payload["query"] = cleaned_query
         if cleaned_variables:
             payload["variables"] = cleaned_variables
 
         if operation_name:
             payload["operationName"] = operation_name
-            
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Final payload: {payload}")
+
+        if self.debug or logger.isEnabledFor(logging.DEBUG):
+            final_debug = f"DEBUG: Final payload: {payload}"
+            if self.debug:
+                print(final_debug)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(final_debug)
 
         # Use existing session or create temporary one
         if self._session:
@@ -519,7 +667,7 @@ class RemoteGraphQLClient:
                 # Handle authentication errors
                 if response.status in (401, 403) and retry_on_auth_error:
                     if await self.refresh_token():
-                        # Retry with refreshed token
+                        # Retry once with refreshed token
                         if close_session:
                             await session.close()
                         return await self._execute_request(
@@ -530,6 +678,12 @@ class RemoteGraphQLClient:
 
                 if response.status != 200:
                     text = await response.text()
+                    # Friendly error messages for common statuses
+                    if response.status == 504:
+                        raise Exception("Remote GraphQL endpoint timed out (HTTP 504). Please try again.")
+                    if response.status in (502, 503):
+                        raise Exception(f"Remote GraphQL endpoint unavailable (HTTP {response.status}). Please try again.")
+
                     raise Exception(f"Failed to execute query: {response.status} - {text}")
 
                 result = await response.json()
@@ -551,11 +705,14 @@ class RemoteGraphQLClient:
 
                 # Ensure schema is introspected before transforming data
                 await self._introspect_schema()
-                
+
                 # Transform null arrays to empty arrays to satisfy MCP output schema validation
                 data = result.get("data", {})
-                transformed_data = self._transform_null_arrays(data)
+                transformed_data = self._transform_null_arrays(data, type_context="Query")
                 return transformed_data
+
+        except aiohttp.ClientError:
+            raise Exception("Network error talking to remote GraphQL endpoint. Please try again.")
         finally:
             if close_session:
                 await session.close()

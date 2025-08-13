@@ -44,7 +44,7 @@ class TestUndefinedHandling:
             "age": 25
         }
         result = client._clean_variables(variables)
-        expected = {"name": "test", "undefined_field": None, "age": 25}
+        expected = {"name": "test", "age": 25}  # undefined_field removed entirely
         assert result == expected
 
     def test_clean_variables_nested_undefined(self, client):
@@ -63,10 +63,10 @@ class TestUndefinedHandling:
         expected = {
             "user": {
                 "name": "test",
-                "email": None,
+                # email removed entirely
                 "profile": {
-                    "bio": "test bio",
-                    "avatar": None
+                    "bio": "test bio"
+                    # avatar removed entirely
                 }
             }
         }
@@ -80,8 +80,8 @@ class TestUndefinedHandling:
         }
         result = client._clean_variables(variables)
         expected = {
-            "tags": ["tag1", None, "tag2"],
-            "ids": [1, 2, None, 3]
+            "tags": ["tag1", "tag2"],  # Undefined values filtered out
+            "ids": [1, 2, 3]  # Undefined values filtered out
         }
         assert result == expected
 
@@ -91,23 +91,23 @@ class TestUndefinedHandling:
             "items": [
                 {"name": "item1", "optional": Undefined},
                 {"name": "item2", "optional": "value"},
-                Undefined,  # This becomes None in the list
+                Undefined,  # This is filtered out entirely
                 {"name": "item3", "nested": {"keep": "this", "remove": Undefined}}
             ]
         }
         result = client._clean_variables(variables)
         expected = {
             "items": [
-                {"name": "item1", "optional": None},
+                {"name": "item1"},  # optional removed entirely
                 {"name": "item2", "optional": "value"},
-                None,  # Undefined becomes None
-                {"name": "item3", "nested": {"keep": "this", "remove": None}}
+                # Undefined item filtered out entirely
+                {"name": "item3", "nested": {"keep": "this"}}  # remove removed entirely
             ]
         }
         assert result == expected
 
     def test_clean_variables_empty_after_cleaning(self, client):
-        """Test that structures with Undefined values become None values."""
+        """Test that structures become empty or removed after cleaning Undefined values."""
         variables = {
             "empty_dict": {"undefined_only": Undefined},
             "empty_list": [Undefined, Undefined],
@@ -115,25 +115,22 @@ class TestUndefinedHandling:
         }
         result = client._clean_variables(variables)
         expected = {
-            "empty_dict": {"undefined_only": None},
-            "empty_list": [None, None],
+            # empty_dict removed entirely (becomes empty after cleaning)
+            "empty_list": [],  # All Undefined values filtered out
             "valid_field": "keep_me"
         }
         assert result == expected
 
     def test_clean_variables_all_undefined(self, client):
-        """Test that completely Undefined structure becomes all None values."""
+        """Test that completely Undefined structure is removed entirely."""
         variables = {
             "field1": Undefined,
             "field2": Undefined,
             "nested": {"inner": Undefined}
         }
         result = client._clean_variables(variables)
-        expected = {
-            "field1": None,
-            "field2": None,
-            "nested": {"inner": None}
-        }
+        # All fields removed entirely, nested dict becomes empty and is removed
+        expected = None  # Empty result
         assert result == expected
 
     def test_clean_variables_complex_nesting(self, client):
@@ -157,10 +154,10 @@ class TestUndefinedHandling:
                 "level2": {
                     "level3": {
                         "keep": "this",
-                        "remove": None,
-                        "list": [None, "item", None]
-                    },
-                    "other": None
+                        # remove removed entirely
+                        "list": ["item"]  # Undefined values filtered out
+                    }
+                    # other removed entirely
                 },
                 "sibling": "value"
             }
@@ -203,8 +200,8 @@ class TestUndefinedHandling:
                 
                 expected_variables = {
                     "name": "test",
-                    "optional_field": None,
-                    "nested": {"required": "value", "optional": None}
+                    # optional_field removed entirely
+                    "nested": {"required": "value"}  # optional removed entirely
                 }
                 assert sent_payload['variables'] == expected_variables
                 assert result == {"test": "result"}
@@ -262,14 +259,25 @@ class TestUndefinedHandling:
         assert result == query
 
     def test_transform_null_arrays_simple(self, client):
-        """Test transforming null values to empty arrays for array-like field names."""
-        data = {
-            "users": None,  # Should become []
-            "items": None,  # Should become []
-            "name": None,   # Should remain None
-            "count": None   # Should remain None
+        """Test transforming null values with schema-based approach (no field name heuristics)."""
+        # Mock schema introspection to provide array field information
+        client._introspected = True
+        client._array_fields_cache = {
+            "Query": {
+                "users": True,   # Schema says this is a list
+                "items": True,   # Schema says this is a list
+                "name": False,   # Schema says this is scalar
+                "count": False   # Schema says this is scalar
+            }
         }
-        result = client._transform_null_arrays(data)
+        
+        data = {
+            "users": None,  # Should become [] based on schema
+            "items": None,  # Should become [] based on schema
+            "name": None,   # Should remain None (schema says scalar)
+            "count": None   # Should remain None (schema says scalar)
+        }
+        result = client._transform_null_arrays(data, type_context="Query")
         expected = {
             "users": [],
             "items": [],
@@ -279,19 +287,58 @@ class TestUndefinedHandling:
         assert result == expected
 
     def test_transform_null_arrays_nested(self, client):
-        """Test transforming null arrays in nested structures."""
+        """Test transforming null arrays in nested structures with automatic schema introspection."""
+        # Mock complete schema introspection 
+        mock_schema = {
+            "__schema": {
+                "types": [
+                    {
+                        "name": "Query",
+                        "kind": "OBJECT",
+                        "fields": [
+                            {"name": "user", "type": {"kind": "OBJECT", "name": "User"}},
+                            {"name": "results", "type": {"kind": "LIST", "ofType": {"kind": "OBJECT", "name": "Result"}}}
+                        ]
+                    },
+                    {
+                        "name": "User",
+                        "kind": "OBJECT",
+                        "fields": [
+                            {"name": "name", "type": {"kind": "SCALAR", "name": "String"}},
+                            {"name": "addresses", "type": {"kind": "LIST", "ofType": {"kind": "OBJECT", "name": "Address"}}},
+                            {"name": "profile", "type": {"kind": "OBJECT", "name": "Profile"}}
+                        ]
+                    },
+                    {
+                        "name": "Profile",
+                        "kind": "OBJECT",
+                        "fields": [
+                            {"name": "tags", "type": {"kind": "LIST", "ofType": {"kind": "SCALAR", "name": "String"}}},
+                            {"name": "bio", "type": {"kind": "SCALAR", "name": "String"}}
+                        ]
+                    }
+                ]
+            }
+        }
+        
+        # Use automatic schema introspection
+        import asyncio
+        from unittest.mock import patch
+        with patch.object(client, '_raw_execute_request', return_value=mock_schema):
+            asyncio.run(client._introspect_schema())
+        
         data = {
             "user": {
                 "name": "John",
-                "addresses": None,  # Should become []
+                "addresses": None,  # Should become [] (schema: User.addresses is list)
                 "profile": {
-                    "tags": None,    # Should become []
-                    "bio": None      # Should remain None
+                    "tags": None,    # Should become [] (schema: Profile.tags is list)
+                    "bio": None      # Should remain None (schema: Profile.bio is scalar)
                 }
             },
-            "results": None  # Should become []
+            "results": None  # Should become [] (schema: Query.results is list)
         }
-        result = client._transform_null_arrays(data)
+        result = client._transform_null_arrays(data, type_context="Query")
         expected = {
             "user": {
                 "name": "John",
@@ -306,20 +353,73 @@ class TestUndefinedHandling:
         assert result == expected
 
     def test_transform_null_arrays_in_lists(self, client):
-        """Test transforming null arrays within lists."""
+        """Test transforming null arrays within lists using sibling analysis."""
+        # No schema introspection for this test - relies on sibling analysis
+        client._introspected = False
+        client._array_fields_cache = {}
+        
         data = {
             "data": [
                 {"items": None, "name": "test1"},
-                {"items": ["a", "b"], "name": "test2"},
-                {"components": None, "name": "test3"}
+                {"items": ["a", "b"], "name": "test2"},     # This sibling shows items can be an array
+                {"items": None, "name": "test3"}           # Should also become [] due to sibling
             ]
         }
         result = client._transform_null_arrays(data)
         expected = {
             "data": [
-                {"items": [], "name": "test1"},
+                {"items": [], "name": "test1"},          # Converted due to sibling analysis
                 {"items": ["a", "b"], "name": "test2"},
-                {"components": [], "name": "test3"}
+                {"items": [], "name": "test3"}           # Converted due to sibling analysis
             ]
+        }
+        assert result == expected
+
+    def test_transform_null_arrays_without_schema_no_heuristics(self, client):
+        """Test that without schema information, no field name heuristics are used (as requested)."""
+        # Ensure no schema information is available
+        client._introspected = False
+        client._array_fields_cache = {}
+        
+        data = {
+            "users": None,      # Would have become [] with old heuristics, now stays None
+            "items": None,      # Would have become [] with old heuristics, now stays None  
+            "results": None,    # Would have become [] with old heuristics, now stays None
+            "components": None, # Would have become [] with old heuristics, now stays None
+            "name": None        # Should remain None (never had heuristics)
+        }
+        result = client._transform_null_arrays(data)
+        
+        # Without schema information, nothing should be converted
+        # This confirms we got rid of "Fallback to field name heuristics as last resort"
+        expected = {
+            "users": None,      # Stays None (no heuristic fallback)
+            "items": None,      # Stays None (no heuristic fallback)
+            "results": None,    # Stays None (no heuristic fallback) 
+            "components": None, # Stays None (no heuristic fallback)
+            "name": None
+        }
+        assert result == expected
+
+    def test_transform_null_arrays_sibling_analysis_still_works(self, client):
+        """Test that sibling analysis still works when schema is unavailable."""
+        # No schema information available
+        client._introspected = False
+        client._array_fields_cache = {}
+        
+        data = {
+            "items": None,
+            "other_items": ["a", "b", "c"],  # Sibling shows this field can be an array
+            "users": None,
+            "name": None
+        }
+        result = client._transform_null_arrays(data)
+        
+        # Only fields with explicit sibling evidence should convert
+        expected = {
+            "items": None,              # No sibling with same name showing it's an array
+            "other_items": ["a", "b", "c"],
+            "users": None,              # No sibling evidence
+            "name": None
         }
         assert result == expected
