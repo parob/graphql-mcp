@@ -51,7 +51,11 @@ logger = logging.getLogger(__name__)
 
 def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     """
-    Extract bearer token from MCP request context.
+    Extract bearer token from MCP request context for REMOTE server forwarding.
+
+    This function is only used when forwarding bearer tokens to remote GraphQL servers.
+    For local GraphQL schema execution, token context is automatically available
+    through FastMCP and no extraction/forwarding is needed.
 
     Args:
         ctx: FastMCP Context object
@@ -79,16 +83,24 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
     @classmethod
     def from_schema(cls, graphql_schema: GraphQLSchema, allow_mutations: bool = True, *args, **kwargs):
         """
-        Create a GraphQLMCPServer from a GraphQL schema.
+        Create a GraphQLMCPServer from a LOCAL GraphQL schema.
+
+        This method creates tools that execute GraphQL operations directly against the
+        provided schema. Bearer token authentication is handled automatically through
+        the FastMCP Context object - no token forwarding configuration is needed.
 
         Args:
-            graphql_schema: The GraphQL schema
+            graphql_schema: The GraphQL schema to expose as MCP tools
             allow_mutations: Whether to expose mutations as tools (default: True)
             *args: Additional arguments to pass to FastMCP
             **kwargs: Additional keyword arguments to pass to FastMCP
 
         Returns:
             GraphQLMCPServer: A server instance with tools generated from the schema
+
+        Note:
+            For remote GraphQL servers, use `from_remote_url()` instead, which provides
+            the `forward_bearer_token` option for token forwarding scenarios.
         """
         # Create a FastMCP instance and add tools from schema
         instance = FastMCP(*args, **kwargs)
@@ -117,7 +129,11 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
             timeout: Request timeout in seconds
             allow_mutations: Whether to expose mutations as tools (default: True)
             forward_bearer_token: Whether to forward bearer tokens from MCP requests
-                to the GraphQL server (default: False).
+                to the remote GraphQL server (default: False).
+
+                IMPORTANT: This parameter is ONLY relevant for remote GraphQL servers.
+                For local schemas (using `from_schema()`), bearer token context is
+                automatically available through FastMCP's Context object.
 
                 SECURITY WARNING: When enabled, bearer tokens from incoming MCP requests
                 will be forwarded to the remote GraphQL server. This means:
@@ -379,7 +395,11 @@ def add_tools_from_schema(
     allow_mutations: bool = True
 ) -> FastMCP:
     """
-    Populates a FastMCP server with tools generated from a GraphQLSchema.
+    Populates a FastMCP server with tools for LOCAL GraphQL schema execution.
+
+    This function creates tools that execute GraphQL operations directly against
+    the provided schema. Bearer token authentication is handled automatically
+    through the FastMCP Context object.
 
     If a server instance is not provided, a new one will be created.
     Processes mutations first, then queries, so that queries will overwrite
@@ -389,6 +409,10 @@ def add_tools_from_schema(
     :param server: An optional existing FastMCP server instance to add tools to.
     :param allow_mutations: Whether to expose mutations as tools (default: True).
     :return: The populated FastMCP server instance.
+
+    Note:
+        For remote GraphQL servers, use `add_tools_from_schema_with_remote()` instead,
+        which provides bearer token forwarding capabilities.
     """
     if server is None:
         server_name = "GraphQL"
@@ -416,14 +440,25 @@ def add_tools_from_schema_with_remote(
     forward_bearer_token: bool = False
 ) -> FastMCP:
     """
-    Populates a FastMCP server with tools that execute against a remote GraphQL server.
+    Populates a FastMCP server with tools for REMOTE GraphQL server execution.
+
+    This function creates tools that forward GraphQL operations to a remote server
+    via the provided RemoteGraphQLClient. Unlike local schema execution, bearer
+    tokens are not automatically available and must be explicitly forwarded if needed.
 
     :param schema: The GraphQLSchema from the remote server
     :param server: The FastMCP server instance to add tools to
     :param remote_client: The remote GraphQL client for executing queries
     :param allow_mutations: Whether to expose mutations as tools (default: True)
-    :param forward_bearer_token: Whether to forward bearer tokens from MCP requests (default: False)
+    :param forward_bearer_token: Whether to forward bearer tokens from MCP requests 
+                                to the remote server (default: False). Only relevant
+                                for remote servers - local schemas get token context
+                                automatically through FastMCP.
     :return: The populated FastMCP server instance
+
+    Security Note:
+        When forward_bearer_token=True, client bearer tokens will be sent to the
+        remote GraphQL server. Only enable this if you trust the remote server.
     """
     # Process mutations first (if allowed), then queries
     if allow_mutations and schema.mutation_type:
@@ -449,7 +484,11 @@ def _create_tool_function(
     is_mutation: bool = False,
 ) -> Callable:
     """
-    Creates a function that can be decorated as a fastmcp tool.
+    Creates a function for LOCAL GraphQL schema execution.
+    
+    This function executes GraphQL operations directly against the provided schema.
+    Bearer token authentication is automatically available through FastMCP's Context.
+    No token forwarding is needed since execution happens locally.
     """
     parameters = []
     arg_defs = []
@@ -757,7 +796,14 @@ def _create_remote_tool_function(
     forward_bearer_token: bool = False,
 ) -> Callable:
     """
-    Creates a function that executes against a remote GraphQL server.
+    Creates a function for REMOTE GraphQL server execution.
+    
+    This function forwards GraphQL operations to a remote server via RemoteGraphQLClient.
+    Unlike local execution, bearer tokens are not automatically available and must be
+    explicitly extracted from the MCP request context if forwarding is enabled.
+    
+    :param forward_bearer_token: Whether to extract bearer token from MCP request
+                               context and forward it to the remote server.
     """
     parameters = []
     arg_defs = []
