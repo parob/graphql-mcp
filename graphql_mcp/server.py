@@ -187,7 +187,8 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         **kwargs
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response, stateless_http, transport, **kwargs)
-        app.add_middleware(MCPRedirectMiddleware)
+        # Remove this for now, it's not working
+        # app.add_middleware(MCPRedirectMiddleware)
         return app
 
 
