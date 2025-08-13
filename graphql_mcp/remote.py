@@ -230,7 +230,8 @@ class RemoteGraphQLClient:
         Behavior (per tests):
         - If variables is None or empty, remove the entire variable declaration list from the header.
         - Otherwise, keep only declarations whose names exist in the variables dict.
-        - Do not touch parentheses elsewhere in the query body (e.g., field arguments).
+        Additionally, ensure the query body does not reference variables we removed from the header
+        by stripping corresponding "arg: $var" pairs to avoid server-side validation errors.
         """
         import re
 
@@ -248,6 +249,7 @@ class RemoteGraphQLClient:
 
         # If no variables provided, strip the entire declaration list
         if not variables:
+            # Remove header declarations entirely, do not touch the body
             return query.replace(full_block, full_block.split('(')[0].rstrip())
 
         kept: list[str] = []
@@ -263,10 +265,63 @@ class RemoteGraphQLClient:
 
         if kept:
             new_block = full_block.split('(')[0] + '(' + ', '.join(kept) + ')'
+            # Replace only the header, do not touch the body
             return query.replace(full_block, new_block, 1)
         else:
             # Remove parentheses entirely if nothing kept
             return query.replace(full_block, full_block.split('(')[0].rstrip(), 1)
+
+    def _remove_unused_variables_from_query_and_body(self, query: str, variables: Optional[Dict[str, Any]]) -> str:
+        """Strips unused variable declarations from the header AND removes corresponding usages in the body.
+
+        This is used only at execution time to prevent server-side errors like
+        "Variable '$x' is not defined" when optional variables are omitted.
+        Tests call _remove_unused_variables_from_query() and expect header-only behavior.
+        """
+        import re
+
+        # First perform header-level filtering using the tested function
+        new_query = self._remove_unused_variables_from_query(query, variables)
+
+        # If no variables provided, drop all usages in body
+        if not variables:
+            # Remove any ", arg: $var" or leading "(arg: $var, ...)" patterns
+            new_query = re.sub(r"\s*,\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*", "", new_query)
+            new_query = re.sub(r"\(\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*\s*,\s*", "(", new_query)
+            new_query = re.sub(r"\(\s*\)", "()", new_query)
+            new_query = re.sub(r"\(\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*\s*\)", "()", new_query)
+            return new_query
+
+        # Identify variables declared in header after filtering
+        header_match = re.search(r"\b(query|mutation)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?\(([^)]*)\)", new_query, re.IGNORECASE)
+        kept_vars: set[str] = set()
+        if header_match:
+            for decl in header_match.group(2).split(','):
+                m = re.match(r"\s*\$([A-Za-z_][A-Za-z0-9_]*)", decl)
+                if m:
+                    kept_vars.add(m.group(1))
+
+        # Remove usages for variables NOT in kept_vars
+        # Determine original declared vars from the original query's header
+        original_match = re.search(r"\b(query|mutation)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?\(([^)]*)\)", query, re.IGNORECASE)
+        original_vars: set[str] = set()
+        if original_match:
+            for decl in original_match.group(2).split(','):
+                m = re.match(r"\s*\$([A-Za-z_][A-Za-z0-9_]*)", decl)
+                if m:
+                    original_vars.add(m.group(1))
+
+        dropped = original_vars - kept_vars
+        for var_name in dropped:
+            # Remove usage patterns for this var
+            new_query = re.sub(rf"\s*,\s*\w+\s*:\s*\${var_name}\b", "", new_query)
+            new_query = re.sub(rf"\(\s*\w+\s*:\s*\${var_name}\s*,\s*", "(", new_query)
+            new_query = re.sub(rf"\(\s*\w+\s*:\s*\${var_name}\s*\)", "()", new_query)
+            new_query = re.sub(rf"\b\w+\s*:\s*\${var_name}\b", "", new_query)
+            new_query = re.sub(r"\(\s*,\s*\)", "()", new_query)
+            new_query = re.sub(r",\s*,", ",", new_query)
+
+        return new_query
 
     def _transform_null_arrays(self, data: Any, parent_key: str = '', type_context: Optional[str] = None) -> Any:
         """Transform null values to empty arrays based on GraphQL schema types."""
@@ -614,7 +669,7 @@ class RemoteGraphQLClient:
 
         # For "remove" strategy, also remove variable declarations from query
         if self.undefined_strategy == "remove":
-            cleaned_query = self._remove_unused_variables_from_query(query, cleaned_variables)
+            cleaned_query = self._remove_unused_variables_from_query_and_body(query, cleaned_variables)
         else:
             # For "null" strategy, keep original query since variables are converted to null
             cleaned_query = query

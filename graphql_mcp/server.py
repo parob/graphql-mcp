@@ -556,7 +556,6 @@ def _create_tool_function(
         if not arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
-        # Execute the query
         result = await graphql(schema, query_str, variable_values=processed_kwargs)
 
         if result.errors:
@@ -665,6 +664,7 @@ def _create_recursive_tool_function(
 
     graphql_body = _build_call(0)
 
+    # Build static query for this nested path
     arg_def_str = ", ".join(arg_defs)
     operation_header = (
         f"{operation_type} ({arg_def_str})" if arg_def_str else operation_type
@@ -876,11 +876,13 @@ def _create_remote_tool_function(
                                     except Exception:
                                         continue
 
-        # Build GraphQL query
+        # Build GraphQL query (only include variables that are not Undefined)
+        from graphql.pyutils import Undefined
         operation_type = "mutation" if is_mutation else "query"
-        arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
+        arg_str = ", ".join(
+            f"{name}: ${name}" for name, value in processed_kwargs.items() if value is not Undefined
+        )
         selection_set = _build_selection_set(field.type)
-
         query_str = f"{operation_type} ({', '.join(arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
         if not arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
@@ -961,16 +963,19 @@ def _create_recursive_remote_tool_function(
     )
     annotations["ctx"] = Optional[Context]
 
-    # Build nested call string
-    def _build_call(index: int) -> str:
+    # Build nested call string dynamically based on provided variables
+    def _build_call_filtered(index: int, provided: set[str]) -> str:
         field_name, field_def = path[index]
         if field_def.args:
-            arg_str_parts = []
+            arg_str_parts: list[str] = []
             for arg in field_def.args.keys():
                 var_name = arg if index == len(path) - 1 else f"{field_name}_{arg}"
-                arg_str_parts.append(f"{arg}: ${var_name}")
-            arg_str = ", ".join(arg_str_parts)
-            call = f"{field_name}({arg_str})"
+                if var_name in provided:
+                    arg_str_parts.append(f"{arg}: ${var_name}")
+            if arg_str_parts:
+                call = f"{field_name}({', '.join(arg_str_parts)})"
+            else:
+                call = field_name
         else:
             call = field_name
 
@@ -978,15 +983,7 @@ def _create_recursive_remote_tool_function(
             selection_set = _build_selection_set(field_def.type)
             return f"{call} {selection_set}"
 
-        return f"{call} {{ {_build_call(index + 1)} }}"
-
-    graphql_body = _build_call(0)
-
-    arg_def_str = ", ".join(arg_defs)
-    operation_header = (
-        f"{operation_type} ({arg_def_str})" if arg_def_str else operation_type
-    )
-    query_str = f"{operation_header} {{ {graphql_body} }}"
+        return f"{call} {{ {_build_call_filtered(index + 1, provided)} }}"
 
     # Tool wrapper
     async def wrapper(**kwargs):
@@ -1022,6 +1019,24 @@ def _create_recursive_remote_tool_function(
                                             break
                                     except Exception:
                                         continue
+
+        # Build query using only provided variables
+        provided_vars = set(processed_kwargs.keys())
+
+        # Build filtered variable declarations
+        filtered_arg_defs: list[str] = []
+        for idx, (fname, fdef) in enumerate(path):
+            for arg in fdef.args.keys():
+                var_name = arg if idx == len(path) - 1 else f"{fname}_{arg}"
+                if var_name in provided_vars:
+                    filtered_arg_defs.append(f"${var_name}: {_get_graphql_type_name(fdef.args[arg].type)}")
+
+        arg_def_str = ", ".join(filtered_arg_defs)
+        operation_header = (
+            f"{operation_type} ({arg_def_str})" if arg_def_str else operation_type
+        )
+        graphql_body = _build_call_filtered(0, provided_vars)
+        query_str = f"{operation_header} {{ {graphql_body} }}"
 
         # Execute against remote server with optional bearer token override
         try:
