@@ -8,6 +8,7 @@ from graphql import (
     build_client_schema,
     get_introspection_query
 )
+from graphql.pyutils import Undefined
 
 
 async def fetch_remote_schema(
@@ -130,6 +131,37 @@ class RemoteGraphQLClient:
         if self.bearer_token:
             self.headers["Authorization"] = f"Bearer {self.bearer_token}"
 
+    def _clean_variables(self, variables: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Remove or convert Undefined values from variables dictionary."""
+        if not variables:
+            return variables
+            
+        cleaned = {}
+        for key, value in variables.items():
+            if value is not Undefined:
+                # Recursively clean nested dictionaries
+                if isinstance(value, dict):
+                    cleaned_nested = self._clean_variables(value)
+                    if cleaned_nested:  # Only include non-empty dicts
+                        cleaned[key] = cleaned_nested
+                elif isinstance(value, list):
+                    # Clean lists by filtering out Undefined values and recursively cleaning nested dicts
+                    cleaned_list = []
+                    for item in value:
+                        if item is not Undefined:
+                            if isinstance(item, dict):
+                                cleaned_item = self._clean_variables(item)
+                                if cleaned_item:  # Only include non-empty cleaned dicts
+                                    cleaned_list.append(cleaned_item)
+                            else:
+                                cleaned_list.append(item)
+                    if cleaned_list:  # Only include non-empty lists
+                        cleaned[key] = cleaned_list
+                else:
+                    cleaned[key] = value
+        
+        return cleaned if cleaned else None
+
     async def __aenter__(self):
         """Async context manager entry."""
         self._session = aiohttp.ClientSession()
@@ -227,8 +259,10 @@ class RemoteGraphQLClient:
             "query": query,
         }
 
-        if variables:
-            payload["variables"] = variables  # type: ignore
+        # Clean variables to remove Undefined values
+        cleaned_variables = self._clean_variables(variables)
+        if cleaned_variables:
+            payload["variables"] = cleaned_variables
 
         if operation_name:
             payload["operationName"] = operation_name
