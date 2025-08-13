@@ -37,6 +37,7 @@ setup(
             "graphql-api>=1.4.13",
             "pytest~=5.4",
             "pytest-cov~=2.10",
+            "strawberry-graphql~=0.278",
             "coverage~=5.2",
             "faker~=4.1",
             "fastmcp>=2.11.2",

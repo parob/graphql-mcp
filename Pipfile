@@ -11,6 +11,7 @@ graphql-http-server = "*"
 
 [dev-packages]
 pytest = "*"
+strawberry-graphql = "*"
 pytest-cov = "*"
 pytest-asyncio = "*"
 coverage = "*"
