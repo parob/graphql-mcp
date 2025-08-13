@@ -116,6 +116,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         timeout: int = 30,
         allow_mutations: bool = True,
         forward_bearer_token: bool = False,
+        verify_ssl: bool = True,
         *args,
         **kwargs
     ):
@@ -168,7 +169,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         instance = FastMCP(*args, **kwargs)
 
         # Create a remote client for executing queries
-        client = RemoteGraphQLClient(url, request_headers, timeout, bearer_token=bearer_token)
+        client = RemoteGraphQLClient(url, request_headers, timeout, bearer_token=bearer_token, verify_ssl=verify_ssl)
 
         # Add tools from schema with remote client
         add_tools_from_schema_with_remote(schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)

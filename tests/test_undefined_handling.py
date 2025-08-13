@@ -44,7 +44,7 @@ class TestUndefinedHandling:
             "age": 25
         }
         result = client._clean_variables(variables)
-        expected = {"name": "test", "age": 25}
+        expected = {"name": "test", "undefined_field": None, "age": 25}
         assert result == expected
 
     def test_clean_variables_nested_undefined(self, client):
@@ -63,8 +63,10 @@ class TestUndefinedHandling:
         expected = {
             "user": {
                 "name": "test",
+                "email": None,
                 "profile": {
-                    "bio": "test bio"
+                    "bio": "test bio",
+                    "avatar": None
                 }
             }
         }
@@ -78,8 +80,8 @@ class TestUndefinedHandling:
         }
         result = client._clean_variables(variables)
         expected = {
-            "tags": ["tag1", "tag2"],
-            "ids": [1, 2, 3]
+            "tags": ["tag1", None, "tag2"],
+            "ids": [1, 2, None, 3]
         }
         assert result == expected
 
@@ -89,40 +91,50 @@ class TestUndefinedHandling:
             "items": [
                 {"name": "item1", "optional": Undefined},
                 {"name": "item2", "optional": "value"},
-                Undefined,  # This entire item should be filtered out
+                Undefined,  # This becomes None in the list
                 {"name": "item3", "nested": {"keep": "this", "remove": Undefined}}
             ]
         }
         result = client._clean_variables(variables)
         expected = {
             "items": [
-                {"name": "item1"},
+                {"name": "item1", "optional": None},
                 {"name": "item2", "optional": "value"},
-                {"name": "item3", "nested": {"keep": "this"}}
+                None,  # Undefined becomes None
+                {"name": "item3", "nested": {"keep": "this", "remove": None}}
             ]
         }
         assert result == expected
 
     def test_clean_variables_empty_after_cleaning(self, client):
-        """Test that empty structures after cleaning are removed."""
+        """Test that structures with Undefined values become None values."""
         variables = {
             "empty_dict": {"undefined_only": Undefined},
             "empty_list": [Undefined, Undefined],
             "valid_field": "keep_me"
         }
         result = client._clean_variables(variables)
-        expected = {"valid_field": "keep_me"}
+        expected = {
+            "empty_dict": {"undefined_only": None},
+            "empty_list": [None, None],
+            "valid_field": "keep_me"
+        }
         assert result == expected
 
     def test_clean_variables_all_undefined(self, client):
-        """Test that completely Undefined structure returns None."""
+        """Test that completely Undefined structure becomes all None values."""
         variables = {
             "field1": Undefined,
             "field2": Undefined,
             "nested": {"inner": Undefined}
         }
         result = client._clean_variables(variables)
-        assert result is None
+        expected = {
+            "field1": None,
+            "field2": None,
+            "nested": {"inner": None}
+        }
+        assert result == expected
 
     def test_clean_variables_complex_nesting(self, client):
         """Test cleaning deeply nested structures."""
@@ -145,8 +157,10 @@ class TestUndefinedHandling:
                 "level2": {
                     "level3": {
                         "keep": "this",
-                        "list": ["item"]
-                    }
+                        "remove": None,
+                        "list": [None, "item", None]
+                    },
+                    "other": None
                 },
                 "sibling": "value"
             }
@@ -169,28 +183,31 @@ class TestUndefinedHandling:
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value={"data": {"test": "result"}})
         
-        with patch('aiohttp.ClientSession.post') as mock_post:
-            mock_post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_post.return_value.__aexit__ = AsyncMock(return_value=None)
-            
-            result = await client._execute_request(
-                "query Test($name: String, $nested: TestInput) { test }",
-                variables,
-                None,
-                False,
-                {}
-            )
+        # Mock schema introspection to avoid interfering with the test
+        with patch.object(client, '_introspect_schema', new_callable=AsyncMock):
+            with patch('aiohttp.ClientSession.post') as mock_post:
+                mock_post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+                mock_post.return_value.__aexit__ = AsyncMock(return_value=None)
+                
+                result = await client._execute_request(
+                    "query Test($name: String, $nested: TestInput) { test }",
+                    variables,
+                    None,
+                    False,
+                    {}
+                )
 
-            # Verify that the request was made with cleaned variables
-            call_args = mock_post.call_args
-            sent_payload = call_args[1]['json']
-            
-            expected_variables = {
-                "name": "test",
-                "nested": {"required": "value"}
-            }
-            assert sent_payload['variables'] == expected_variables
-            assert result == {"test": "result"}
+                # Verify that the request was made with cleaned variables
+                call_args = mock_post.call_args
+                sent_payload = call_args[1]['json']
+                
+                expected_variables = {
+                    "name": "test",
+                    "optional_field": None,
+                    "nested": {"required": "value", "optional": None}
+                }
+                assert sent_payload['variables'] == expected_variables
+                assert result == {"test": "result"}
 
     @pytest.mark.asyncio
     async def test_execute_with_token_cleans_variables(self, client):
@@ -221,3 +238,88 @@ class TestUndefinedHandling:
             mock_execute.assert_called_once_with(
                 "query", variables, None, True, client.headers
             )
+
+    def test_remove_unused_variables_from_query_no_variables(self, client):
+        """Test removing variable declarations when no variables provided."""
+        query = "query GetUser($id: ID!, $name: String) { user(id: $id, name: $name) { id name } }"
+        result = client._remove_unused_variables_from_query(query, None)
+        expected = "query GetUser { user(id: $id, name: $name) { id name } }"
+        assert result == expected
+
+    def test_remove_unused_variables_from_query_partial_variables(self, client):
+        """Test removing only unused variable declarations."""
+        query = "query GetUser($id: ID!, $name: String, $age: Int) { user { id } }"
+        variables = {"id": "123", "age": 25}  # name not provided
+        result = client._remove_unused_variables_from_query(query, variables)
+        expected = "query GetUser($id: ID!, $age: Int) { user { id } }"
+        assert result == expected
+
+    def test_remove_unused_variables_from_query_all_variables_present(self, client):
+        """Test query remains unchanged when all variables are present."""
+        query = "query GetUser($id: ID!, $name: String) { user(id: $id) { name } }"
+        variables = {"id": "123", "name": "John"}
+        result = client._remove_unused_variables_from_query(query, variables)
+        assert result == query
+
+    def test_transform_null_arrays_simple(self, client):
+        """Test transforming null values to empty arrays for array-like field names."""
+        data = {
+            "users": None,  # Should become []
+            "items": None,  # Should become []
+            "name": None,   # Should remain None
+            "count": None   # Should remain None
+        }
+        result = client._transform_null_arrays(data)
+        expected = {
+            "users": [],
+            "items": [],
+            "name": None,
+            "count": None
+        }
+        assert result == expected
+
+    def test_transform_null_arrays_nested(self, client):
+        """Test transforming null arrays in nested structures."""
+        data = {
+            "user": {
+                "name": "John",
+                "addresses": None,  # Should become []
+                "profile": {
+                    "tags": None,    # Should become []
+                    "bio": None      # Should remain None
+                }
+            },
+            "results": None  # Should become []
+        }
+        result = client._transform_null_arrays(data)
+        expected = {
+            "user": {
+                "name": "John",
+                "addresses": [],
+                "profile": {
+                    "tags": [],
+                    "bio": None
+                }
+            },
+            "results": []
+        }
+        assert result == expected
+
+    def test_transform_null_arrays_in_lists(self, client):
+        """Test transforming null arrays within lists."""
+        data = {
+            "data": [
+                {"items": None, "name": "test1"},
+                {"items": ["a", "b"], "name": "test2"},
+                {"components": None, "name": "test3"}
+            ]
+        }
+        result = client._transform_null_arrays(data)
+        expected = {
+            "data": [
+                {"items": [], "name": "test1"},
+                {"items": ["a", "b"], "name": "test2"},
+                {"components": [], "name": "test3"}
+            ]
+        }
+        assert result == expected
