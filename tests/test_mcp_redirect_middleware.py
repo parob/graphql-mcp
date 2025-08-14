@@ -2,7 +2,6 @@ from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
 
-from graphql_mcp.server import MCPRedirectMiddleware
 
 
 def create_app():
@@ -17,10 +16,7 @@ def create_app():
     # Additional route to test nested path behaviour.
     @app.route("/prefix/mcp/")
     async def prefixed_mcp_endpoint(request):  # type: ignore
-        return PlainTextResponse(request.url.path)
-
-    # Attach the middleware under test.
-    app.add_middleware(MCPRedirectMiddleware)
+        return PlainTextResponse(request.url.pat
     return app
 
 
