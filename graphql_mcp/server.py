@@ -590,6 +590,13 @@ class GraphQLRootMiddleware:
         if scope.get("type") == "http" and not path.endswith("/mcp") and not path.endswith("/mcp/"):
             await self.graphql_app(scope, receive, send)
             return
+        if scope['type'] == 'http':
+            path = scope['path']
+            if path.endswith('/mcp/'):
+                new_path = path[:-1]
+                scope['path'] = new_path
+                if 'raw_path' in scope:
+                    scope['raw_path'] = new_path.encode()
         await self.app(scope, receive, send)
 
 
