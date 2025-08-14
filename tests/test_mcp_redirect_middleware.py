@@ -16,7 +16,7 @@ def create_app():
     # Additional route to test nested path behaviour.
     @app.route("/prefix/mcp/")
     async def prefixed_mcp_endpoint(request):  # type: ignore
-        return PlainTextResponse(request.url.pat
+        return PlainTextResponse(request.url.path)
     return app
 
 
@@ -26,9 +26,9 @@ def test_mcp_redirect_rewrites_to_trailing_slash():
     client = TestClient(app)
 
     # 1. Path with trailing slash should be rewritten.
-    response = client.get("/mcp/")
+    response = client.get("/mcp")
     assert response.status_code == 200
-    assert response.text == "/mcp"  # Endpoint received the rewritten path.
+    assert response.text == "/mcp/"  # Endpoint received the rewritten path.
 
     # 2. Path with trailing slash should still work.
     response = client.get("/mcp/")
