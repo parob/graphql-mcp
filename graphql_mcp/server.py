@@ -187,8 +187,6 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         **kwargs
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response, stateless_http, transport, **kwargs)
-        # Remove this for now, it's not working
-        # app.add_middleware(MCPRedirectMiddleware)
         return app
 
 
@@ -238,7 +236,7 @@ try:
                     if self.auth:
                         logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTPServer. Please use a different auth mechanism, or disable GraphQLHTTPServer.")
 
-                app.mount("/", graphql_app)
+                app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
             return app
 
 
@@ -582,30 +580,17 @@ def _create_tool_function(
     return wrapper
 
 
-class MCPRedirectMiddleware:
-    def __init__(
-        self,
-        app: ASGIApp
-    ) -> None:
+class GraphQLRootMiddleware:
+    def __init__(self, app: ASGIApp, graphql_app: ASGIApp) -> None:
         self.app = app
+        self.graphql_app = graphql_app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope['type'] == 'http':
-            path = scope['path']
-            # If the request path ends with '/mcp' but does not already have the
-            # trailing slash, rewrite it so downstream routing sees the
-            # canonical path with the slash.
-            if path.endswith('/mcp') and not path.endswith('/mcp/'):
-                new_path = path + '/'
-                scope['path'] = new_path
-                if 'raw_path' in scope:
-                    scope['raw_path'] = new_path.encode()
+        path = scope.get("path") or ""
+        if scope.get("type") == "http" and not path.endswith("/mcp") and not path.endswith("/mcp/"):
+            await self.graphql_app(scope, receive, send)
+            return
         await self.app(scope, receive, send)
-
-
-# ---------------------------------------------------------------------------
-# Recursive nested tool generation (any depth)
-# ---------------------------------------------------------------------------
 
 
 def _create_recursive_tool_function(

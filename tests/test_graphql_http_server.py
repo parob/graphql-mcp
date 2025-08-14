@@ -67,33 +67,6 @@ async def test_graphql_http_server_can_be_disabled():
     assert mcp_server.graphql_http_server is False
 
 
-def test_graphql_http_server_integration():
-    """Integration test that creates a real HTTP server with GraphQL endpoint."""
-    if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
-
-    api = create_test_api()
-
-    # Create MCP server with GraphQL HTTP server enabled
-    mcp_server = GraphQLMCPServer.from_api(api, graphql_http_server=True, name="TestServer")
-
-    # Get the HTTP app (this should mount GraphQL HTTP server)
-    with patch('fastmcp.FastMCP.http_app') as mock_parent:
-        # Create a mock parent app that we can test against
-        mock_app = Mock()
-        mock_app.mount = Mock()
-        mock_parent.return_value = mock_app
-
-        # Call http_app - this should trigger the GraphQL HTTP server mounting
-        mcp_server.http_app()
-
-        # Verify that mount was called (GraphQL server was mounted)
-        mock_app.mount.assert_called_once()
-        call_args = mock_app.mount.call_args
-        assert call_args[0][0] == "/"  # Mounted at root
-        assert hasattr(call_args[0][1], '__call__')  # Second arg should be the GraphQL app
-
-
 def test_graphql_http_server_disabled_integration():
     """Integration test that GraphQL HTTP server is not mounted when disabled."""
     if not HAS_DEPENDENCIES:

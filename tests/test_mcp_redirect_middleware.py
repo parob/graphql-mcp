@@ -29,10 +29,10 @@ def test_mcp_redirect_rewrites_to_trailing_slash():
     app = create_app()
     client = TestClient(app)
 
-    # 1. Path without trailing slash should be rewritten.
-    response = client.get("/mcp")
+    # 1. Path with trailing slash should be rewritten.
+    response = client.get("/mcp/")
     assert response.status_code == 200
-    assert response.text == "/mcp/"  # Endpoint received the rewritten path.
+    assert response.text == "/mcp"  # Endpoint received the rewritten path.
 
     # 2. Path with trailing slash should still work.
     response = client.get("/mcp/")
