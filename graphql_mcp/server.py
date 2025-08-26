@@ -249,14 +249,20 @@ except ImportError:
     GraphQLBytes = object()
 
 
-def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
+def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[str, Any]] = None) -> Any:
     """
     Maps a GraphQL type to a Python type for function signatures.
+    
+    Args:
+        graphql_type: The GraphQL type to map
+        _cache: Internal cache to prevent infinite recursion
     """
+    if _cache is None:
+        _cache = {}
     if isinstance(graphql_type, GraphQLNonNull):
-        return _map_graphql_type_to_python_type(graphql_type.of_type)
+        return _map_graphql_type_to_python_type(graphql_type.of_type, _cache)
     if isinstance(graphql_type, GraphQLList):
-        return list[_map_graphql_type_to_python_type(graphql_type.of_type)]
+        return list[_map_graphql_type_to_python_type(graphql_type.of_type, _cache)]
 
     # Scalar types
     if graphql_type is GraphQLString:
@@ -300,10 +306,47 @@ def _map_graphql_type_to_python_type(graphql_type: Any) -> Any:
         return DynamicEnum
 
     if isinstance(graphql_type, GraphQLInputObjectType):
-        # This is complex. For now, we'll treat it as a dict.
-        # fastmcp can handle pydantic models or dataclasses.
-        # We might need to generate them on the fly.
-        return dict
+        # Check cache to prevent infinite recursion
+        cache_key = f"input_object_{graphql_type.name}"
+        if cache_key in _cache:
+            return _cache[cache_key]
+            
+        # Create a dynamic Pydantic model for GraphQL input object types
+        # This provides better MCP schema generation with detailed field information
+        try:
+            from pydantic import BaseModel, create_model
+            
+            # Add placeholder to cache first to prevent infinite recursion
+            _cache[cache_key] = dict  # Temporary placeholder
+            
+            # Build field definitions for the dynamic model
+            field_definitions = {}
+            for field_name, field_def in graphql_type.fields.items():
+                field_type = _map_graphql_type_to_python_type(field_def.type, _cache)
+                
+                # Handle default values and required fields
+                if isinstance(field_def.type, GraphQLNonNull):
+                    # Required field
+                    field_definitions[field_name] = (field_type, ...)
+                else:
+                    # For GraphQL input object fields, we typically want them to be required
+                    # unless they have explicit default values. Since we can't easily determine
+                    # the original Pydantic model defaults, we'll make them optional for safety
+                    from typing import Union
+                    field_definitions[field_name] = (Union[field_type, type(None)], None)
+            
+            # Create dynamic Pydantic model
+            model_name = f"{graphql_type.name}Model"
+            dynamic_model = create_model(model_name, **field_definitions)
+            
+            # Update cache with actual model
+            _cache[cache_key] = dynamic_model
+            return dynamic_model
+            
+        except ImportError:
+            # Fallback to dict if pydantic is not available
+            _cache[cache_key] = dict
+            return dict
 
     return Any
 
@@ -524,8 +567,20 @@ def _create_tool_function(
             elif hasattr(v, "model_dump"):  # Check for Pydantic model
                 processed_kwargs[k] = v.model_dump(mode="json")
             elif isinstance(v, dict):
-                # graphql-api expects a JSON string for dict inputs
-                processed_kwargs[k] = json.dumps(v)
+                # Check if this dict argument maps to a JSON scalar or an Input Object Type
+                if k in field.args:
+                    arg_def = field.args[k]
+                    named_type = get_named_type(arg_def.type)
+                    # If it's a GraphQLInputObjectType, keep as dict for GraphQL-core
+                    # If it's a JSON scalar type, convert to JSON string
+                    if isinstance(named_type, GraphQLInputObjectType):
+                        processed_kwargs[k] = v
+                    else:
+                        # Likely a JSON scalar type - convert to JSON string
+                        processed_kwargs[k] = json.dumps(v)
+                else:
+                    # Default: convert to JSON string for backward compatibility
+                    processed_kwargs[k] = json.dumps(v)
             else:
                 processed_kwargs[k] = v
 
@@ -675,7 +730,33 @@ def _create_recursive_tool_function(
             elif hasattr(v, "model_dump"):
                 processed_kwargs[k] = v.model_dump(mode="json")
             elif isinstance(v, dict):
-                processed_kwargs[k] = json.dumps(v)
+                # Check if this dict argument maps to a JSON scalar or an Input Object Type
+                # For nested paths, find the correct field definition
+                field_def = None
+                for idx, (field_name, fd) in enumerate(path):
+                    # Check if this variable belongs to this field level
+                    if idx == len(path) - 1:  # Leaf field
+                        if k in fd.args:
+                            field_def = fd.args[k]
+                            break
+                    else:  # Intermediate field
+                        var_name = f"{field_name}_{k}" if f"{field_name}_{k}" in kwargs else k
+                        if var_name == k and k.startswith(f"{field_name}_"):
+                            actual_arg = k[len(f"{field_name}_"):]
+                            if actual_arg in fd.args:
+                                field_def = fd.args[actual_arg]
+                                break
+                
+                if field_def:
+                    named_type = get_named_type(field_def.type)
+                    if isinstance(named_type, GraphQLInputObjectType):
+                        processed_kwargs[k] = v
+                    else:
+                        # Likely a JSON scalar type - convert to JSON string
+                        processed_kwargs[k] = json.dumps(v)
+                else:
+                    # Default: convert to JSON string for backward compatibility
+                    processed_kwargs[k] = json.dumps(v)
             else:
                 processed_kwargs[k] = v
 
