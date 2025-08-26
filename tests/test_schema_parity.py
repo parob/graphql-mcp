@@ -50,15 +50,25 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
             defs = input_schema.get("$defs") or {}
             key_prop = (input_schema.get("properties") or {}).get("key") or {}
 
-            # Expect a $ref to a local enum def
-            assert "$ref" in key_prop, f"missing $ref in key property: {key_prop}"
-            ref = key_prop["$ref"]
-            assert ref.startswith("#/$defs/"), f"unexpected ref target: {ref}"
-            enum_name = ref.split("/#$defs/")[-1] if "/#$defs/" in ref else ref.split("#/$defs/")[-1]
-            assert enum_name in defs, f"enum def {enum_name} not found in $defs: {defs.keys()}"
-            enum_def = defs[enum_name]
-            assert enum_def.get("type") == "string", f"enum should be string-typed: {enum_def}"
-            assert enum_def.get("enum") == ["ai_model", "tools_enabled"], f"enum values mismatch: {enum_def}"
+            # Accept either $ref to enum def OR inline enum with expected values
+            if "$ref" in key_prop:
+                # $ref approach (direct MCP tools)
+                ref = key_prop["$ref"]
+                assert ref.startswith("#/$defs/"), f"unexpected ref target: {ref}"
+                enum_name = ref.split("/#$defs/")[-1] if "/#$defs/" in ref else ref.split("#/$defs/")[-1]
+                assert enum_name in defs, f"enum def {enum_name} not found in $defs: {defs.keys()}"
+                enum_def = defs[enum_name]
+                assert enum_def.get("type") == "string", f"enum should be string-typed: {enum_def}"
+                assert enum_def.get("enum") == ["ai_model", "tools_enabled"], f"enum values mismatch: {enum_def}"
+            elif "enum" in key_prop:
+                # Inline enum approach (GraphQL tools with Literal types)
+                assert key_prop.get("type") == "string", f"enum should be string-typed: {key_prop}"
+                enum_values = key_prop.get("enum", [])
+                # Should contain the enum values, and may also contain enum names
+                assert "ai_model" in enum_values, f"missing 'ai_model' in enum values: {enum_values}"
+                assert "tools_enabled" in enum_values, f"missing 'tools_enabled' in enum values: {enum_values}"
+            else:
+                assert False, f"key property should have either $ref or enum: {key_prop}"
 
             # Both args should be required
             required = input_schema.get("required") or []

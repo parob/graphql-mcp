@@ -289,32 +289,48 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             return bytes
 
     if isinstance(graphql_type, GraphQLEnumType):
-        # Create a Union type that accepts both enum names and original enum values
-        from typing import Literal
+        from typing import Union, Literal
 
-        # Collect both enum names and original values
-        all_valid_values = []
+        # Check if we have integer enum values
+        has_integer_values = any(
+            isinstance(enum_value_obj.value, int)
+            for enum_value_obj in graphql_type.values.values()
+            if enum_value_obj.value is not None
+        )
 
-        for name, enum_value_obj in graphql_type.values.items():
-            # Add the enum name (what GraphQL expects)
-            all_valid_values.append(name)
-            # Add the original enum value (what users might provide)
-            if enum_value_obj.value is not None and enum_value_obj.value != name:
-                all_valid_values.append(str(enum_value_obj.value))
+        if has_integer_values:
+            # For integer enums, create a Union that accepts both int and str
+            # Collect both enum names and original integer values
+            string_values = []
+            integer_values = []
 
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_values = []
-        for val in all_valid_values:
-            if val not in seen:
-                seen.add(val)
-                unique_values.append(val)
+            for name, enum_value_obj in graphql_type.values.items():
+                string_values.append(name)  # Always add enum name
+                if enum_value_obj.value is not None and isinstance(enum_value_obj.value, int):
+                    integer_values.append(enum_value_obj.value)
+                    string_values.append(str(enum_value_obj.value))  # Also accept string version
 
-        # Create a Literal type that accepts all possible values
-        if unique_values:
-            return Literal[tuple(unique_values)]
+            # Create a Union type that accepts integers, strings, or enum names
+            if integer_values:
+                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]
+            else:
+                return Literal[tuple(string_values)]
         else:
-            return str
+            # For string enums, create a Literal that accepts both names and values
+            # Collect both enum names and values for flexible validation
+            acceptable_values = []
+
+            for name, enum_value_obj in graphql_type.values.items():
+                acceptable_values.append(name)  # Add enum name (e.g., "USER")
+                if enum_value_obj.value is not None:
+                    # Add enum value if different from name (e.g., "user")
+                    if str(enum_value_obj.value) != name:
+                        acceptable_values.append(str(enum_value_obj.value))
+
+            # Remove duplicates while preserving order
+            acceptable_values = list(dict.fromkeys(acceptable_values))
+
+            return Literal[tuple(acceptable_values)]
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
@@ -636,11 +652,14 @@ def _create_tool_function(
                                     field_type = get_named_type(field_def.type)
                                     if isinstance(field_type, GraphQLEnumType):
                                         val = item[field_name]
-                                        if isinstance(val, str) and val not in field_type.values:
+                                        # Handle both string and integer enum values
+                                        if val not in field_type.values:
                                             # Try to map VALUE->NAME using same logic as existing normalization
                                             for enum_name, enum_value in field_type.values.items():
                                                 try:
-                                                    if str(enum_value.value) == val:
+                                                    # Handle both string and integer comparisons
+                                                    if (enum_value.value == val
+                                                            or str(enum_value.value) == str(val)):
                                                         item[field_name] = enum_name
                                                         break
                                                 except Exception:
@@ -648,11 +667,19 @@ def _create_tool_function(
 
             # Handle single enum values (non-list case)
             named = get_named_type(arg_def.type)
-            if isinstance(named, GraphQLEnumType) and isinstance(data, str):
+            if isinstance(named, GraphQLEnumType):
+                # Handle both string and integer input values
                 if data not in named.values:
                     for enum_name, enum_value in named.values.items():
                         try:
-                            if str(enum_value.value) == data:
+                            # Handle integer enum values
+                            if isinstance(enum_value.value, int):
+                                if isinstance(data, int) and enum_value.value == data:
+                                    return enum_name
+                                elif isinstance(data, str) and str(enum_value.value) == data:
+                                    return enum_name
+                            # Handle string enum values
+                            elif str(enum_value.value) == str(data):
                                 return enum_name
                         except Exception:
                             continue
