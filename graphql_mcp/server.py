@@ -289,21 +289,32 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             return bytes
 
     if isinstance(graphql_type, GraphQLEnumType):
-        # Use the original Python enum for proper schema generation
-        if hasattr(graphql_type, 'enum_type') and graphql_type.enum_type:  # type: ignore
-            return graphql_type.enum_type  # type: ignore
+        # Create a Union type that accepts both enum names and original enum values
+        from typing import Literal
 
-        # Otherwise, create a Python enum class dynamically from the GraphQL enum
-        enum_members = {
-            name: value.value if value.value is not None else name
-            for name, value in graphql_type.values.items()
-        }
-        DynamicEnum = enum.Enum(
-            graphql_type.name,
-            enum_members,
-            type=str
-        )
-        return DynamicEnum
+        # Collect both enum names and original values
+        all_valid_values = []
+
+        for name, enum_value_obj in graphql_type.values.items():
+            # Add the enum name (what GraphQL expects)
+            all_valid_values.append(name)
+            # Add the original enum value (what users might provide)
+            if enum_value_obj.value is not None and enum_value_obj.value != name:
+                all_valid_values.append(str(enum_value_obj.value))
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_values = []
+        for val in all_valid_values:
+            if val not in seen:
+                seen.add(val)
+                unique_values.append(val)
+
+        # Create a Literal type that accepts all possible values
+        if unique_values:
+            return Literal[tuple(unique_values)]
+        else:
+            return str
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
@@ -576,6 +587,8 @@ def _create_tool_function(
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
                         processed_list.append(item.model_dump(mode="json"))
+                    elif isinstance(item, dict):
+                        processed_list.append(item)
                     else:
                         processed_list.append(item)
                 processed_kwargs[k] = processed_list
@@ -598,22 +611,61 @@ def _create_tool_function(
                 processed_kwargs[k] = v
 
         # Normalize enum inputs so callers can pass either enum NAME or VALUE as string
+        # This handles both top-level args and nested enum values in lists/dicts
+        def normalize_enum_values_recursively(data, arg_def):
+            """Recursively normalize enum values in nested data structures"""
+            # Check if this is a list type by inspecting the full type structure
+            current_type = arg_def.type
+
+            # Unwrap NonNull wrappers to get to the core type
+            from graphql import GraphQLNonNull
+            while isinstance(current_type, GraphQLNonNull):
+                current_type = current_type.of_type
+
+            # Now check if it's a list
+            if isinstance(current_type, GraphQLList):
+                # This is a list type, process each item
+                list_item_type = get_named_type(current_type.of_type)
+
+                if isinstance(data, list) and hasattr(list_item_type, 'fields'):
+                    # List of input objects - normalize enum fields in each item
+                    for item in data:
+                        if isinstance(item, dict):
+                            for field_name, field_def in list_item_type.fields.items():
+                                if field_name in item:
+                                    field_type = get_named_type(field_def.type)
+                                    if isinstance(field_type, GraphQLEnumType):
+                                        val = item[field_name]
+                                        if isinstance(val, str) and val not in field_type.values:
+                                            # Try to map VALUE->NAME using same logic as existing normalization
+                                            for enum_name, enum_value in field_type.values.items():
+                                                try:
+                                                    if str(enum_value.value) == val:
+                                                        item[field_name] = enum_name
+                                                        break
+                                                except Exception:
+                                                    continue
+
+            # Handle single enum values (non-list case)
+            named = get_named_type(arg_def.type)
+            if isinstance(named, GraphQLEnumType) and isinstance(data, str):
+                if data not in named.values:
+                    for enum_name, enum_value in named.values.items():
+                        try:
+                            if str(enum_value.value) == data:
+                                return enum_name
+                        except Exception:
+                            continue
+
+            return data
+
         if field.args:
             for arg_name, arg_def in field.args.items():
                 if arg_name in processed_kwargs:
-                    named = get_named_type(arg_def.type)
-                    if isinstance(named, GraphQLEnumType):
-                        val = processed_kwargs[arg_name]
-                        if isinstance(val, str):
-                            # If not already a valid NAME, try to map VALUE->NAME
-                            if val not in named.values:
-                                for enum_name, enum_value in named.values.items():
-                                    try:
-                                        if str(enum_value.value) == val:
-                                            processed_kwargs[arg_name] = enum_name
-                                            break
-                                    except Exception:
-                                        continue
+                    # Apply recursive enum normalization
+                    processed_kwargs[arg_name] = normalize_enum_values_recursively(
+                        processed_kwargs[arg_name], arg_def
+                    )
 
         operation_type = "mutation" if is_mutation else "query"
         arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
@@ -752,6 +804,8 @@ def _create_recursive_tool_function(
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
                         processed_list.append(item.model_dump(mode="json"))
+                    elif isinstance(item, dict):
+                        processed_list.append(item)
                     else:
                         processed_list.append(item)
                 processed_kwargs[k] = processed_list
@@ -964,6 +1018,8 @@ def _create_remote_tool_function(
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
                         processed_list.append(item.model_dump(mode="json"))
+                    elif isinstance(item, dict):
+                        processed_list.append(item)
                     else:
                         processed_list.append(item)
                 processed_kwargs[k] = processed_list
@@ -1120,6 +1176,8 @@ def _create_recursive_remote_tool_function(
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
                         processed_list.append(item.model_dump(mode="json"))
+                    elif isinstance(item, dict):
+                        processed_list.append(item)
                     else:
                         processed_list.append(item)
                 processed_kwargs[k] = processed_list
