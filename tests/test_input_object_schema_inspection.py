@@ -383,3 +383,87 @@ async def test_optional_input_object_schema_inspection():
         # Note: Optional input object parameters currently pass through as dicts
         # rather than being converted to Pydantic models. This is a known limitation
         # that occurs when GraphQL input object types are not NonNull.
+
+
+@pytest.mark.asyncio
+async def test_list_of_input_objects_schema_inspection():
+    """
+    Test that lists of GraphQLInputObjectType parameters work correctly.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    import enum
+
+    api = GraphQLAPI()
+
+    class Status(enum.Enum):
+        PENDING = 'PENDING'
+        COMPLETED = 'COMPLETED'
+
+    class TaskInput(BaseModel):
+        title: str
+        description: str
+        status: Status = Status.PENDING
+
+    class BatchResult(BaseModel):
+        success: bool
+        processed_count: int
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field(mutable=True)
+        def create_tasks(self, tasks: list[TaskInput]) -> BatchResult:
+            """Creates multiple tasks from a list of input objects."""
+            print(f"Received tasks type: {type(tasks)}")
+            if tasks and len(tasks) > 0:
+                print(f"First task type: {type(tasks[0])}")
+                print(f"First task: {tasks[0]}")
+            return BatchResult(success=True, processed_count=len(tasks) if tasks else 0)
+
+    schema, _ = api.build_schema()
+    mcp_server = add_tools_from_schema(schema)
+
+    async with Client(mcp_server) as client:
+        tools = await client.list_tools()
+
+        tool = next(t for t in tools if t.name == "create_tasks")
+        schema_dict = tool.inputSchema
+
+        print(f"list of input objects schema: {json.dumps(schema_dict, indent=2)}")
+
+        # Verify the schema structure for list of input objects
+        assert schema_dict["type"] == "object"
+        assert "tasks" in schema_dict["properties"]
+        assert "tasks" in schema_dict["required"]
+
+        # Check that tasks is an array
+        tasks_schema = schema_dict["properties"]["tasks"]
+        assert tasks_schema["type"] == "array"
+
+        # Check that array items reference a detailed schema
+        items_schema = tasks_schema["items"]
+        assert "$ref" in items_schema
+
+        # Find the detailed schema in $defs
+        task_ref_name = items_schema["$ref"].split("/")[-1]
+        assert task_ref_name in schema_dict["$defs"]
+
+        task_detailed_schema = schema_dict["$defs"][task_ref_name]
+        assert "title" in task_detailed_schema["properties"]
+        assert "description" in task_detailed_schema["properties"]
+        assert "status" in task_detailed_schema["properties"]
+
+        # Test functionality with list of dict inputs
+        tasks_data = [
+            {"title": "Task 1", "description": "First task", "status": "PENDING"},
+            {"title": "Task 2", "description": "Second task", "status": "COMPLETED"}
+        ]
+
+        result = await client.call_tool("create_tasks", {"tasks": tasks_data})
+        result_text = get_result_text(result)
+        result_json = json.loads(result_text)
+        assert result_json["success"] is True
+        assert result_json["processedCount"] == 2  # GraphQL uses camelCase

@@ -565,7 +565,20 @@ def _create_tool_function(
                 else:
                     processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):  # Check for Pydantic model
+                # For GraphQL input objects, convert Pydantic models to dicts
+                # Use mode="json" to properly serialize enums and other complex types
                 processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, list):
+                # Handle lists that might contain Pydantic models
+                processed_list = []
+                for item in v:
+                    if hasattr(item, "model_dump"):
+                        # Convert Pydantic model to dict for GraphQL
+                        # Use mode="json" to properly serialize enums and other complex types
+                        processed_list.append(item.model_dump(mode="json"))
+                    else:
+                        processed_list.append(item)
+                processed_kwargs[k] = processed_list
             elif isinstance(v, dict):
                 # Check if this dict argument maps to a JSON scalar or an Input Object Type
                 if k in field.args:
@@ -728,7 +741,20 @@ def _create_recursive_tool_function(
                 # GraphQL variables for enums expect the ENUM NAME, not the underlying value
                 processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):
+                # For GraphQL input objects, convert Pydantic models to dicts
+                # Use mode="json" to properly serialize enums and other complex types
                 processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, list):
+                # Handle lists that might contain Pydantic models
+                processed_list = []
+                for item in v:
+                    if hasattr(item, "model_dump"):
+                        # Convert Pydantic model to dict for GraphQL
+                        # Use mode="json" to properly serialize enums and other complex types
+                        processed_list.append(item.model_dump(mode="json"))
+                    else:
+                        processed_list.append(item)
+                processed_kwargs[k] = processed_list
             elif isinstance(v, dict):
                 # Check if this dict argument maps to a JSON scalar or an Input Object Type
                 # For nested paths, find the correct field definition
@@ -927,7 +953,20 @@ def _create_remote_tool_function(
                 else:
                     processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):
+                # For remote GraphQL, convert Pydantic models to dicts
+                # Use mode="json" to properly serialize enums and other complex types
                 processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, list):
+                # Handle lists that might contain Pydantic models
+                processed_list = []
+                for item in v:
+                    if hasattr(item, "model_dump"):
+                        # Convert Pydantic model to dict for GraphQL
+                        # Use mode="json" to properly serialize enums and other complex types
+                        processed_list.append(item.model_dump(mode="json"))
+                    else:
+                        processed_list.append(item)
+                processed_kwargs[k] = processed_list
             elif isinstance(v, dict):
                 processed_kwargs[k] = v
             else:
@@ -1070,7 +1109,20 @@ def _create_recursive_remote_tool_function(
             if isinstance(v, enum.Enum):
                 processed_kwargs[k] = v.name
             elif hasattr(v, "model_dump"):
+                # For remote GraphQL, convert Pydantic models to dicts
+                # Use mode="json" to properly serialize enums and other complex types
                 processed_kwargs[k] = v.model_dump(mode="json")
+            elif isinstance(v, list):
+                # Handle lists that might contain Pydantic models
+                processed_list = []
+                for item in v:
+                    if hasattr(item, "model_dump"):
+                        # Convert Pydantic model to dict for GraphQL
+                        # Use mode="json" to properly serialize enums and other complex types
+                        processed_list.append(item.model_dump(mode="json"))
+                    else:
+                        processed_list.append(item)
+                processed_kwargs[k] = processed_list
             elif isinstance(v, dict):
                 processed_kwargs[k] = v
             else:
