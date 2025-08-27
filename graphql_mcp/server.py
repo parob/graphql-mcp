@@ -384,6 +384,54 @@ def _to_snake_case(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
+def _convert_enum_names_to_values_in_output(data, graphql_return_type):
+    """Convert enum names to values in GraphQL output data for MCP validation"""
+    if data is None:
+        return data
+
+    try:
+        # Get the core type, unwrapping NonNull and List wrappers
+        current_type = graphql_return_type
+        while isinstance(current_type, GraphQLNonNull):
+            current_type = current_type.of_type
+
+        if isinstance(current_type, GraphQLList):
+            # Handle list of items
+            if isinstance(data, list):
+                return [_convert_enum_names_to_values_in_output(item, current_type.of_type) for item in data]
+            return data
+
+        named_type = get_named_type(current_type)
+
+        if isinstance(named_type, GraphQLEnumType):
+            # Convert enum name to value
+            if isinstance(data, str) and data in named_type.values:
+                enum_value_obj = named_type.values[data]
+                if enum_value_obj.value is not None:
+                    return enum_value_obj.value
+            return data
+
+        elif isinstance(named_type, GraphQLObjectType):
+            # Handle object types - recursively process fields
+            if isinstance(data, dict):
+                result = {}
+                for field_name, field_value in data.items():
+                    if field_name in named_type.fields:
+                        field_def = named_type.fields[field_name]
+                        converted_value = _convert_enum_names_to_values_in_output(field_value, field_def.type)
+                        result[field_name] = converted_value
+                    else:
+                        result[field_name] = field_value
+                return result
+            return data
+
+        return data
+
+    except Exception:
+        # If conversion fails, return original data
+        return data
+
+
 def _get_graphql_type_name(graphql_type: Any) -> str:
     """
     Gets the name of a GraphQL type for use in a query string.
@@ -715,13 +763,13 @@ def _create_tool_function(
                             while isinstance(field_def_type, GraphQLNonNull):
                                 field_def_type = field_def_type.of_type
 
-                            # Check if this field is a list of enums
+                            # Check if this field is a list
                             if isinstance(field_def_type, GraphQLList):
                                 list_item_type = get_named_type(field_def_type.of_type)
-                                if isinstance(list_item_type, GraphQLEnumType):
-                                    val = data[field_name]
-                                    if isinstance(val, list):
-                                        # Convert each item in the list
+                                val = data[field_name]
+                                if isinstance(val, list):
+                                    if isinstance(list_item_type, GraphQLEnumType):
+                                        # Handle list of enums
                                         converted_list = []
                                         for item in val:
                                             if item not in list_item_type.values:
@@ -740,6 +788,49 @@ def _create_tool_function(
                                                 # Already a valid enum name
                                                 converted_list.append(item)
                                         data[field_name] = converted_list
+                                    elif isinstance(list_item_type, GraphQLInputObjectType):
+                                        # Handle list of input objects (nested structures)
+                                        for list_item in val:
+                                            if isinstance(list_item, dict):
+                                                # Recursively process each input object in the list
+                                                for nested_field_name, nested_field_def in list_item_type.fields.items():
+                                                    if nested_field_name in list_item:
+                                                        nested_field_type = get_named_type(nested_field_def.type)
+                                                        if isinstance(nested_field_type, GraphQLEnumType):
+                                                            nested_val = list_item[nested_field_name]
+                                                            # Convert enum value to name if needed
+                                                            if nested_val not in nested_field_type.values:
+                                                                for enum_name, enum_value in nested_field_type.values.items():
+                                                                    try:
+                                                                        if str(enum_value.value) == str(nested_val):
+                                                                            list_item[nested_field_name] = enum_name
+                                                                            break
+                                                                    except Exception:
+                                                                        continue
+                                                        elif isinstance(nested_field_type, GraphQLList):
+                                                            # Handle nested lists (like list of enums within input object)
+                                                            nested_field_list_type = nested_field_def.type
+                                                            # Unwrap NonNull wrappers for list fields
+                                                            while isinstance(nested_field_list_type, GraphQLNonNull):
+                                                                nested_field_list_type = nested_field_list_type.of_type
+                                                            if isinstance(nested_field_list_type, GraphQLList):
+                                                                nested_list_item_type = get_named_type(nested_field_list_type.of_type)
+                                                                if isinstance(nested_list_item_type, GraphQLEnumType) and isinstance(list_item[nested_field_name], list):
+                                                                    converted_nested_list = []
+                                                                    for nested_item in list_item[nested_field_name]:
+                                                                        if nested_item not in nested_list_item_type.values:
+                                                                            for enum_name, enum_value in nested_list_item_type.values.items():
+                                                                                try:
+                                                                                    if str(enum_value.value) == str(nested_item):
+                                                                                        converted_nested_list.append(enum_name)
+                                                                                        break
+                                                                                except Exception:
+                                                                                    continue
+                                                                            else:
+                                                                                converted_nested_list.append(nested_item)
+                                                                        else:
+                                                                            converted_nested_list.append(nested_item)
+                                                                    list_item[nested_field_name] = converted_nested_list
                             else:
                                 # Handle single enum field
                                 field_type = get_named_type(field_def.type)
@@ -818,7 +909,10 @@ def _create_tool_function(
             raise result.errors[0]
 
         if result.data:
-            return result.data.get(field_name)
+            raw_data = result.data.get(field_name)
+            # Convert enum names back to values for MCP validation
+            processed_data = _convert_enum_names_to_values_in_output(raw_data, field.type)
+            return processed_data
 
         return None
 
@@ -1006,8 +1100,9 @@ def _create_recursive_tool_function(
                 break
             data_cursor = data_cursor.get(field_name) if isinstance(data_cursor, dict) else None
 
-        # Return the raw data cursor since we now have proper return type annotations
-        return data_cursor
+        # Convert enum names to values for MCP validation
+        processed_data = _convert_enum_names_to_values_in_output(data_cursor, path[-1][1].type)
+        return processed_data
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))
 
