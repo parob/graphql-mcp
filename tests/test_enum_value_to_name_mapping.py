@@ -85,12 +85,13 @@ async def test_enum_value_to_name_mapping_in_lists():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        # Test Case: Mixed case enum values (both values and names)
+        # Test Case: Using enum values (Pydantic-consistent approach)
         responses_with_values = [
-            {"message": "Hello from user", "role": "user"},          # enum VALUE - should map to "USER"
-            {"message": "Hi from assistant", "role": "assistant"},   # enum VALUE - should map to "ASSISTANT"
-            {"message": "System message", "role": "SYSTEM"},         # enum NAME - should work as-is
-            {"message": "Final response", "role": "ASSISTANT"}       # enum NAME - should work as-is
+            {"message": "Hello from user", "role": "user"},                     # enum VALUE - should map to "USER"
+            {"message": "Hi from assistant", "role": "assistant"},              # enum VALUE - should map to "ASSISTANT"  
+            {"message": "System message", "role": "system"},                    # enum VALUE - should map to "SYSTEM"
+            {"message": "Internal message", "role": "assistant_internal"},      # enum VALUE - should map to "ASSISTANT_INTERNAL"
+            {"message": "Feedback message", "role": "assistant_feedback"}       # enum VALUE - should map to "ASSISTANT_FEEDBACK"
         ]
 
         result = await client.call_tool("send_responses", {"responses": responses_with_values})
@@ -99,15 +100,15 @@ async def test_enum_value_to_name_mapping_in_lists():
 
         # Verify the results
         assert result_data["success"] is True
-        assert result_data["count"] == 4
-        assert len(result_data["processedRoles"]) == 4
+        assert result_data["count"] == 5
+        assert len(result_data["processedRoles"]) == 5
 
 
 @pytest.mark.asyncio
-async def test_enum_names_work():
+async def test_enum_values_work():
     """
-    Test that enum names (uppercase) work correctly.
-    This verifies that our fix doesn't break the working case.
+    Test that enum values (lowercase) work correctly with values-only schema.
+    This verifies that our new Pydantic-consistent approach works.
     """
     try:
         from graphql_api import GraphQLAPI
@@ -138,13 +139,13 @@ async def test_enum_names_work():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        # Test with enum names (should work)
-        responses_with_names = [
-            {"message": "Hello", "role": "USER"},
-            {"message": "Hi", "role": "ASSISTANT"},
+        # Test with enum values (should work with values-only schema)
+        responses_with_values = [
+            {"message": "Hello", "role": "user"},
+            {"message": "Hi", "role": "assistant"},
         ]
 
-        result = await client.call_tool("send_responses", {"responses": responses_with_names})
+        result = await client.call_tool("send_responses", {"responses": responses_with_values})
         result_text = get_result_text(result)
         result_data = json.loads(result_text)
 

@@ -103,8 +103,8 @@ async def test_list_enum_field_normalization():
             },
             {
                 "message": "System broadcast",
-                "role": "ASSISTANT",  # enum NAME - should work as-is
-                "target_platforms": ["DISCORD", "SLACK", "TEAMS"]  # enum NAMES - should work as-is
+                "role": "assistant",  # enum VALUE - should map to "ASSISTANT"
+                "target_platforms": ["discord", "slack", "teams"]  # enum VALUES - should map to ["DISCORD", "SLACK", "TEAMS"]
             }
         ]
 
@@ -178,8 +178,8 @@ async def test_mixed_enum_field_types():
             },
             {
                 "title": "Update docs",
-                "priority": "LOW",         # Single enum NAME
-                "tags": ["FEATURE"]       # List enum NAME
+                "priority": "low",         # Single enum VALUE
+                "tags": ["feature"]       # List enum VALUE
             }
         ]
 

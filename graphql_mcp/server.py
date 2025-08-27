@@ -316,21 +316,22 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             else:
                 return Literal[tuple(string_values)]
         else:
-            # For string enums, create a Literal that accepts both names and values
-            # Collect both enum names and values for flexible validation
-            acceptable_values = []
+            # For string enums, show ONLY enum values in schema (Pydantic-consistent)
+            # This matches Pydantic's model_dump(mode="json") behavior
+            schema_values = []
 
             for name, enum_value_obj in graphql_type.values.items():
-                acceptable_values.append(name)  # Add enum name (e.g., "USER")
                 if enum_value_obj.value is not None:
-                    # Add enum value if different from name (e.g., "user")
-                    if str(enum_value_obj.value) != name:
-                        acceptable_values.append(str(enum_value_obj.value))
+                    # Only add enum values (e.g., "#ff0000", "p1") to the schema
+                    schema_values.append(str(enum_value_obj.value))
+                else:
+                    # Fallback to name if value is None
+                    schema_values.append(name)
 
             # Remove duplicates while preserving order
-            acceptable_values = list(dict.fromkeys(acceptable_values))
+            schema_values = list(dict.fromkeys(schema_values))
 
-            return Literal[tuple(acceptable_values)]
+            return Literal[tuple(schema_values)]
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
@@ -702,9 +703,61 @@ def _create_tool_function(
                                                     except Exception:
                                                         continue
 
-                # Handle single enum values (non-list case)
+                # Handle single input object (contains enum fields)
                 named = get_named_type(arg_def.type)
-                if isinstance(named, GraphQLEnumType):
+                if isinstance(named, GraphQLInputObjectType) and isinstance(data, dict):
+                    # Process enum fields within the input object
+                    for field_name, field_def in named.fields.items():
+                        if field_name in data:
+                            # Handle both direct enum fields and list enum fields
+                            field_def_type = field_def.type
+                            # Unwrap NonNull wrappers
+                            while isinstance(field_def_type, GraphQLNonNull):
+                                field_def_type = field_def_type.of_type
+
+                            # Check if this field is a list of enums
+                            if isinstance(field_def_type, GraphQLList):
+                                list_item_type = get_named_type(field_def_type.of_type)
+                                if isinstance(list_item_type, GraphQLEnumType):
+                                    val = data[field_name]
+                                    if isinstance(val, list):
+                                        # Convert each item in the list
+                                        converted_list = []
+                                        for item in val:
+                                            if item not in list_item_type.values:
+                                                # Convert enum value to name
+                                                for enum_name, enum_value in list_item_type.values.items():
+                                                    try:
+                                                        if str(enum_value.value) == str(item):
+                                                            converted_list.append(enum_name)
+                                                            break
+                                                    except Exception:
+                                                        continue
+                                                else:
+                                                    # If no conversion found, keep original
+                                                    converted_list.append(item)
+                                            else:
+                                                # Already a valid enum name
+                                                converted_list.append(item)
+                                        data[field_name] = converted_list
+                            else:
+                                # Handle single enum field
+                                field_type = get_named_type(field_def.type)
+                                if isinstance(field_type, GraphQLEnumType):
+                                    val = data[field_name]
+                                    # Convert enum value to name if needed
+                                    if val not in field_type.values:
+                                        for enum_name, enum_value in field_type.values.items():
+                                            try:
+                                                if str(enum_value.value) == str(val):
+                                                    data[field_name] = enum_name
+                                                    break
+                                            except Exception:
+                                                continue
+                    return data
+
+                # Handle single enum values (non-list case)
+                elif isinstance(named, GraphQLEnumType):
                     # Handle both string and integer input values
                     if data not in named.values:
                         for enum_name, enum_value in named.values.items():
