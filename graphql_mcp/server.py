@@ -630,69 +630,115 @@ def _create_tool_function(
         # This handles both top-level args and nested enum values in lists/dicts
         def normalize_enum_values_recursively(data, arg_def):
             """Recursively normalize enum values in nested data structures"""
-            # Check if this is a list type by inspecting the full type structure
-            current_type = arg_def.type
+            if data is None:
+                return data
 
-            # Unwrap NonNull wrappers to get to the core type
-            from graphql import GraphQLNonNull
-            while isinstance(current_type, GraphQLNonNull):
-                current_type = current_type.of_type
+            try:
+                # Check if this is a list type by inspecting the full type structure
+                current_type = arg_def.type
 
-            # Now check if it's a list
-            if isinstance(current_type, GraphQLList):
-                # This is a list type, process each item
-                list_item_type = get_named_type(current_type.of_type)
+                # Unwrap NonNull wrappers to get to the core type
+                from graphql import GraphQLNonNull
+                while isinstance(current_type, GraphQLNonNull):
+                    current_type = current_type.of_type
 
-                if isinstance(data, list) and hasattr(list_item_type, 'fields'):
-                    # List of input objects - normalize enum fields in each item
-                    for item in data:
-                        if isinstance(item, dict):
-                            for field_name, field_def in list_item_type.fields.items():
-                                if field_name in item:
-                                    field_type = get_named_type(field_def.type)
-                                    if isinstance(field_type, GraphQLEnumType):
-                                        val = item[field_name]
-                                        # Handle both string and integer enum values
-                                        if val not in field_type.values:
-                                            # Try to map VALUE->NAME using same logic as existing normalization
-                                            for enum_name, enum_value in field_type.values.items():
-                                                try:
-                                                    # Handle both string and integer comparisons
-                                                    if (enum_value.value == val
-                                                            or str(enum_value.value) == str(val)):
-                                                        item[field_name] = enum_name
-                                                        break
-                                                except Exception:
-                                                    continue
+                # Now check if it's a list
+                if isinstance(current_type, GraphQLList):
+                    # This is a list type, process each item
+                    list_item_type = get_named_type(current_type.of_type)
 
-            # Handle single enum values (non-list case)
-            named = get_named_type(arg_def.type)
-            if isinstance(named, GraphQLEnumType):
-                # Handle both string and integer input values
-                if data not in named.values:
-                    for enum_name, enum_value in named.values.items():
-                        try:
-                            # Handle integer enum values
-                            if isinstance(enum_value.value, int):
-                                if isinstance(data, int) and enum_value.value == data:
+                    if isinstance(data, list) and hasattr(list_item_type, 'fields'):
+                        # List of input objects - normalize enum fields in each item
+                        for item in data:
+                            if isinstance(item, dict):
+                                for field_name, field_def in list_item_type.fields.items():
+                                    if field_name in item:
+                                        field_type = get_named_type(field_def.type)
+
+                                        # Check if this field is a list of enums
+                                        field_def_type = field_def.type
+                                        # Unwrap NonNull wrappers
+                                        while isinstance(field_def_type, GraphQLNonNull):
+                                            field_def_type = field_def_type.of_type
+
+                                        if isinstance(field_def_type, GraphQLList):
+                                            # This field is a list - check if it's a list of enums
+                                            list_item_type_inner = get_named_type(field_def_type.of_type)
+                                            if isinstance(list_item_type_inner, GraphQLEnumType):
+                                                # Handle list of enum values
+                                                val = item[field_name]
+                                                if isinstance(val, list):
+                                                    normalized_list = []
+                                                    for list_val in val:
+                                                        if list_val not in list_item_type_inner.values:
+                                                            # Try to map VALUE->NAME for each item in the list
+                                                            for enum_name, enum_value in list_item_type_inner.values.items():
+                                                                try:
+                                                                    if (enum_value.value == list_val
+                                                                            or str(enum_value.value) == str(list_val)):
+                                                                        normalized_list.append(enum_name)
+                                                                        break
+                                                                except Exception:
+                                                                    continue
+                                                            else:
+                                                                # If no mapping found, keep original value
+                                                                normalized_list.append(list_val)
+                                                        else:
+                                                            # Value is already a valid enum name
+                                                            normalized_list.append(list_val)
+                                                    item[field_name] = normalized_list
+                                        elif isinstance(field_type, GraphQLEnumType):
+                                            val = item[field_name]
+                                            # Handle single enum values only (lists are handled above)
+                                            if not isinstance(val, list) and val not in field_type.values:
+                                                # Try to map VALUE->NAME using same logic as existing normalization
+                                                for enum_name, enum_value in field_type.values.items():
+                                                    try:
+                                                        # Handle both string and integer comparisons
+                                                        if (enum_value.value == val
+                                                                or str(enum_value.value) == str(val)):
+                                                            item[field_name] = enum_name
+                                                            break
+                                                    except Exception:
+                                                        continue
+
+                # Handle single enum values (non-list case)
+                named = get_named_type(arg_def.type)
+                if isinstance(named, GraphQLEnumType):
+                    # Handle both string and integer input values
+                    if data not in named.values:
+                        for enum_name, enum_value in named.values.items():
+                            try:
+                                # Handle integer enum values
+                                if isinstance(enum_value.value, int):
+                                    if isinstance(data, int) and enum_value.value == data:
+                                        return enum_name
+                                    elif isinstance(data, str) and str(enum_value.value) == data:
+                                        return enum_name
+                                # Handle string enum values
+                                elif str(enum_value.value) == str(data):
                                     return enum_name
-                                elif isinstance(data, str) and str(enum_value.value) == data:
-                                    return enum_name
-                            # Handle string enum values
-                            elif str(enum_value.value) == str(data):
-                                return enum_name
-                        except Exception:
-                            continue
+                            except Exception:
+                                continue
 
-            return data
+                return data
+            except Exception as e:
+                # If normalization fails, return original data to avoid breaking the request
+                print(f"Warning: Enum normalization failed: {e}")
+                return data
 
         if field.args:
             for arg_name, arg_def in field.args.items():
                 if arg_name in processed_kwargs:
-                    # Apply recursive enum normalization
-                    processed_kwargs[arg_name] = normalize_enum_values_recursively(
-                        processed_kwargs[arg_name], arg_def
-                    )
+                    try:
+                        # Apply recursive enum normalization
+                        processed_kwargs[arg_name] = normalize_enum_values_recursively(
+                            processed_kwargs[arg_name], arg_def
+                        )
+                    except Exception as e:
+                        # Log the error and continue with original value
+                        print(f"Warning: Failed to normalize enum values for {arg_name}: {e}")
+                        # Keep original value
 
         operation_type = "mutation" if is_mutation else "query"
         arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
@@ -702,9 +748,19 @@ def _create_tool_function(
         if not arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
-        result = await graphql(schema, query_str, variable_values=processed_kwargs)
+        try:
+            result = await graphql(schema, query_str, variable_values=processed_kwargs)
+        except Exception as e:
+            print(f"Error executing GraphQL query: {e}")
+            print(f"Query: {query_str}")
+            print(f"Variables: {processed_kwargs}")
+            raise
 
         if result.errors:
+            # Log detailed error information for debugging
+            print(f"GraphQL errors for {field_name}: {[str(err) for err in result.errors]}")
+            print(f"Query: {query_str}")
+            print(f"Variables: {processed_kwargs}")
             # For simplicity, just raise the first error
             raise result.errors[0]
 
