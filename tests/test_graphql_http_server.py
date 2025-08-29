@@ -4,7 +4,7 @@ from starlette.testclient import TestClient
 
 try:
     from graphql_api import GraphQLAPI
-    from graphql_http_server import GraphQLHTTPServer  # type: ignore
+    from graphql_http_server import GraphQLHTTP  # type: ignore
     HAS_DEPENDENCIES = True
 except ImportError:
     HAS_DEPENDENCIES = False
@@ -50,7 +50,7 @@ async def test_graphql_http_server_enabled_by_default():
 
     # Verify the server has the expected attributes
     assert mcp_server.api == api
-    assert mcp_server.graphql_http_server is True
+    assert mcp_server.graphql_http is True
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_graphql_http_server_can_be_disabled():
 
     # Verify the server has the expected attributes
     assert mcp_server.api == api
-    assert mcp_server.graphql_http_server is False
+    assert mcp_server.graphql_http is False
 
 
 def test_graphql_http_server_disabled_integration():
@@ -98,7 +98,7 @@ def test_graphql_http_server_real_requests():
     api = create_test_api()
 
     # Create the GraphQL HTTP server directly to test it works
-    graphql_server = GraphQLHTTPServer.from_api(api, auth_enabled=False)
+    graphql_server = GraphQLHTTP.from_api(api, auth_enabled=False)
 
     # Test the GraphQL server with a test client
     with TestClient(graphql_server.app) as client:
@@ -221,7 +221,7 @@ def test_graphql_http_server_jwt_auth_detection():
     jwt_verifier.audience = "test-audience"
 
     # Test that JWT auth is properly detected
-    with patch.object(GraphQLHTTPServer, 'from_api') as mock_from_api:
+    with patch.object(GraphQLHTTP, 'from_api') as mock_from_api:
         with patch('fastmcp.FastMCP.http_app') as mock_parent:
             mock_app = Mock()
             mock_app.mount = Mock()
@@ -240,7 +240,7 @@ def test_graphql_http_server_jwt_auth_detection():
 
             mcp_server.http_app()
 
-            # Verify GraphQLHTTPServer was called with JWT configuration
+            # Verify GraphQLHTTP was called with JWT configuration
             mock_from_api.assert_called_once_with(
                 api=api,
                 auth_enabled=True,
@@ -256,7 +256,7 @@ def test_graphql_introspection():
         pytest.skip("graphql-api or graphql_http_server not installed")
 
     api = create_test_api()
-    graphql_server = GraphQLHTTPServer.from_api(api, auth_enabled=False)
+    graphql_server = GraphQLHTTP.from_api(api, auth_enabled=False)
 
     with TestClient(graphql_server.app) as client:
         # Test introspection query

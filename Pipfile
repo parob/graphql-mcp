@@ -7,7 +7,7 @@ name = "pypi"
 graphql-core = "*"
 fastmcp = "*"
 graphql-api = "*"
-graphql-http-server = "*"
+graphql-http = "*"
 
 [dev-packages]
 pytest = "*"

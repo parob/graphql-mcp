@@ -212,16 +212,16 @@ try:
         def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.api = api
-            self.graphql_http_server = graphql_http_server
+            self.graphql_http = graphql_http_server
             add_tools_from_schema(api.build_schema()[0], self, allow_mutations=allow_mutations)
 
         def http_app(self, *args, **kwargs):
             app = super().http_app(*args, **kwargs)
-            if self.graphql_http_server:
-                from graphql_http_server import GraphQLHTTPServer  # type: ignore
+            if self.graphql_http:
+                from graphql_http import GraphQLHTTP # type: ignore
 
                 if JWTVerifier and isinstance(self.auth, JWTVerifier):
-                    graphql_app = GraphQLHTTPServer.from_api(
+                    graphql_app = GraphQLHTTP.from_api(
                         api=self.api,
                         auth_enabled=True,
                         auth_jwks_uri=self.auth.jwks_uri,
@@ -229,12 +229,12 @@ try:
                         auth_audience=self.auth.audience
                     ).app
                 else:
-                    graphql_app = GraphQLHTTPServer.from_api(
+                    graphql_app = GraphQLHTTP.from_api(
                         api=self.api,
                         auth_enabled=False,
                     ).app
                     if self.auth:
-                        logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTPServer. Please use a different auth mechanism, or disable GraphQLHTTPServer.")
+                        logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. Please use a different auth mechanism, or disable GraphQLHTTP.")
 
                 app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
             return app
@@ -312,9 +312,9 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
 
             # Create a Union type that accepts integers, strings, or enum names
             if integer_values:
-                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]
+                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]] # type: ignore
             else:
-                return Literal[tuple(string_values)]
+                return Literal[tuple(string_values)] # type: ignore
         else:
             # For string enums, show ONLY enum values in schema (Pydantic-consistent)
             # This matches Pydantic's model_dump(mode="json") behavior
@@ -331,7 +331,7 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             # Remove duplicates while preserving order
             schema_values = list(dict.fromkeys(schema_values))
 
-            return Literal[tuple(schema_values)]
+            return Literal[tuple(schema_values)] # type: ignore
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
