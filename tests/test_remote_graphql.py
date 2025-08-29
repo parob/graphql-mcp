@@ -130,7 +130,7 @@ async def test_remote_graphql_client_execute():
 
 @pytest.mark.asyncio
 async def test_graphql_mcp_server_from_remote_url():
-    """Test creating a GraphQLMCPServer from a remote URL."""
+    """Test creating a GraphQLMCP from a remote URL."""
 
     # Create a simple schema
     schema = GraphQLSchema(

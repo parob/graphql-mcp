@@ -3,7 +3,7 @@ import pytest
 
 from fastmcp.client import Client
 
-from graphql_mcp.server import GraphQLMCPServer
+from graphql_mcp.server import GraphQLMCP
 
 
 @pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
             return True
 
     # Build the MCP server from the GraphQL API
-    mcp_server = GraphQLMCPServer.from_api(api, name="ParityTest")
+    mcp_server = GraphQLMCP.from_api(api, name="ParityTest")
 
     # Add a direct MCP tool with the same signature
     @mcp_server.tool

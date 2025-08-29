@@ -9,7 +9,7 @@ try:
 except ImportError:
     HAS_DEPENDENCIES = False
 
-from graphql_mcp.server import GraphQLMCPServer
+from graphql_mcp.server import GraphQLMCP
 
 try:
     from fastmcp.server.auth.providers.bearer import BearerAuthProvider as JWTVerifier
@@ -46,7 +46,7 @@ async def test_graphql_http_server_enabled_by_default():
         pytest.skip("graphql-api or graphql_http_server not installed")
 
     api = create_test_api()
-    mcp_server = GraphQLMCPServer.from_api(api, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, name="TestServer")
 
     # Verify the server has the expected attributes
     assert mcp_server.api == api
@@ -60,7 +60,7 @@ async def test_graphql_http_server_can_be_disabled():
         pytest.skip("graphql-api or graphql_http_server not installed")
 
     api = create_test_api()
-    mcp_server = GraphQLMCPServer.from_api(api, graphql_http_server=False, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, graphql_http_server=False, name="TestServer")
 
     # Verify the server has the expected attributes
     assert mcp_server.api == api
@@ -75,7 +75,7 @@ def test_graphql_http_server_disabled_integration():
     api = create_test_api()
 
     # Create MCP server with GraphQL HTTP server disabled
-    mcp_server = GraphQLMCPServer.from_api(api, graphql_http_server=False, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, graphql_http_server=False, name="TestServer")
 
     # Mock the parent app to verify GraphQL server is not mounted
     with patch('fastmcp.FastMCP.http_app') as mock_parent:
@@ -157,7 +157,7 @@ async def test_graphql_http_server_mcp_integration():
     api = create_test_api()
 
     # Create MCP server with GraphQL HTTP server
-    mcp_server = GraphQLMCPServer.from_api(api, graphql_http_server=True, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, graphql_http_server=True, name="TestServer")
 
     # Verify that the MCP server has tools from the GraphQL schema
     tools = await mcp_server._list_tools()  # Use the internal async method
@@ -176,7 +176,7 @@ def test_graphql_http_server_auth_configuration():
     api = create_test_api()
 
     # Test with no auth (should work)
-    mcp_server_no_auth = GraphQLMCPServer.from_api(api, graphql_http_server=True, name="NoAuth")
+    mcp_server_no_auth = GraphQLMCP.from_api(api, graphql_http_server=True, name="NoAuth")
     assert mcp_server_no_auth.auth is None
 
     # Test with non-JWT auth (should log warning but still work)
@@ -188,7 +188,7 @@ def test_graphql_http_server_auth_configuration():
             mock_app.mount = Mock()
             mock_parent.return_value = mock_app
 
-            mcp_server_other_auth = GraphQLMCPServer.from_api(
+            mcp_server_other_auth = GraphQLMCP.from_api(
                 api,
                 graphql_http_server=True,
                 auth=mock_auth,
@@ -231,7 +231,7 @@ def test_graphql_http_server_jwt_auth_detection():
             mock_http_server.app = Mock()
             mock_from_api.return_value = mock_http_server
 
-            mcp_server = GraphQLMCPServer.from_api(
+            mcp_server = GraphQLMCP.from_api(
                 api,
                 graphql_http_server=True,
                 auth=jwt_verifier,

@@ -79,12 +79,12 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     return None
 
 
-class GraphQLMCPServer(FastMCP):  # type: ignore
+class GraphQLMCP(FastMCP):  # type: ignore
 
     @classmethod
     def from_schema(cls, graphql_schema: GraphQLSchema, allow_mutations: bool = True, *args, **kwargs):
         """
-        Create a GraphQLMCPServer from a LOCAL GraphQL schema.
+        Create a GraphQLMCP from a LOCAL GraphQL schema.
 
         This method creates tools that execute GraphQL operations directly against the
         provided schema. Bearer token authentication is handled automatically through
@@ -97,7 +97,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
             **kwargs: Additional keyword arguments to pass to FastMCP
 
         Returns:
-            GraphQLMCPServer: A server instance with tools generated from the schema
+            GraphQLMCP: A server instance with tools generated from the schema
 
         Note:
             For remote GraphQL servers, use `from_remote_url()` instead, which provides
@@ -122,7 +122,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
         **kwargs
     ):
         """
-        Create a GraphQLMCPServer from a remote GraphQL endpoint.
+        Create a GraphQLMCP from a remote GraphQL endpoint.
 
         Args:
             url: The GraphQL endpoint URL
@@ -148,7 +148,7 @@ class GraphQLMCPServer(FastMCP):  # type: ignore
             **kwargs: Additional keyword arguments to pass to FastMCP
 
         Returns:
-            GraphQLMCPServer: A server instance with tools generated from the remote schema
+            GraphQLMCP: A server instance with tools generated from the remote schema
 
         Security Considerations:
             - When forward_bearer_token=True, ensure the remote GraphQL server is trusted
@@ -202,11 +202,11 @@ try:
 
     HAS_GRAPHQL_API = True
 
-    class GraphQLMCPServer(GraphQLMCPServer):
+    class GraphQLMCP(GraphQLMCP):
 
         @classmethod
         def from_api(cls, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):
-            mcp = GraphQLMCPServer(api=api, graphql_http_server=graphql_http_server, allow_mutations=allow_mutations, *args, **kwargs)
+            mcp = GraphQLMCP(api=api, graphql_http_server=graphql_http_server, allow_mutations=allow_mutations, *args, **kwargs)
             return mcp
 
         def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):

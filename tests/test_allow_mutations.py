@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from graphql import GraphQLSchema, GraphQLObjectType, GraphQLField, GraphQLString, GraphQLArgument
 
 from graphql_mcp.server import (
-    GraphQLMCPServer,
+    GraphQLMCP,
     add_tools_from_schema,
     add_tools_from_schema_with_remote
 )
@@ -71,7 +71,7 @@ async def test_from_schema_with_mutations_enabled():
     """Test that mutations are included when allow_mutations=True (default)."""
 
     schema = create_test_schema()
-    server = GraphQLMCPServer.from_schema(schema, name="Test Server")
+    server = GraphQLMCP.from_schema(schema, name="Test Server")
 
     async with Client(server) as client:
         tools = await client.list_tools()
@@ -92,7 +92,7 @@ async def test_from_schema_with_mutations_disabled():
     """Test that mutations are excluded when allow_mutations=False."""
 
     schema = create_test_schema()
-    server = GraphQLMCPServer.from_schema(schema, allow_mutations=False, name="Test Server")
+    server = GraphQLMCP.from_schema(schema, allow_mutations=False, name="Test Server")
 
     async with Client(server) as client:
         tools = await client.list_tools()
@@ -120,7 +120,7 @@ async def test_from_remote_url_with_mutations_enabled():
     with patch('graphql_mcp.remote.fetch_remote_schema_sync') as mock_fetch:
         mock_fetch.return_value = schema
 
-        server = GraphQLMCPServer.from_remote_url(
+        server = GraphQLMCP.from_remote_url(
             url="http://api.example.com/graphql",
             allow_mutations=True,
             name="Remote Server"
@@ -150,7 +150,7 @@ async def test_from_remote_url_with_mutations_disabled():
     with patch('graphql_mcp.remote.fetch_remote_schema_sync') as mock_fetch:
         mock_fetch.return_value = schema
 
-        server = GraphQLMCPServer.from_remote_url(
+        server = GraphQLMCP.from_remote_url(
             url="http://api.example.com/graphql",
             allow_mutations=False,
             name="Remote Server"
@@ -236,7 +236,7 @@ async def test_schema_with_no_mutations():
     )
 
     # Should work fine with allow_mutations=True (default)
-    server1 = GraphQLMCPServer.from_schema(schema, name="Server1")
+    server1 = GraphQLMCP.from_schema(schema, name="Server1")
 
     async with Client(server1) as client:
         tools = await client.list_tools()
@@ -244,7 +244,7 @@ async def test_schema_with_no_mutations():
         assert tools[0].name == "hello"
 
     # Should also work fine with allow_mutations=False
-    server2 = GraphQLMCPServer.from_schema(schema, allow_mutations=False, name="Server2")
+    server2 = GraphQLMCP.from_schema(schema, allow_mutations=False, name="Server2")
 
     async with Client(server2) as client:
         tools = await client.list_tools()
@@ -276,7 +276,7 @@ async def test_schema_with_only_mutations():
     )
 
     # With mutations enabled
-    server1 = GraphQLMCPServer.from_schema(schema, allow_mutations=True, name="Server1")
+    server1 = GraphQLMCP.from_schema(schema, allow_mutations=True, name="Server1")
 
     async with Client(server1) as client:
         tools = await client.list_tools()
@@ -288,7 +288,7 @@ async def test_schema_with_only_mutations():
         assert len(tools) == 2
 
     # With mutations disabled
-    server2 = GraphQLMCPServer.from_schema(schema, allow_mutations=False, name="Server2")
+    server2 = GraphQLMCP.from_schema(schema, allow_mutations=False, name="Server2")
 
     async with Client(server2) as client:
         tools = await client.list_tools()
@@ -309,7 +309,7 @@ async def test_bearer_token_with_mutations_disabled():
     with patch('graphql_mcp.remote.fetch_remote_schema_sync') as mock_fetch:
         mock_fetch.return_value = schema
 
-        server = GraphQLMCPServer.from_remote_url(
+        server = GraphQLMCP.from_remote_url(
             url="http://api.example.com/graphql",
             bearer_token="test-token",
             allow_mutations=False,

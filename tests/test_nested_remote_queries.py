@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from graphql import GraphQLSchema, GraphQLObjectType, GraphQLField, GraphQLString, GraphQLInt, GraphQLArgument
 
-from graphql_mcp.server import GraphQLMCPServer, add_tools_from_schema_with_remote
+from graphql_mcp.server import GraphQLMCP, add_tools_from_schema_with_remote
 from graphql_mcp.remote import RemoteGraphQLClient
 from fastmcp import FastMCP
 from fastmcp.client import Client
@@ -261,7 +261,7 @@ async def test_measurement_manager_from_remote_url():
         mock_fetch.return_value = mock_schema
 
         # Create server from remote URL
-        server = GraphQLMCPServer.from_remote_url(
+        server = GraphQLMCP.from_remote_url(
             url="http://measurement.example.com/graphql",
             name="Measurement Manager API"
         )

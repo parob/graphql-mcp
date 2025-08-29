@@ -1,7 +1,7 @@
 import enum
 from graphql_api import GraphQLAPI
 
-from graphql_mcp.server import GraphQLMCPServer
+from graphql_mcp.server import GraphQLMCP
 
 api = GraphQLAPI()
 
@@ -28,7 +28,7 @@ class DemoApp:
         return {"key": "ai_model", "value": "x"}
 
 
-mcp_server = GraphQLMCPServer(api=api)
+mcp_server = GraphQLMCP(api=api)
 
 
 # Add an addition tool

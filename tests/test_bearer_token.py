@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, Mock, patch
 from graphql import GraphQLSchema, GraphQLObjectType, GraphQLField, GraphQLString
 
-from graphql_mcp.server import GraphQLMCPServer
+from graphql_mcp.server import GraphQLMCP
 from graphql_mcp.remote import RemoteGraphQLClient
 from mcp.types import TextContent
 from typing import cast
@@ -98,7 +98,7 @@ async def test_from_remote_url_with_bearer_token():
             mock_fetch.return_value = mock_schema
 
             # Create server with bearer token
-            _ = GraphQLMCPServer.from_remote_url(
+            _ = GraphQLMCP.from_remote_url(
                 url="http://api.example.com/graphql",
                 bearer_token="test-token-123",
                 name="Protected API"
@@ -128,7 +128,7 @@ async def test_bearer_token_with_additional_headers():
         mock_fetch.return_value = mock_schema
 
         # Create server with both bearer token and additional headers
-        _ = GraphQLMCPServer.from_remote_url(
+        _ = GraphQLMCP.from_remote_url(
             url="http://api.example.com/graphql",
             bearer_token="my-bearer-token",
             headers={
