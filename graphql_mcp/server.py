@@ -218,7 +218,7 @@ try:
         def http_app(self, *args, **kwargs):
             app = super().http_app(*args, **kwargs)
             if self.graphql_http:
-                from graphql_http import GraphQLHTTP # type: ignore
+                from graphql_http import GraphQLHTTP  # type: ignore
 
                 if JWTVerifier and isinstance(self.auth, JWTVerifier):
                     graphql_app = GraphQLHTTP.from_api(
@@ -312,9 +312,9 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
 
             # Create a Union type that accepts integers, strings, or enum names
             if integer_values:
-                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]] # type: ignore
+                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]  # type: ignore
             else:
-                return Literal[tuple(string_values)] # type: ignore
+                return Literal[tuple(string_values)]  # type: ignore
         else:
             # For string enums, show ONLY enum values in schema (Pydantic-consistent)
             # This matches Pydantic's model_dump(mode="json") behavior
@@ -331,7 +331,7 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             # Remove duplicates while preserving order
             schema_values = list(dict.fromkeys(schema_values))
 
-            return Literal[tuple(schema_values)] # type: ignore
+            return Literal[tuple(schema_values)]  # type: ignore
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
