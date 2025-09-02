@@ -12,12 +12,9 @@ except ImportError:
 from graphql_mcp.server import GraphQLMCP
 
 try:
-    from fastmcp.server.auth.providers.bearer import BearerAuthProvider as JWTVerifier
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
 except ImportError:
-    try:
-        from fastmcp.server.auth.providers.jwt import JWTVerifier
-    except ImportError:
-        JWTVerifier = None
+    JWTVerifier = None
 
 
 def create_test_api():

@@ -18,12 +18,9 @@ from fastmcp.server.http import (
 )
 
 try:
-    from fastmcp.server.auth.providers.bearer import BearerAuthProvider as JWTVerifier
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
 except ImportError:
-    try:
-        from fastmcp.server.auth.providers.jwt import JWTVerifier
-    except ImportError:
-        JWTVerifier = None
+    JWTVerifier = None
 
 from graphql import (
     GraphQLArgument,
