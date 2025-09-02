@@ -205,14 +205,14 @@ try:
     class GraphQLMCP(GraphQLMCP):
 
         @classmethod
-        def from_api(cls, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):
-            mcp = GraphQLMCP(api=api, graphql_http_server=graphql_http_server, allow_mutations=allow_mutations, *args, **kwargs)
+        def from_api(cls, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
+            mcp = GraphQLMCP(api=api, graphql_http=graphql_http, allow_mutations=allow_mutations, *args, **kwargs)
             return mcp
 
-        def __init__(self, api: GraphQLAPI, graphql_http_server: bool = True, allow_mutations: bool = True, *args, **kwargs):
+        def __init__(self, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.api = api
-            self.graphql_http = graphql_http_server
+            self.graphql_http = graphql_http
             add_tools_from_schema(api.build_schema()[0], self, allow_mutations=allow_mutations)
 
         def http_app(self, *args, **kwargs):

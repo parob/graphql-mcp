@@ -4,7 +4,7 @@ from starlette.testclient import TestClient
 
 try:
     from graphql_api import GraphQLAPI
-    from graphql_http_server import GraphQLHTTP  # type: ignore
+    from graphql_http import GraphQLHTTP  # type: ignore
     HAS_DEPENDENCIES = True
 except ImportError:
     HAS_DEPENDENCIES = False
@@ -40,10 +40,10 @@ def create_test_api():
 
 
 @pytest.mark.asyncio
-async def test_graphql_http_server_enabled_by_default():
-    """Tests that graphql_http_server is enabled by default."""
+async def test_graphql_http_enabled_by_default():
+    """Tests that graphql_http is enabled by default."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
     mcp_server = GraphQLMCP.from_api(api, name="TestServer")
@@ -54,28 +54,28 @@ async def test_graphql_http_server_enabled_by_default():
 
 
 @pytest.mark.asyncio
-async def test_graphql_http_server_can_be_disabled():
-    """Tests that graphql_http_server can be explicitly disabled."""
+async def test_graphql_http_can_be_disabled():
+    """Tests that graphql_http can be explicitly disabled."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
-    mcp_server = GraphQLMCP.from_api(api, graphql_http_server=False, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, graphql_http=False, name="TestServer")
 
     # Verify the server has the expected attributes
     assert mcp_server.api == api
     assert mcp_server.graphql_http is False
 
 
-def test_graphql_http_server_disabled_integration():
+def test_graphql_http_disabled_integration():
     """Integration test that GraphQL HTTP server is not mounted when disabled."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
 
     # Create MCP server with GraphQL HTTP server disabled
-    mcp_server = GraphQLMCP.from_api(api, graphql_http_server=False, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, graphql_http=False, name="TestServer")
 
     # Mock the parent app to verify GraphQL server is not mounted
     with patch('fastmcp.FastMCP.http_app') as mock_parent:
@@ -90,10 +90,10 @@ def test_graphql_http_server_disabled_integration():
         mock_app.mount.assert_not_called()
 
 
-def test_graphql_http_server_real_requests():
+def test_graphql_http_real_requests():
     """Test that we can make real GraphQL requests to the mounted server."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
 
@@ -149,15 +149,15 @@ def test_graphql_http_server_real_requests():
 
 
 @pytest.mark.asyncio
-async def test_graphql_http_server_mcp_integration():
+async def test_graphql_http_mcp_integration():
     """Test that both MCP and GraphQL endpoints work when integrated."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
 
     # Create MCP server with GraphQL HTTP server
-    mcp_server = GraphQLMCP.from_api(api, graphql_http_server=True, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(api, graphql_http=True, name="TestServer")
 
     # Verify that the MCP server has tools from the GraphQL schema
     tools = await mcp_server._list_tools()  # Use the internal async method
@@ -168,15 +168,15 @@ async def test_graphql_http_server_mcp_integration():
     assert "add" in tool_names
 
 
-def test_graphql_http_server_auth_configuration():
+def test_graphql_http_auth_configuration():
     """Test different authentication configurations."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
 
     # Test with no auth (should work)
-    mcp_server_no_auth = GraphQLMCP.from_api(api, graphql_http_server=True, name="NoAuth")
+    mcp_server_no_auth = GraphQLMCP.from_api(api, graphql_http=True, name="NoAuth")
     assert mcp_server_no_auth.auth is None
 
     # Test with non-JWT auth (should log warning but still work)
@@ -190,7 +190,7 @@ def test_graphql_http_server_auth_configuration():
 
             mcp_server_other_auth = GraphQLMCP.from_api(
                 api,
-                graphql_http_server=True,
+                graphql_http=True,
                 auth=mock_auth,
                 name="OtherAuth"
             )
@@ -200,14 +200,14 @@ def test_graphql_http_server_auth_configuration():
 
             # Verify warning was logged
             mock_logger.critical.assert_called_once_with(
-                "Auth mechanism is enabled for MCP but is not supported with GraphQLHTTPServer. Please use a different auth mechanism, or disable GraphQLHTTPServer."
+                "Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. Please use a different auth mechanism, or disable GraphQLHTTP."
             )
 
 
-def test_graphql_http_server_jwt_auth_detection():
+def test_graphql_http_jwt_auth_detection():
     """Test JWT authentication detection."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     if JWTVerifier is None:
         pytest.skip("JWTVerifier not available in this version of fastmcp")
@@ -233,7 +233,7 @@ def test_graphql_http_server_jwt_auth_detection():
 
             mcp_server = GraphQLMCP.from_api(
                 api,
-                graphql_http_server=True,
+                graphql_http=True,
                 auth=jwt_verifier,
                 name="JWTAuth"
             )
@@ -253,7 +253,7 @@ def test_graphql_http_server_jwt_auth_detection():
 def test_graphql_introspection():
     """Test that GraphQL introspection works."""
     if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http_server not installed")
+        pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
     graphql_server = GraphQLHTTP.from_api(api, auth_enabled=False)
