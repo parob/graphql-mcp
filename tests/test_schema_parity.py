@@ -54,15 +54,20 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
             if "$ref" in key_prop:
                 # $ref approach (direct MCP tools)
                 ref = key_prop["$ref"]
-                assert ref.startswith("#/$defs/"), f"unexpected ref target: {ref}"
-                enum_name = ref.split("/#$defs/")[-1] if "/#$defs/" in ref else ref.split("#/$defs/")[-1]
+                assert ref.startswith(
+                    "#/$defs/"), f"unexpected ref target: {ref}"
+                enum_name = ref.split(
+                    "/#$defs/")[-1] if "/#$defs/" in ref else ref.split("#/$defs/")[-1]
                 assert enum_name in defs, f"enum def {enum_name} not found in $defs: {defs.keys()}"
                 enum_def = defs[enum_name]
-                assert enum_def.get("type") == "string", f"enum should be string-typed: {enum_def}"
-                assert enum_def.get("enum") == ["ai_model", "tools_enabled"], f"enum values mismatch: {enum_def}"
+                assert enum_def.get(
+                    "type") == "string", f"enum should be string-typed: {enum_def}"
+                assert enum_def.get("enum") == [
+                    "ai_model", "tools_enabled"], f"enum values mismatch: {enum_def}"
             elif "enum" in key_prop:
                 # Inline enum approach (GraphQL tools with Literal types)
-                assert key_prop.get("type") == "string", f"enum should be string-typed: {key_prop}"
+                assert key_prop.get(
+                    "type") == "string", f"enum should be string-typed: {key_prop}"
                 enum_values = key_prop.get("enum", [])
                 # Should contain the enum values, and may also contain enum names
                 assert "ai_model" in enum_values, f"missing 'ai_model' in enum values: {enum_values}"
@@ -72,7 +77,8 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
 
             # Both args should be required
             required = input_schema.get("required") or []
-            assert set(required) == {"key", "value"}, f"required mismatch: {required}"
+            assert set(required) == {
+                "key", "value"}, f"required mismatch: {required}"
 
         assert_has_enum_schema(t_direct)
         assert_has_enum_schema(t_graphql)
@@ -86,7 +92,8 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
             assert out.get("type") == "object"
             assert out.get("x-fastmcp-wrap-result") is True
             props = out.get("properties") or {}
-            assert "result" in props and props["result"].get("type") == "boolean"
+            assert "result" in props and props["result"].get(
+                "type") == "boolean"
 
         assert_has_wrapped_bool_output(t_direct)
         assert_has_wrapped_bool_output(t_graphql)
@@ -121,7 +128,8 @@ def test_graphql_api_enum_behavior():
             checkTag(tag: $tag)
         }
     """
-    result_enum = executor.execute(query_enum, variables={'tag': Tag.PYTHON.name})
+    result_enum = executor.execute(
+        query_enum, variables={'tag': Tag.PYTHON.name})
     assert result_enum.data == {'checkTag': True}
 
     # Schema should contain TagEnum

@@ -102,7 +102,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
         """
         # Create a FastMCP instance and add tools from schema
         instance = FastMCP(*args, **kwargs)
-        add_tools_from_schema(graphql_schema, instance, allow_mutations=allow_mutations)
+        add_tools_from_schema(graphql_schema, instance,
+                              allow_mutations=allow_mutations)
         return instance
 
     @classmethod
@@ -167,10 +168,12 @@ class GraphQLMCP(FastMCP):  # type: ignore
         instance = FastMCP(*args, **kwargs)
 
         # Create a remote client for executing queries
-        client = RemoteGraphQLClient(url, request_headers, timeout, bearer_token=bearer_token, verify_ssl=verify_ssl)
+        client = RemoteGraphQLClient(
+            url, request_headers, timeout, bearer_token=bearer_token, verify_ssl=verify_ssl)
 
         # Add tools from schema with remote client
-        add_tools_from_schema_with_remote(schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
+        add_tools_from_schema_with_remote(
+            schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
 
         return instance
 
@@ -183,7 +186,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
         transport: Literal["http", "streamable-http", "sse"] = "http",
         **kwargs
     ) -> StarletteWithLifespan:
-        app = super().http_app(path, middleware, json_response, stateless_http, transport, **kwargs)
+        app = super().http_app(path, middleware, json_response,
+                               stateless_http, transport, **kwargs)
         return app
 
 
@@ -203,14 +207,16 @@ try:
 
         @classmethod
         def from_api(cls, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
-            mcp = GraphQLMCP(api=api, graphql_http=graphql_http, allow_mutations=allow_mutations, *args, **kwargs)
+            mcp = GraphQLMCP(api=api, graphql_http=graphql_http,
+                             allow_mutations=allow_mutations, *args, **kwargs)
             return mcp
 
         def __init__(self, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.api = api
             self.graphql_http = graphql_http
-            add_tools_from_schema(api.build_schema()[0], self, allow_mutations=allow_mutations)
+            add_tools_from_schema(
+                api.build_schema()[0], self, allow_mutations=allow_mutations)
 
         def http_app(self, *args, **kwargs):
             app = super().http_app(*args, **kwargs)
@@ -234,7 +240,8 @@ try:
                         logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                         "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
-                app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
+                app.add_middleware(GraphQLRootMiddleware,
+                                   graphql_app=graphql_app)
             return app
 
 
@@ -306,11 +313,13 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
                 string_values.append(name)  # Always add enum name
                 if enum_value_obj.value is not None and isinstance(enum_value_obj.value, int):
                     integer_values.append(enum_value_obj.value)
-                    string_values.append(str(enum_value_obj.value))  # Also accept string version
+                    # Also accept string version
+                    string_values.append(str(enum_value_obj.value))
 
             # Create a Union type that accepts integers, strings, or enum names
             if integer_values:
-                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]  # type: ignore
+                # type: ignore
+                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]
             else:
                 return Literal[tuple(string_values)]  # type: ignore
         else:
@@ -348,7 +357,8 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             # Build field definitions for the dynamic model
             field_definitions = {}
             for field_name, field_def in graphql_type.fields.items():
-                field_type = _map_graphql_type_to_python_type(field_def.type, _cache)
+                field_type = _map_graphql_type_to_python_type(
+                    field_def.type, _cache)
 
                 # Handle default values and required fields
                 if isinstance(field_def.type, GraphQLNonNull):
@@ -359,7 +369,8 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
                     # unless they have explicit default values. Since we can't easily determine
                     # the original Pydantic model defaults, we'll make them optional for safety
                     from typing import Union
-                    field_definitions[field_name] = (Union[field_type, type(None)], None)
+                    field_definitions[field_name] = (
+                        Union[field_type, type(None)], None)
 
             # Create dynamic Pydantic model
             model_name = f"{graphql_type.name}Model"
@@ -416,7 +427,8 @@ def _convert_enum_names_to_values_in_output(data, graphql_return_type):
                 for field_name, field_value in data.items():
                     if field_name in named_type.fields:
                         field_def = named_type.fields[field_name]
-                        converted_value = _convert_enum_names_to_values_in_output(field_value, field_def.type)
+                        converted_value = _convert_enum_names_to_values_in_output(
+                            field_value, field_def.type)
                         result[field_name] = converted_value
                     else:
                         result[field_name] = field_value
@@ -545,7 +557,8 @@ def add_tools_from_schema(
     add_query_tools_from_schema(server, schema)
 
     # After top-level queries and mutations, add tools for nested mutations
-    _add_nested_tools_from_schema(server, schema, allow_mutations=allow_mutations)
+    _add_nested_tools_from_schema(
+        server, schema, allow_mutations=allow_mutations)
 
     return server
 
@@ -590,7 +603,8 @@ def add_tools_from_schema_with_remote(
         )
 
     # Add nested tools for remote schema
-    _add_nested_tools_from_schema_remote(server, schema, remote_client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
+    _add_nested_tools_from_schema_remote(
+        server, schema, remote_client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
 
     return server
 
@@ -624,7 +638,8 @@ def _create_tool_function(
             default = arg_def.default_value
         kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
         parameters.append(
-            inspect.Parameter(arg_name, kind, default=default, annotation=python_type)
+            inspect.Parameter(arg_name, kind, default=default,
+                              annotation=python_type)
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
@@ -700,7 +715,8 @@ def _create_tool_function(
                             if isinstance(item, dict):
                                 for field_name, field_def in list_item_type.fields.items():
                                     if field_name in item:
-                                        field_type = get_named_type(field_def.type)
+                                        field_type = get_named_type(
+                                            field_def.type)
 
                                         # Check if this field is a list of enums
                                         field_def_type = field_def.type
@@ -710,7 +726,8 @@ def _create_tool_function(
 
                                         if isinstance(field_def_type, GraphQLList):
                                             # This field is a list - check if it's a list of enums
-                                            list_item_type_inner = get_named_type(field_def_type.of_type)
+                                            list_item_type_inner = get_named_type(
+                                                field_def_type.of_type)
                                             if isinstance(list_item_type_inner, GraphQLEnumType):
                                                 # Handle list of enum values
                                                 val = item[field_name]
@@ -723,16 +740,19 @@ def _create_tool_function(
                                                                 try:
                                                                     if (enum_value.value == list_val
                                                                             or str(enum_value.value) == str(list_val)):
-                                                                        normalized_list.append(enum_name)
+                                                                        normalized_list.append(
+                                                                            enum_name)
                                                                         break
                                                                 except Exception:
                                                                     continue
                                                             else:
                                                                 # If no mapping found, keep original value
-                                                                normalized_list.append(list_val)
+                                                                normalized_list.append(
+                                                                    list_val)
                                                         else:
                                                             # Value is already a valid enum name
-                                                            normalized_list.append(list_val)
+                                                            normalized_list.append(
+                                                                list_val)
                                                     item[field_name] = normalized_list
                                         elif isinstance(field_type, GraphQLEnumType):
                                             val = item[field_name]
@@ -763,7 +783,8 @@ def _create_tool_function(
 
                             # Check if this field is a list
                             if isinstance(field_def_type, GraphQLList):
-                                list_item_type = get_named_type(field_def_type.of_type)
+                                list_item_type = get_named_type(
+                                    field_def_type.of_type)
                                 val = data[field_name]
                                 if isinstance(val, list):
                                     if isinstance(list_item_type, GraphQLEnumType):
@@ -775,7 +796,8 @@ def _create_tool_function(
                                                 for enum_name, enum_value in list_item_type.values.items():
                                                     try:
                                                         if str(enum_value.value) == str(item):
-                                                            converted_list.append(enum_name)
+                                                            converted_list.append(
+                                                                enum_name)
                                                             break
                                                     except Exception:
                                                         continue
@@ -793,7 +815,8 @@ def _create_tool_function(
                                                 # Recursively process each input object in the list
                                                 for nested_field_name, nested_field_def in list_item_type.fields.items():
                                                     if nested_field_name in list_item:
-                                                        nested_field_type = get_named_type(nested_field_def.type)
+                                                        nested_field_type = get_named_type(
+                                                            nested_field_def.type)
                                                         if isinstance(nested_field_type, GraphQLEnumType):
                                                             nested_val = list_item[nested_field_name]
                                                             # Convert enum value to name if needed
@@ -812,7 +835,8 @@ def _create_tool_function(
                                                             while isinstance(nested_field_list_type, GraphQLNonNull):
                                                                 nested_field_list_type = nested_field_list_type.of_type
                                                             if isinstance(nested_field_list_type, GraphQLList):
-                                                                nested_list_item_type = get_named_type(nested_field_list_type.of_type)
+                                                                nested_list_item_type = get_named_type(
+                                                                    nested_field_list_type.of_type)
                                                                 if isinstance(nested_list_item_type, GraphQLEnumType) \
                                                                         and isinstance(list_item[nested_field_name], list):
                                                                     converted_nested_list = []
@@ -821,14 +845,17 @@ def _create_tool_function(
                                                                             for enum_name, enum_value in nested_list_item_type.values.items():
                                                                                 try:
                                                                                     if str(enum_value.value) == str(nested_item):
-                                                                                        converted_nested_list.append(enum_name)
+                                                                                        converted_nested_list.append(
+                                                                                            enum_name)
                                                                                         break
                                                                                 except Exception:
                                                                                     continue
                                                                             else:
-                                                                                converted_nested_list.append(nested_item)
+                                                                                converted_nested_list.append(
+                                                                                    nested_item)
                                                                         else:
-                                                                            converted_nested_list.append(nested_item)
+                                                                            converted_nested_list.append(
+                                                                                nested_item)
                                                                     list_item[nested_field_name] = converted_nested_list
                             else:
                                 # Handle single enum field
@@ -880,7 +907,8 @@ def _create_tool_function(
                         )
                     except Exception as e:
                         # Log the error and continue with original value
-                        print(f"Warning: Failed to normalize enum values for {arg_name}: {e}")
+                        print(
+                            f"Warning: Failed to normalize enum values for {arg_name}: {e}")
                         # Keep original value
 
         operation_type = "mutation" if is_mutation else "query"
@@ -901,7 +929,8 @@ def _create_tool_function(
 
         if result.errors:
             # Log detailed error information for debugging
-            print(f"GraphQL errors for {field_name}: {[str(err) for err in result.errors]}")
+            print(
+                f"GraphQL errors for {field_name}: {[str(err) for err in result.errors]}")
             print(f"Query: {query_str}")
             print(f"Variables: {processed_kwargs}")
             # For simplicity, just raise the first error
@@ -910,7 +939,8 @@ def _create_tool_function(
         if result.data:
             raw_data = result.data.get(field_name)
             # Convert enum names back to values for MCP validation
-            processed_data = _convert_enum_names_to_values_in_output(raw_data, field.type)
+            processed_data = _convert_enum_names_to_values_in_output(
+                raw_data, field.type)
             return processed_data
 
         return None
@@ -964,7 +994,8 @@ def _create_recursive_tool_function(
     for idx, (field_name, field_def) in enumerate(path):
         for arg_name, arg_def in field_def.args.items():
             # Use plain arg name for the leaf field to match expectations; prefix for others.
-            var_name = arg_name if idx == len(path) - 1 else f"{field_name}_{arg_name}"
+            var_name = arg_name if idx == len(
+                path) - 1 else f"{field_name}_{arg_name}"
             python_type = _map_graphql_type_to_python_type(arg_def.type)
             annotations[var_name] = python_type
             default = (
@@ -980,7 +1011,8 @@ def _create_recursive_tool_function(
                     annotation=python_type,
                 )
             )
-            arg_defs.append(f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
+            arg_defs.append(
+                f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
 
     # Build nested call string
     def _build_call(index: int) -> str:
@@ -989,7 +1021,8 @@ def _create_recursive_tool_function(
         if field_def.args:
             arg_str_parts = []
             for arg in field_def.args.keys():
-                var_name = arg if index == len(path) - 1 else f"{field_name}_{arg}"
+                var_name = arg if index == len(
+                    path) - 1 else f"{field_name}_{arg}"
                 arg_str_parts.append(f"{arg}: ${var_name}")
             arg_str = ", ".join(arg_str_parts)
             call = f"{field_name}({arg_str})"
@@ -1073,7 +1106,8 @@ def _create_recursive_tool_function(
         for idx, (field_name, field_def) in enumerate(path):
             if field_def.args:
                 for arg in field_def.args.keys():
-                    var_name = arg if idx == len(path) - 1 else f"{field_name}_{arg}"
+                    var_name = arg if idx == len(
+                        path) - 1 else f"{field_name}_{arg}"
                     if var_name in processed_kwargs:
                         named = get_named_type(field_def.args[arg].type)
                         if isinstance(named, GraphQLEnumType):
@@ -1097,10 +1131,12 @@ def _create_recursive_tool_function(
         for field_name, _ in path:
             if data_cursor is None:
                 break
-            data_cursor = data_cursor.get(field_name) if isinstance(data_cursor, dict) else None
+            data_cursor = data_cursor.get(field_name) if isinstance(
+                data_cursor, dict) else None
 
         # Convert enum names to values for MCP validation
-        processed_data = _convert_enum_names_to_values_in_output(data_cursor, path[-1][1].type)
+        processed_data = _convert_enum_names_to_values_in_output(
+            data_cursor, path[-1][1].type)
         return processed_data
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))
@@ -1137,7 +1173,8 @@ def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema, allow_
 
             if len(new_path) > 1 and field_def.args:
                 # Register tool for paths with depth >=2
-                tool_name, tool_func = _create_recursive_tool_function(new_path, operation_type, schema)
+                tool_name, tool_func = _create_recursive_tool_function(
+                    new_path, operation_type, schema)
                 server.tool(name=tool_name)(tool_func)
 
             if isinstance(named_type, GraphQLObjectType):
@@ -1208,7 +1245,8 @@ def _create_remote_tool_function(
 
         kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
         parameters.append(
-            inspect.Parameter(arg_name, kind, default=default, annotation=python_type)
+            inspect.Parameter(arg_name, kind, default=default,
+                              annotation=python_type)
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
@@ -1226,7 +1264,8 @@ def _create_remote_tool_function(
     async def wrapper(**kwargs):
         # Extract context and bearer token (only if configured to forward)
         ctx = kwargs.pop("ctx", None)
-        bearer_token = _extract_bearer_token_from_context(ctx) if forward_bearer_token else None
+        bearer_token = _extract_bearer_token_from_context(
+            ctx) if forward_bearer_token else None
 
         # Process arguments
         processed_kwargs = {}
@@ -1296,11 +1335,14 @@ def _create_remote_tool_function(
             message = str(e)
             lower = message.lower()
             if "timed out" in lower or "504" in lower:
-                raise ToolError("The remote GraphQL endpoint timed out. Try again or narrow the request.")
+                raise ToolError(
+                    "The remote GraphQL endpoint timed out. Try again or narrow the request.")
             if "unavailable" in lower or "503" in lower or "502" in lower:
-                raise ToolError("The remote GraphQL endpoint is temporarily unavailable. Please try again.")
+                raise ToolError(
+                    "The remote GraphQL endpoint is temporarily unavailable. Please try again.")
             if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
-                raise ToolError("Authentication failed for the remote GraphQL endpoint.")
+                raise ToolError(
+                    "Authentication failed for the remote GraphQL endpoint.")
             raise ToolError(f"Remote GraphQL execution failed: {message}")
 
     # Add return type annotation
@@ -1333,7 +1375,8 @@ def _create_recursive_remote_tool_function(
 
     for idx, (field_name, field_def) in enumerate(path):
         for arg_name, arg_def in field_def.args.items():
-            var_name = arg_name if idx == len(path) - 1 else f"{field_name}_{arg_name}"
+            var_name = arg_name if idx == len(
+                path) - 1 else f"{field_name}_{arg_name}"
             python_type = _map_graphql_type_to_python_type(arg_def.type)
             annotations[var_name] = python_type
             default = (
@@ -1349,7 +1392,8 @@ def _create_recursive_remote_tool_function(
                     annotation=python_type,
                 )
             )
-            arg_defs.append(f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
+            arg_defs.append(
+                f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
 
     # Add Context parameter for bearer token extraction
     parameters.append(
@@ -1368,7 +1412,8 @@ def _create_recursive_remote_tool_function(
         if field_def.args:
             arg_str_parts: list[str] = []
             for arg in field_def.args.keys():
-                var_name = arg if index == len(path) - 1 else f"{field_name}_{arg}"
+                var_name = arg if index == len(
+                    path) - 1 else f"{field_name}_{arg}"
                 if var_name in provided:
                     arg_str_parts.append(f"{arg}: ${var_name}")
             if arg_str_parts:
@@ -1388,7 +1433,8 @@ def _create_recursive_remote_tool_function(
     async def wrapper(**kwargs):
         # Extract context and bearer token (only if configured to forward)
         ctx = kwargs.pop("ctx", None)
-        bearer_token = _extract_bearer_token_from_context(ctx) if forward_bearer_token else None
+        bearer_token = _extract_bearer_token_from_context(
+            ctx) if forward_bearer_token else None
 
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
@@ -1420,7 +1466,8 @@ def _create_recursive_remote_tool_function(
         for idx, (field_name, field_def) in enumerate(path):
             if field_def.args:
                 for arg in field_def.args.keys():
-                    var_name = arg if idx == len(path) - 1 else f"{field_name}_{arg}"
+                    var_name = arg if idx == len(
+                        path) - 1 else f"{field_name}_{arg}"
                     if var_name in processed_kwargs:
                         named = get_named_type(field_def.args[arg].type)
                         if isinstance(named, GraphQLEnumType):
@@ -1443,7 +1490,8 @@ def _create_recursive_remote_tool_function(
             for arg in fdef.args.keys():
                 var_name = arg if idx == len(path) - 1 else f"{fname}_{arg}"
                 if var_name in provided_vars:
-                    filtered_arg_defs.append(f"${var_name}: {_get_graphql_type_name(fdef.args[arg].type)}")
+                    filtered_arg_defs.append(
+                        f"${var_name}: {_get_graphql_type_name(fdef.args[arg].type)}")
 
         arg_def_str = ", ".join(filtered_arg_defs)
         operation_header = (
@@ -1463,18 +1511,22 @@ def _create_recursive_remote_tool_function(
             for field_name, _ in path:
                 if data_cursor is None:
                     break
-                data_cursor = data_cursor.get(field_name) if isinstance(data_cursor, dict) else None
+                data_cursor = data_cursor.get(field_name) if isinstance(
+                    data_cursor, dict) else None
 
             return data_cursor
         except Exception as e:
             message = str(e)
             lower = message.lower()
             if "timed out" in lower or "504" in lower:
-                raise ToolError("The remote GraphQL endpoint timed out. Try again or narrow the request.")
+                raise ToolError(
+                    "The remote GraphQL endpoint timed out. Try again or narrow the request.")
             if "unavailable" in lower or "503" in lower or "502" in lower:
-                raise ToolError("The remote GraphQL endpoint is temporarily unavailable. Please try again.")
+                raise ToolError(
+                    "The remote GraphQL endpoint is temporarily unavailable. Please try again.")
             if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
-                raise ToolError("Authentication failed for the remote GraphQL endpoint.")
+                raise ToolError(
+                    "Authentication failed for the remote GraphQL endpoint.")
             raise ToolError(f"Remote GraphQL execution failed: {message}")
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))

@@ -48,9 +48,12 @@ async def test_from_graphql_schema():
     # Ensure the schema actually mapped the argument to a GraphQL Enum
     try:
         from graphql import GraphQLEnumType, get_named_type
-        arg_type = get_named_type(schema.query_type.fields["echoPreference"].args["key"].type)  # type: ignore[attr-defined]
+        # type: ignore[attr-defined]
+        arg_type = get_named_type(
+            schema.query_type.fields["echoPreference"].args["key"].type)
         if not isinstance(arg_type, GraphQLEnumType):
-            pytest.skip("PreferenceKey was not mapped to a GraphQL Enum by graphql-api; cannot assert instance coercion")
+            pytest.skip(
+                "PreferenceKey was not mapped to a GraphQL Enum by graphql-api; cannot assert instance coercion")
     except Exception:
         pass
 
@@ -406,7 +409,8 @@ async def test_from_graphql_schema_core_only():
         fields={
             "hello": GraphQLField(
                 GraphQLString,
-                args={"name": GraphQLArgument(GraphQLString, default_value="world")},
+                args={"name": GraphQLArgument(
+                    GraphQLString, default_value="world")},
                 resolve=resolve_hello,
             )
         },

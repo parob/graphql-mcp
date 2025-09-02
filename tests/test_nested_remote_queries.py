@@ -201,7 +201,8 @@ async def test_nested_query_with_arguments():
 
         response_data = get_result_text(result)
         # Should return the sensor data
-        assert "sensor-123" in str(response_data) or "Temperature Sensor" in str(response_data) or "23" in str(response_data)
+        assert "sensor-123" in str(response_data) or "Temperature Sensor" in str(
+            response_data) or "23" in str(response_data)
 
         # Verify the query was constructed correctly with all arguments
         call_args = mock_client.execute_with_token.call_args[0]

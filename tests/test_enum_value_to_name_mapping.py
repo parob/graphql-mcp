@@ -68,7 +68,8 @@ async def test_enum_value_to_name_mapping_in_lists():
             for response in responses:
                 if hasattr(response, 'role'):
                     # Pydantic object
-                    role_val = response.role.value if hasattr(response.role, 'value') else str(response.role)
+                    role_val = response.role.value if hasattr(
+                        response.role, 'value') else str(response.role)
                     processed_roles.append(role_val)
                 elif isinstance(response, dict):
                     # Dict object (fallback handling)
@@ -87,11 +88,16 @@ async def test_enum_value_to_name_mapping_in_lists():
     async with Client(mcp_server) as client:
         # Test Case: Using enum values (Pydantic-consistent approach)
         responses_with_values = [
-            {"message": "Hello from user", "role": "user"},                     # enum VALUE - should map to "USER"
-            {"message": "Hi from assistant", "role": "assistant"},              # enum VALUE - should map to "ASSISTANT"  
-            {"message": "System message", "role": "system"},                    # enum VALUE - should map to "SYSTEM"
-            {"message": "Internal message", "role": "assistant_internal"},      # enum VALUE - should map to "ASSISTANT_INTERNAL"
-            {"message": "Feedback message", "role": "assistant_feedback"}       # enum VALUE - should map to "ASSISTANT_FEEDBACK"
+            # enum VALUE - should map to "USER"
+            {"message": "Hello from user", "role": "user"},
+            # enum VALUE - should map to "ASSISTANT"
+            {"message": "Hi from assistant", "role": "assistant"},
+            # enum VALUE - should map to "SYSTEM"
+            {"message": "System message", "role": "system"},
+            # enum VALUE - should map to "ASSISTANT_INTERNAL"
+            {"message": "Internal message", "role": "assistant_internal"},
+            # enum VALUE - should map to "ASSISTANT_FEEDBACK"
+            {"message": "Feedback message", "role": "assistant_feedback"}
         ]
 
         result = await client.call_tool("send_responses", {"responses": responses_with_values})

@@ -185,14 +185,16 @@ async def test_list_enum_input_output_conversion():
 
         # Verify output uses enum VALUES
         assert content["priority"] == "p1"  # Not "URGENT"
-        assert content["categories"] == ["feature", "bug"]  # Not ["FEATURE", "BUG"]
+        assert content["categories"] == [
+            "feature", "bug"]  # Not ["FEATURE", "BUG"]
         assert content["status"] == "success"  # Not "SUCCESS"
 
 
 @pytest.mark.asyncio
 async def test_deeply_nested_enum_conversion():
     """Test enum conversion in deeply nested structures (simplified version)."""
-    pytest.skip("Deep nested enum conversion needs more work - covered by simpler tests")
+    pytest.skip(
+        "Deep nested enum conversion needs more work - covered by simpler tests")
 
 
 @pytest.mark.asyncio
@@ -254,7 +256,8 @@ async def test_mixed_enum_list_rejection():
                 "task": {
                     "title": "Test Task",
                     "priority": "p1",  # Valid enum VALUE
-                    "categories": ["FEATURE", "bug"],  # Mixed: NAME + value - should fail
+                    # Mixed: NAME + value - should fail
+                    "categories": ["FEATURE", "bug"],
                     "status": "pending"
                 }
             })
@@ -312,7 +315,8 @@ async def test_direct_enum_return_value():
         else:
             enum_list = content
 
-        assert enum_list == ["p1", "p2", "p4"]  # Should be enum VALUES, not names
+        # Should be enum VALUES, not names
+        assert enum_list == ["p1", "p2", "p4"]
 
 
 @pytest.mark.asyncio
@@ -335,7 +339,8 @@ async def test_regression_original_validation_error():
         def send_responses(self, messages: List[str]) -> List[SimpleResponse]:
             """This would previously cause validation errors on return."""
             return [
-                SimpleResponse(message=f"Processed: {msg}", status=Status.SUCCESS)
+                SimpleResponse(
+                    message=f"Processed: {msg}", status=Status.SUCCESS)
                 for msg in messages
             ]
 

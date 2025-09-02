@@ -4,10 +4,9 @@ This uses Strawberry GraphQL to create an actual server with realistic schemas a
 """
 
 import strawberry
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 import asyncio
 import uuid
-from datetime import datetime
 from dataclasses import dataclass
 from strawberry.extensions import QueryDepthLimiter
 from strawberry.aiohttp.views import GraphQLView
@@ -29,7 +28,7 @@ class UserData:
     tags: List[str]
 
 
-@dataclass  
+@dataclass
 class OrderData:
     id: str
     total: float
@@ -96,7 +95,7 @@ class DiscountData:
     amount: float
 
 
-@dataclass  
+@dataclass
 class AddressData:
     id: str
     street: str
@@ -362,7 +361,7 @@ class MockDataStore:
             ),
             "user456": UserData(
                 id="user456",
-                name="Jane Smith", 
+                name="Jane Smith",
                 email="jane@example.com",
                 orders=[],  # Empty list
                 addresses=[
@@ -378,27 +377,32 @@ class MockDataStore:
                 tags=["premium", "verified"]
             )
         }
-        
+
         self.products = {
             "prod1": ProductData(
                 id="prod1",
                 name="Gaming Laptop",
                 price=1299.99,
                 categories=[
-                    CategoryData(id="cat1", name="Electronics", parent_category=None),
-                    CategoryData(id="cat2", name="Laptops", parent_category=None)
+                    CategoryData(id="cat1", name="Electronics",
+                                 parent_category=None),
+                    CategoryData(id="cat2", name="Laptops",
+                                 parent_category=None)
                 ],
                 reviews=[
-                    ReviewData(id="rev1", rating=5, comment="Excellent!", author=self.users["user123"])
+                    ReviewData(id="rev1", rating=5, comment="Excellent!",
+                               author=self.users["user123"])
                 ],
                 variants=[
-                    ProductVariantData(id="var1", sku="GL-001", price=1299.99, attributes={"color": "black", "ram": "16GB"})
+                    ProductVariantData(
+                        id="var1", sku="GL-001", price=1299.99, attributes={"color": "black", "ram": "16GB"})
                 ],
                 description="High-performance gaming laptop",
-                metadata=ProductMetadataData(width=35, height=25, weight=2.5, tags=["gaming", "laptop"])
+                metadata=ProductMetadataData(
+                    width=35, height=25, weight=2.5, tags=["gaming", "laptop"])
             )
         }
-        
+
         # Simulate sometimes returning null arrays instead of empty arrays
         # This is the key behavior we want to test
         self._return_null_arrays = True
@@ -408,7 +412,7 @@ class MockDataStore:
         user_data = self.users.get(user_id)
         if not user_data:
             return None
-            
+
         # Convert to GraphQL types, sometimes returning null instead of empty arrays
         orders = []
         for order_data in user_data.orders:
@@ -420,12 +424,12 @@ class MockDataStore:
                     quantity=item_data.quantity,
                     product=product
                 ))
-            
+
             # Sometimes return null instead of empty discounts array
             discounts = None if self._return_null_arrays and not order_data.discounts else [
                 Discount(id=d.id, code=d.code, amount=d.amount) for d in order_data.discounts
             ]
-            
+
             orders.append(Order(
                 id=order_data.id,
                 total=order_data.total,
@@ -434,7 +438,7 @@ class MockDataStore:
                 notes=order_data.notes,
                 status=order_data.status
             ))
-        
+
         # Sometimes return null instead of empty addresses array
         addresses = None if self._return_null_arrays and not user_data.addresses else [
             Address(
@@ -446,10 +450,10 @@ class MockDataStore:
                 type=addr.type
             ) for addr in user_data.addresses
         ]
-        
+
         # Sometimes return null instead of empty tags array
         tags = None if self._return_null_arrays and not user_data.tags else user_data.tags
-        
+
         preferences = None
         if user_data.preferences:
             preferences = UserPreferences(
@@ -458,7 +462,7 @@ class MockDataStore:
                 theme=user_data.preferences.theme,
                 language=user_data.preferences.language
             )
-        
+
         return User(
             id=user_data.id,
             name=user_data.name,
@@ -468,23 +472,24 @@ class MockDataStore:
             preferences=preferences,
             tags=tags
         )
-    
+
     def convert_product(self, product_data: ProductData) -> Product:
         """Convert ProductData to Product GraphQL type."""
         # Sometimes return null instead of empty arrays for categories, reviews, variants
         categories = None if self._return_null_arrays and not product_data.categories else [
             Category(id=cat.id, name=cat.name, parent_category=None) for cat in product_data.categories
         ]
-        
+
         reviews = None if self._return_null_arrays and not product_data.reviews else [
             Review(id=rev.id, rating=rev.rating, comment=rev.comment) for rev in product_data.reviews
         ]
-        
+
         variants = None if self._return_null_arrays and not product_data.variants else [
-            ProductVariant(id=var.id, sku=var.sku, price=var.price, attributes=var.attributes) 
+            ProductVariant(id=var.id, sku=var.sku,
+                           price=var.price, attributes=var.attributes)
             for var in product_data.variants
         ]
-        
+
         metadata = None
         if product_data.metadata:
             # Sometimes return null instead of empty tags array in metadata
@@ -495,7 +500,7 @@ class MockDataStore:
                 weight=product_data.metadata.weight,
                 tags=tags
             )
-        
+
         return Product(
             id=product_data.id,
             name=product_data.name,
@@ -510,12 +515,13 @@ class MockDataStore:
     def search_products(self, search_input: SearchInput) -> CreateSearchResult:
         """Search products and return results with potential null arrays."""
         # Simple mock search - in real implementation this would be more complex
-        products = [self.convert_product(prod) for prod in self.products.values()]
-        
+        products = [self.convert_product(prod)
+                    for prod in self.products.values()]
+
         # Sometimes return null instead of empty arrays
         filters = None if self._return_null_arrays else []
         suggestions = None if self._return_null_arrays else []
-        
+
         return CreateSearchResult(
             id=str(uuid.uuid4()),
             results=SearchResult(
@@ -537,28 +543,29 @@ class Query:
     @strawberry.field
     def user(self, id: ID) -> Optional[User]:
         return data_store.get_user(id)
-    
+
     @strawberry.field
     def users(self) -> Optional[List[User]]:
         return [data_store.get_user(user_id) for user_id in data_store.users.keys()]
 
 
-@strawberry.type  
+@strawberry.type
 class Mutation:
     @strawberry.mutation
     def create_search(self, input: SearchInput) -> CreateSearchResult:
         return data_store.search_products(input)
-    
+
     @strawberry.mutation
     def update_user_profile(self, user_id: ID, input: UserProfileInput) -> UpdateUserProfileResult:
         # Mock validation error for testing
         if input.preferences and input.preferences.theme == "dark":
             return UpdateUserProfileResult(
                 success=False,
-                errors=[ValidationError(field="input.preferences.theme", message="Invalid theme value")],
+                errors=[ValidationError(
+                    field="input.preferences.theme", message="Invalid theme value")],
                 user=None
             )
-        
+
         # Mock successful update
         user = data_store.get_user(user_id)
         return UpdateUserProfileResult(
@@ -583,7 +590,7 @@ class Subscription:
 
 # Create the schema
 schema = strawberry.Schema(
-    query=Query, 
+    query=Query,
     mutation=Mutation,
     subscription=Subscription,
     extensions=[QueryDepthLimiter(max_depth=10)]
@@ -592,7 +599,7 @@ schema = strawberry.Schema(
 
 class RealGraphQLServer:
     """Real GraphQL server for integration testing."""
-    
+
     def __init__(self, port: int = 8765):
         self.port = port
         self.app = None
@@ -600,31 +607,32 @@ class RealGraphQLServer:
         self.site = None
         self.server_thread = None
         self._running = False
-        
+
     async def create_app(self):
         """Create the aiohttp application with GraphQL endpoint."""
         app = web.Application()
-        
+
         # Add GraphQL endpoint
         graphql_view = GraphQLView(schema=schema)
         app.router.add_post('/graphql', graphql_view)
         app.router.add_get('/graphql', graphql_view)  # For GraphQL Playground
-        
+
         return app
-    
+
     def run_server(self):
         """Run the server in a background thread."""
         async def _run_server():
             self.app = await self.create_app()
             self.runner = web.AppRunner(self.app)
             await self.runner.setup()
-            
+
             self.site = web.TCPSite(self.runner, 'localhost', self.port)
             await self.site.start()
-            
-            print(f"GraphQL server running at http://localhost:{self.port}/graphql")
+
+            print(
+                f"GraphQL server running at http://localhost:{self.port}/graphql")
             self._running = True
-            
+
             # Keep the server running
             try:
                 while self._running:
@@ -633,7 +641,7 @@ class RealGraphQLServer:
                 pass
             finally:
                 await self.cleanup()
-        
+
         # Run in new event loop in thread
         def _thread_target():
             loop = asyncio.new_event_loop()
@@ -642,42 +650,43 @@ class RealGraphQLServer:
                 loop.run_until_complete(_run_server())
             finally:
                 loop.close()
-        
-        self.server_thread = threading.Thread(target=_thread_target, daemon=True)
+
+        self.server_thread = threading.Thread(
+            target=_thread_target, daemon=True)
         self.server_thread.start()
-        
+
         # Wait for server to start
         timeout = 10
         start_time = time.time()
         while not self._running and time.time() - start_time < timeout:
             time.sleep(0.1)
-        
+
         if not self._running:
             raise RuntimeError(f"Server failed to start within {timeout}s")
-    
+
     async def cleanup(self):
         """Clean up server resources."""
         if self.site:
             await self.site.stop()
         if self.runner:
             await self.runner.cleanup()
-    
+
     def start(self):
         """Start the server."""
         if not self._running:
             self.run_server()
-    
+
     def stop(self):
         """Stop the server."""
         self._running = False
         if self.server_thread:
             self.server_thread.join(timeout=5)
-    
+
     @property
     def url(self) -> str:
         """Get the server URL."""
         return f"http://localhost:{self.port}/graphql"
-    
+
     def set_return_null_arrays(self, value: bool):
         """Configure whether to return null arrays instead of empty arrays."""
         data_store._return_null_arrays = value
@@ -697,7 +706,7 @@ async def check_server_health(url: str) -> bool:
         async with ClientSession() as session:
             query = "query { __schema { types { name } } }"
             payload = {"query": query}
-            
+
             async with session.post(url, json=payload) as response:
                 if response.status == 200:
                     result = await response.json()

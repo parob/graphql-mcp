@@ -67,7 +67,8 @@ async def test_list_enum_field_normalization():
                     # Pydantic object
                     msg = f"Response {i + 1}: '{response.message}' from {response.role.value}"
                     if response.target_platforms:
-                        platforms = [p.value for p in response.target_platforms]
+                        platforms = [
+                            p.value for p in response.target_platforms]
                         msg += f" targeting {platforms}"
                 elif isinstance(response, dict):
                     # Dict object (fallback handling)
@@ -94,17 +95,20 @@ async def test_list_enum_field_normalization():
             {
                 "message": "Welcome to Discord",
                 "role": "assistant",  # enum VALUE - should map to "ASSISTANT"
-                "target_platforms": ["discord", "slack"]  # enum VALUES - should map to ["DISCORD", "SLACK"]
+                # enum VALUES - should map to ["DISCORD", "SLACK"]
+                "target_platforms": ["discord", "slack"]
             },
             {
-                "message": "User message", 
+                "message": "User message",
                 "role": "user",  # enum VALUE - should map to "USER"
-                "target_platforms": ["teams"]  # enum VALUE - should map to ["TEAMS"]
+                # enum VALUE - should map to ["TEAMS"]
+                "target_platforms": ["teams"]
             },
             {
                 "message": "System broadcast",
                 "role": "assistant",  # enum VALUE - should map to "ASSISTANT"
-                "target_platforms": ["discord", "slack", "teams"]  # enum VALUES - should map to ["DISCORD", "SLACK", "TEAMS"]
+                # enum VALUES - should map to ["DISCORD", "SLACK", "TEAMS"]
+                "target_platforms": ["discord", "slack", "teams"]
             }
         ]
 
@@ -117,7 +121,7 @@ async def test_list_enum_field_normalization():
         assert result_data["success"] is True
         assert result_data["count"] == 3
         assert len(result_data["processedMessages"]) == 3
-        
+
         # Check that the messages were processed (content doesn't matter as much as no crash)
         for message in result_data["processedMessages"]:
             assert isinstance(message, str)
@@ -172,7 +176,7 @@ async def test_mixed_enum_field_types():
                 "tags": ["bug", "urgent"]  # List enum VALUES
             },
             {
-                "title": "Add new feature", 
+                "title": "Add new feature",
                 "priority": "low",         # Single enum VALUE
                 "tags": ["feature"]       # List enum VALUE
             },

@@ -48,7 +48,8 @@ async def fetch_remote_schema(
     if not verify_ssl:
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
-        logger.warning("SSL certificate verification disabled for schema fetch - only use in development!")
+        logger.warning(
+            "SSL certificate verification disabled for schema fetch - only use in development!")
 
     connector = aiohttp.TCPConnector(ssl=ssl_context)
     async with aiohttp.ClientSession(connector=connector) as session:
@@ -60,15 +61,18 @@ async def fetch_remote_schema(
         ) as response:
             if response.status != 200:
                 text = await response.text()
-                raise Exception(f"Failed to fetch schema from {url}: {response.status} - {text}")
+                raise Exception(
+                    f"Failed to fetch schema from {url}: {response.status} - {text}")
 
             result = await response.json()
 
             if "errors" in result:
-                raise Exception(f"GraphQL errors during introspection: {result['errors']}")
+                raise Exception(
+                    f"GraphQL errors during introspection: {result['errors']}")
 
             if "data" not in result:
-                raise Exception(f"No data in introspection response from {url}")
+                raise Exception(
+                    f"No data in introspection response from {url}")
 
             # Build the client schema from the introspection result
             schema = build_client_schema(result["data"])
@@ -112,7 +116,8 @@ def fetch_remote_schema_sync(
         # There's already a loop running, use nest_asyncio or create a task
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, fetch_remote_schema(url, headers, timeout, verify_ssl))
+            future = executor.submit(asyncio.run, fetch_remote_schema(
+                url, headers, timeout, verify_ssl))
             return future.result()
 
 
@@ -211,7 +216,8 @@ class RemoteGraphQLClient:
                             cleaned_list.append(cleaned_item)
                     elif isinstance(item, list):
                         # Recursively clean nested lists
-                        nested_result = self._clean_variables({"temp": item}, strategy)
+                        nested_result = self._clean_variables(
+                            {"temp": item}, strategy)
                         if nested_result and "temp" in nested_result:
                             cleaned_list.append(nested_result["temp"])
                         elif strategy == "null":
@@ -237,8 +243,10 @@ class RemoteGraphQLClient:
 
         # Regex to match the operation header's variable declaration list
         # Handles: query MyOp(...), mutation MyOp(...), or anonymous: query (...)
-        op_pattern = re.compile(r"\b(query|mutation)\b\s*[A-Za-z_][A-Za-z0-9_]*?\s*\(([^)]*)\)", re.IGNORECASE)
-        anon_op_pattern = re.compile(r"\b(query|mutation)\b\s*\(([^)]*)\)", re.IGNORECASE)
+        op_pattern = re.compile(
+            r"\b(query|mutation)\b\s*[A-Za-z_][A-Za-z0-9_]*?\s*\(([^)]*)\)", re.IGNORECASE)
+        anon_op_pattern = re.compile(
+            r"\b(query|mutation)\b\s*\(([^)]*)\)", re.IGNORECASE)
 
         match = op_pattern.search(query) or anon_op_pattern.search(query)
         if not match:
@@ -286,14 +294,18 @@ class RemoteGraphQLClient:
         # If no variables provided, drop all usages in body
         if not variables:
             # Remove any ", arg: $var" or leading "(arg: $var, ...)" patterns
-            new_query = re.sub(r"\s*,\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*", "", new_query)
-            new_query = re.sub(r"\(\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*\s*,\s*", "(", new_query)
+            new_query = re.sub(
+                r"\s*,\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*", "", new_query)
+            new_query = re.sub(
+                r"\(\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*\s*,\s*", "(", new_query)
             new_query = re.sub(r"\(\s*\)", "()", new_query)
-            new_query = re.sub(r"\(\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*\s*\)", "()", new_query)
+            new_query = re.sub(
+                r"\(\s*\w+\s*:\s*\$[A-Za-z_][A-Za-z0-9_]*\s*\)", "()", new_query)
             return new_query
 
         # Identify variables declared in header after filtering
-        header_match = re.search(r"\b(query|mutation)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?\(([^)]*)\)", new_query, re.IGNORECASE)
+        header_match = re.search(
+            r"\b(query|mutation)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?\(([^)]*)\)", new_query, re.IGNORECASE)
         kept_vars: set[str] = set()
         if header_match:
             for decl in header_match.group(2).split(','):
@@ -303,7 +315,8 @@ class RemoteGraphQLClient:
 
         # Remove usages for variables NOT in kept_vars
         # Determine original declared vars from the original query's header
-        original_match = re.search(r"\b(query|mutation)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?\(([^)]*)\)", query, re.IGNORECASE)
+        original_match = re.search(
+            r"\b(query|mutation)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*)?\(([^)]*)\)", query, re.IGNORECASE)
         original_vars: set[str] = set()
         if original_match:
             for decl in original_match.group(2).split(','):
@@ -314,9 +327,12 @@ class RemoteGraphQLClient:
         dropped = original_vars - kept_vars
         for var_name in dropped:
             # Remove usage patterns for this var
-            new_query = re.sub(rf"\s*,\s*\w+\s*:\s*\${var_name}\b", "", new_query)
-            new_query = re.sub(rf"\(\s*\w+\s*:\s*\${var_name}\s*,\s*", "(", new_query)
-            new_query = re.sub(rf"\(\s*\w+\s*:\s*\${var_name}\s*\)", "()", new_query)
+            new_query = re.sub(
+                rf"\s*,\s*\w+\s*:\s*\${var_name}\b", "", new_query)
+            new_query = re.sub(
+                rf"\(\s*\w+\s*:\s*\${var_name}\s*,\s*", "(", new_query)
+            new_query = re.sub(
+                rf"\(\s*\w+\s*:\s*\${var_name}\s*\)", "()", new_query)
             new_query = re.sub(rf"\b\w+\s*:\s*\${var_name}\b", "", new_query)
             new_query = re.sub(r"\(\s*,\s*\)", "()", new_query)
             new_query = re.sub(r",\s*,", ",", new_query)
@@ -335,8 +351,10 @@ class RemoteGraphQLClient:
                     transformed[key] = []
                 else:
                     # For nested objects, get the type context from schema
-                    nested_type_context = self._get_field_type_context(key, current_type_context)
-                    transformed[key] = self._transform_null_arrays(value, key, nested_type_context)
+                    nested_type_context = self._get_field_type_context(
+                        key, current_type_context)
+                    transformed[key] = self._transform_null_arrays(
+                        value, key, nested_type_context)
             return transformed
         elif isinstance(data, list):
             # For lists, check if items should have array fields converted based on sibling analysis
@@ -352,7 +370,8 @@ class RemoteGraphQLClient:
                     for dict_item in dict_items:
                         for k, v in dict_item.items():
                             if k not in combined_siblings and isinstance(v, list):
-                                combined_siblings[k] = v  # Use the first non-null list we find
+                                # Use the first non-null list we find
+                                combined_siblings[k] = v
 
                     # Transform this item with enhanced sibling context
                     transformed_item = {}
@@ -360,11 +379,14 @@ class RemoteGraphQLClient:
                         if value is None and self._should_convert_to_array(key, value, combined_siblings, type_context):
                             transformed_item[key] = []
                         else:
-                            nested_type_context = self._get_field_type_context(key, type_context)
-                            transformed_item[key] = self._transform_null_arrays(value, key, nested_type_context)
+                            nested_type_context = self._get_field_type_context(
+                                key, type_context)
+                            transformed_item[key] = self._transform_null_arrays(
+                                value, key, nested_type_context)
                     transformed_items.append(transformed_item)
                 else:
-                    transformed_items.append(self._transform_null_arrays(item, parent_key, type_context))
+                    transformed_items.append(self._transform_null_arrays(
+                        item, parent_key, type_context))
 
             return transformed_items
         else:
@@ -413,15 +435,18 @@ class RemoteGraphQLClient:
             ) as response:
                 if response.status != 200:
                     text = await response.text()
-                    raise Exception(f"Failed to execute introspection query: {response.status} - {text}")
+                    raise Exception(
+                        f"Failed to execute introspection query: {response.status} - {text}")
 
                 result = await response.json()
                 if "errors" in result:
-                    raise Exception(f"GraphQL introspection errors: {result['errors']}")
+                    raise Exception(
+                        f"GraphQL introspection errors: {result['errors']}")
 
                 return result.get("data", {})
             # If we exit the retry loop without returning, raise a final error
-            raise Exception("Failed to execute query after multiple retry attempts.")
+            raise Exception(
+                "Failed to execute query after multiple retry attempts.")
         finally:
             if close_session:
                 await session.close()
@@ -480,7 +505,8 @@ class RemoteGraphQLClient:
                             self._array_fields_cache[type_name][field_name] = is_list
 
                             # Extract the actual return type name for this field
-                            return_type_name = self._extract_type_name(field_type)
+                            return_type_name = self._extract_type_name(
+                                field_type)
                             if return_type_name:
                                 # Create mapping from field name to its return type
                                 field_key = f"{type_name}.{field_name}"
@@ -491,7 +517,8 @@ class RemoteGraphQLClient:
                                     self._field_type_map[field_name] = return_type_name
 
             self._introspected = True
-            logger.debug(f"Schema introspected, found {len(self._array_fields_cache)} types")
+            logger.debug(
+                f"Schema introspected, found {len(self._array_fields_cache)} types")
 
         except Exception as e:
             logger.warning(f"Schema introspection failed: {e}")
@@ -558,7 +585,8 @@ class RemoteGraphQLClient:
         if not self.verify_ssl:
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
-            logger.warning("SSL certificate verification disabled - only use in development!")
+            logger.warning(
+                "SSL certificate verification disabled - only use in development!")
         return ssl_context
 
     def _create_session(self) -> aiohttp.ClientSession:
@@ -665,11 +693,13 @@ class RemoteGraphQLClient:
         }
 
         # Clean variables using the configured strategy
-        cleaned_variables = self._clean_variables(variables, self.undefined_strategy)
+        cleaned_variables = self._clean_variables(
+            variables, self.undefined_strategy)
 
         # For "remove" strategy, also remove variable declarations from query
         if self.undefined_strategy == "remove":
-            cleaned_query = self._remove_unused_variables_from_query_and_body(query, cleaned_variables)
+            cleaned_query = self._remove_unused_variables_from_query_and_body(
+                query, cleaned_variables)
         else:
             # For "null" strategy, keep original query since variables are converted to null
             cleaned_query = query
@@ -735,11 +765,14 @@ DEBUG: GraphQL Request Processing:
                     text = await response.text()
                     # Friendly error messages for common statuses
                     if response.status == 504:
-                        raise Exception("Remote GraphQL endpoint timed out (HTTP 504). Please try again.")
+                        raise Exception(
+                            "Remote GraphQL endpoint timed out (HTTP 504). Please try again.")
                     if response.status in (502, 503):
-                        raise Exception(f"Remote GraphQL endpoint unavailable (HTTP {response.status}). Please try again.")
+                        raise Exception(
+                            f"Remote GraphQL endpoint unavailable (HTTP {response.status}). Please try again.")
 
-                    raise Exception(f"Failed to execute query: {response.status} - {text}")
+                    raise Exception(
+                        f"Failed to execute query: {response.status} - {text}")
 
                 result = await response.json()
 
@@ -763,11 +796,13 @@ DEBUG: GraphQL Request Processing:
 
                 # Transform null arrays to empty arrays to satisfy MCP output schema validation
                 data = result.get("data", {})
-                transformed_data = self._transform_null_arrays(data, type_context="Query")
+                transformed_data = self._transform_null_arrays(
+                    data, type_context="Query")
                 return transformed_data
 
         except aiohttp.ClientError:
-            raise Exception("Network error talking to remote GraphQL endpoint. Please try again.")
+            raise Exception(
+                "Network error talking to remote GraphQL endpoint. Please try again.")
         finally:
             if close_session:
                 await session.close()

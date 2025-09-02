@@ -57,7 +57,8 @@ async def test_graphql_http_can_be_disabled():
         pytest.skip("graphql-api or graphql_http not installed")
 
     api = create_test_api()
-    mcp_server = GraphQLMCP.from_api(api, graphql_http=False, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(
+        api, graphql_http=False, name="TestServer")
 
     # Verify the server has the expected attributes
     assert mcp_server.api == api
@@ -72,7 +73,8 @@ def test_graphql_http_disabled_integration():
     api = create_test_api()
 
     # Create MCP server with GraphQL HTTP server disabled
-    mcp_server = GraphQLMCP.from_api(api, graphql_http=False, name="TestServer")
+    mcp_server = GraphQLMCP.from_api(
+        api, graphql_http=False, name="TestServer")
 
     # Mock the parent app to verify GraphQL server is not mounted
     with patch('fastmcp.FastMCP.http_app') as mock_parent:
@@ -142,7 +144,8 @@ def test_graphql_http_real_requests():
         # Test GraphQL playground (GET request)
         playground_response = client.get("/graphql")
         # GraphQL HTTP server should respond with some kind of response (400 is acceptable too)
-        assert playground_response.status_code in [200, 400, 404]  # Various versions handle GET differently
+        # Various versions handle GET differently
+        assert playground_response.status_code in [200, 400, 404]
 
 
 @pytest.mark.asyncio
@@ -173,7 +176,8 @@ def test_graphql_http_auth_configuration():
     api = create_test_api()
 
     # Test with no auth (should work)
-    mcp_server_no_auth = GraphQLMCP.from_api(api, graphql_http=True, name="NoAuth")
+    mcp_server_no_auth = GraphQLMCP.from_api(
+        api, graphql_http=True, name="NoAuth")
     assert mcp_server_no_auth.auth is None
 
     # Test with non-JWT auth (should log warning but still work)
@@ -300,4 +304,5 @@ def test_graphql_introspection():
             mutation_fields = mutation_type["fields"]
             mutation_names = [field["name"] for field in mutation_fields]
             # Since we removed create_item mutation, we won't test for it
-            assert len(mutation_names) >= 0  # Just check that we can access mutations
+            # Just check that we can access mutations
+            assert len(mutation_names) >= 0

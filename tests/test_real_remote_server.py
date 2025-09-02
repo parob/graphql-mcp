@@ -3,7 +3,6 @@
 import asyncio
 import pytest
 import aiohttp
-import json
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from graphql_mcp.server import GraphQLMCP
@@ -279,7 +278,8 @@ async def test_remote_server_connection_error_handling():
                 timeout=2,
                 name="Non-existent Server"
             )
-            pytest.fail("Expected connection error but server creation succeeded")
+            pytest.fail(
+                "Expected connection error but server creation succeeded")
 
         except Exception as e:
             # Should get a connection error
@@ -353,7 +353,8 @@ async def test_remote_server_with_bearer_token():
                 mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
             else:
                 # Valid token - return normal response
-                mock_cm.__aenter__ = AsyncMock(return_value=create_mock_response(json))
+                mock_cm.__aenter__ = AsyncMock(
+                    return_value=create_mock_response(json))
 
         mock_cm.__aexit__ = AsyncMock(return_value=None)
         return mock_cm
@@ -423,8 +424,10 @@ async def test_remote_server_query_execution():
         assert len(queries_received) > 0
 
         # Should have introspection query and actual query
-        introspection_found = any('__schema' in q.get('query', '') for q in queries_received)
-        hello_query_found = any('hello' in q.get('query', '') for q in queries_received)
+        introspection_found = any('__schema' in q.get(
+            'query', '') for q in queries_received)
+        hello_query_found = any('hello' in q.get('query', '')
+                                for q in queries_received)
 
         assert introspection_found, "Should have made introspection query"
         assert hello_query_found, "Should have made hello query"

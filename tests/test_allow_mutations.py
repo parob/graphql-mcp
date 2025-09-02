@@ -92,7 +92,8 @@ async def test_from_schema_with_mutations_disabled():
     """Test that mutations are excluded when allow_mutations=False."""
 
     schema = create_test_schema()
-    server = GraphQLMCP.from_schema(schema, allow_mutations=False, name="Test Server")
+    server = GraphQLMCP.from_schema(
+        schema, allow_mutations=False, name="Test Server")
 
     async with Client(server) as client:
         tools = await client.list_tools()
@@ -206,7 +207,8 @@ async def test_add_tools_from_schema_with_remote_mutations_disabled():
     mock_client = Mock(spec=RemoteGraphQLClient)
 
     # Add tools with mutations disabled
-    add_tools_from_schema_with_remote(schema, server, mock_client, allow_mutations=False)
+    add_tools_from_schema_with_remote(
+        schema, server, mock_client, allow_mutations=False)
 
     async with Client(server) as client:
         tools = await client.list_tools()
@@ -244,7 +246,8 @@ async def test_schema_with_no_mutations():
         assert tools[0].name == "hello"
 
     # Should also work fine with allow_mutations=False
-    server2 = GraphQLMCP.from_schema(schema, allow_mutations=False, name="Server2")
+    server2 = GraphQLMCP.from_schema(
+        schema, allow_mutations=False, name="Server2")
 
     async with Client(server2) as client:
         tools = await client.list_tools()
@@ -276,7 +279,8 @@ async def test_schema_with_only_mutations():
     )
 
     # With mutations enabled
-    server1 = GraphQLMCP.from_schema(schema, allow_mutations=True, name="Server1")
+    server1 = GraphQLMCP.from_schema(
+        schema, allow_mutations=True, name="Server1")
 
     async with Client(server1) as client:
         tools = await client.list_tools()
@@ -288,7 +292,8 @@ async def test_schema_with_only_mutations():
         assert len(tools) == 2
 
     # With mutations disabled
-    server2 = GraphQLMCP.from_schema(schema, allow_mutations=False, name="Server2")
+    server2 = GraphQLMCP.from_schema(
+        schema, allow_mutations=False, name="Server2")
 
     async with Client(server2) as client:
         tools = await client.list_tools()

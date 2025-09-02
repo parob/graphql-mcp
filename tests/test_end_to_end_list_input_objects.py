@@ -87,7 +87,8 @@ async def test_end_to_end_list_input_objects_original_scenario():
                     # Pydantic object
                     msg = f"Response {i + 1}: '{response.message}' from {response.role.value}"
                     if response.target_platforms:
-                        platforms = [p.value for p in response.target_platforms]
+                        platforms = [
+                            p.value for p in response.target_platforms]
                         msg += f" targeting {platforms}"
                 elif isinstance(response, dict):
                     # Dict object (fallback handling)
@@ -115,7 +116,8 @@ async def test_end_to_end_list_input_objects_original_scenario():
         tool_names = {t.name for t in tools}
         assert "send_responses" in tool_names
 
-        send_responses_tool = next(t for t in tools if t.name == "send_responses")
+        send_responses_tool = next(
+            t for t in tools if t.name == "send_responses")
         schema_dict = send_responses_tool.inputSchema
 
         print(f"🔍 MCP Tool Schema: {json.dumps(schema_dict, indent=2)}")
@@ -137,7 +139,8 @@ async def test_end_to_end_list_input_objects_original_scenario():
         response_model_schema = schema_dict["$defs"][ref_name]
         assert "message" in response_model_schema["properties"]
         assert "role" in response_model_schema["properties"]
-        assert "targetPlatforms" in response_model_schema["properties"]  # camelCase in GraphQL
+        # camelCase in GraphQL
+        assert "targetPlatforms" in response_model_schema["properties"]
 
         print("✅ Schema validation passed!")
 
@@ -208,10 +211,13 @@ async def test_end_to_end_list_input_objects_original_scenario():
         # Test Case 4: Mixed role types
         print("\n🧪 Test Case 4: Mixed role types")
         mixed_responses = [
-            {"message": "Question from user", "role": "USER", "target_platforms": ["DISCORD"]},
-            {"message": "Assistant response", "role": "ASSISTANT", "target_platforms": ["DISCORD"]},
+            {"message": "Question from user", "role": "USER",
+                "target_platforms": ["DISCORD"]},
+            {"message": "Assistant response", "role": "ASSISTANT",
+                "target_platforms": ["DISCORD"]},
             {"message": "Follow-up question", "role": "USER"},
-            {"message": "Final answer", "role": "ASSISTANT", "target_platforms": ["SLACK"]}
+            {"message": "Final answer", "role": "ASSISTANT",
+                "target_platforms": ["SLACK"]}
         ]
 
         result4 = await client.call_tool("send_responses", {"responses": mixed_responses})
@@ -234,7 +240,8 @@ async def test_original_error_would_have_failed():
     This test serves as documentation of what was broken before the fix.
     """
     print("\n📋 Original Error Documentation:")
-    print("Before the fix, calling send_responses with List[Response] would fail with:")
+    print(
+        "Before the fix, calling send_responses with List[Response] would fail with:")
     print("❌ Expected type 'ResponseInput' to be a mapping")
     print("")
     print("This happened because:")

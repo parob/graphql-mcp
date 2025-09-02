@@ -121,15 +121,18 @@ async def test_input_object_type_schema_inspection():
         assert check_field_type(user_props["isActive"], "boolean")
 
         # Test create_user_with_address tool schema
-        create_user_addr_tool = next(t for t in tools if t.name == "create_user_with_address")
+        create_user_addr_tool = next(
+            t for t in tools if t.name == "create_user_with_address")
         addr_schema_dict = create_user_addr_tool.inputSchema
 
-        print(f"create_user_with_address schema: {json.dumps(addr_schema_dict, indent=2)}")
+        print(
+            f"create_user_with_address schema: {json.dumps(addr_schema_dict, indent=2)}")
 
         # Should have both userInput and addressInput
         assert "userInput" in addr_schema_dict["properties"]
         assert "addressInput" in addr_schema_dict["properties"]
-        assert set(addr_schema_dict["required"]) == {"userInput", "addressInput"}
+        assert set(addr_schema_dict["required"]) == {
+            "userInput", "addressInput"}
 
         # Verify addressInput structure via $ref
         addr_input_schema = addr_schema_dict["properties"]["addressInput"]
@@ -180,7 +183,8 @@ async def test_json_scalar_type_schema_inspection():
         create_item_tool = next(t for t in tools if t.name == "create_item")
         schema_dict = create_item_tool.inputSchema
 
-        print(f"create_item (JSON scalar) schema: {json.dumps(schema_dict, indent=2)}")
+        print(
+            f"create_item (JSON scalar) schema: {json.dumps(schema_dict, indent=2)}")
 
         # Verify the schema structure for JSON scalar type
         assert schema_dict["type"] == "object"
@@ -195,13 +199,15 @@ async def test_json_scalar_type_schema_inspection():
         if "type" in input_schema:
             assert input_schema["type"] == "object"
         # Should NOT have detailed properties like GraphQLInputObjectType does
-        assert "properties" not in input_schema or not input_schema.get("properties")
+        assert "properties" not in input_schema or not input_schema.get(
+            "properties")
 
         # Test create_items tool schema
         create_items_tool = next(t for t in tools if t.name == "create_items")
         items_schema_dict = create_items_tool.inputSchema
 
-        print(f"create_items (multiple JSON scalars) schema: {json.dumps(items_schema_dict, indent=2)}")
+        print(
+            f"create_items (multiple JSON scalars) schema: {json.dumps(items_schema_dict, indent=2)}")
 
         # Should have both items and metadata as generic objects
         assert "items" in items_schema_dict["properties"]
@@ -248,7 +254,8 @@ async def test_mixed_input_types_schema_inspection():
         assert "userInput" in props
         assert "metadata" in props
         assert "tags" in props
-        assert set(schema_dict["required"]) == {"userInput", "metadata", "tags"}
+        assert set(schema_dict["required"]) == {
+            "userInput", "metadata", "tags"}
 
         # userInput should have detailed object structure (GraphQLInputObjectType) via $ref
         user_input_schema = props["userInput"]
@@ -266,7 +273,8 @@ async def test_mixed_input_types_schema_inspection():
         metadata_schema = props["metadata"]
         assert "$ref" not in metadata_schema  # Should not reference detailed schema
         # Should NOT have detailed properties like GraphQLInputObjectType does
-        assert "properties" not in metadata_schema or not metadata_schema.get("properties")
+        assert "properties" not in metadata_schema or not metadata_schema.get(
+            "properties")
 
         # tags should be array of strings
         tags_schema = props["tags"]
@@ -322,7 +330,8 @@ async def test_functional_behavior_with_schema_inspection():
         # Test JSON scalar type with dict input
         metadata_dict = {"key": "environment", "value": "production"}
         result3 = await client.call_tool("test_json_scalar", {"metadata": metadata_dict})
-        assert "JSONScalar: environment = production" == get_result_text(result3)
+        assert "JSONScalar: environment = production" == get_result_text(
+            result3)
 
 
 @pytest.mark.asyncio
@@ -359,10 +368,12 @@ async def test_optional_input_object_schema_inspection():
         tool = next(t for t in tools if t.name == "create_user_maybe")
         schema_dict = tool.inputSchema
 
-        print(f"optional input object schema: {json.dumps(schema_dict, indent=2)}")
+        print(
+            f"optional input object schema: {json.dumps(schema_dict, indent=2)}")
 
         # Optional parameters should not be in required list
-        assert "required" not in schema_dict or "userInput" not in schema_dict.get("required", [])
+        assert "required" not in schema_dict or "userInput" not in schema_dict.get(
+            "required", [])
 
         # But should still have proper object structure via $ref
         user_input_schema = schema_dict["properties"]["userInput"]
@@ -432,7 +443,8 @@ async def test_list_of_input_objects_schema_inspection():
         tool = next(t for t in tools if t.name == "create_tasks")
         schema_dict = tool.inputSchema
 
-        print(f"list of input objects schema: {json.dumps(schema_dict, indent=2)}")
+        print(
+            f"list of input objects schema: {json.dumps(schema_dict, indent=2)}")
 
         # Verify the schema structure for list of input objects
         assert schema_dict["type"] == "object"

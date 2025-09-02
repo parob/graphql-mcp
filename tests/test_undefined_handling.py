@@ -44,7 +44,8 @@ class TestUndefinedHandling:
             "age": 25
         }
         result = client._clean_variables(variables)
-        expected = {"name": "test", "age": 25}  # undefined_field removed entirely
+        # undefined_field removed entirely
+        expected = {"name": "test", "age": 25}
         assert result == expected
 
     def test_clean_variables_nested_undefined(self, client):
@@ -101,7 +102,8 @@ class TestUndefinedHandling:
                 {"name": "item1"},  # optional removed entirely
                 {"name": "item2", "optional": "value"},
                 # Undefined item filtered out entirely
-                {"name": "item3", "nested": {"keep": "this"}}  # remove removed entirely
+                # remove removed entirely
+                {"name": "item3", "nested": {"keep": "this"}}
             ]
         }
         assert result == expected
@@ -178,14 +180,16 @@ class TestUndefinedHandling:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"data": {"test": "result"}})
-        
+        mock_response.json = AsyncMock(
+            return_value={"data": {"test": "result"}})
+
         # Mock schema introspection to avoid interfering with the test
         with patch.object(client, '_introspect_schema', new_callable=AsyncMock):
             with patch('aiohttp.ClientSession.post') as mock_post:
-                mock_post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+                mock_post.return_value.__aenter__ = AsyncMock(
+                    return_value=mock_response)
                 mock_post.return_value.__aexit__ = AsyncMock(return_value=None)
-                
+
                 result = await client._execute_request(
                     "query Test($name: String, $nested: TestInput) { test }",
                     variables,
@@ -197,11 +201,12 @@ class TestUndefinedHandling:
                 # Verify that the request was made with cleaned variables
                 call_args = mock_post.call_args
                 sent_payload = call_args[1]['json']
-                
+
                 expected_variables = {
                     "name": "test",
                     # optional_field removed entirely
-                    "nested": {"required": "value"}  # optional removed entirely
+                    # optional removed entirely
+                    "nested": {"required": "value"}
                 }
                 assert sent_payload['variables'] == expected_variables
                 assert result == {"test": "result"}
@@ -210,12 +215,12 @@ class TestUndefinedHandling:
     async def test_execute_with_token_cleans_variables(self, client):
         """Test that execute_with_token passes variables to _execute_request correctly."""
         variables = {"field": Undefined}
-        
+
         with patch.object(client, '_execute_request', new_callable=AsyncMock) as mock_execute:
             mock_execute.return_value = {"data": "test"}
-            
+
             await client.execute_with_token("query", variables)
-            
+
             # Variables are passed as-is to _execute_request, cleaning happens there
             mock_execute.assert_called_once_with(
                 "query", variables, None, True, client.headers
@@ -225,12 +230,12 @@ class TestUndefinedHandling:
     async def test_execute_cleans_variables(self, client):
         """Test that execute method passes variables to _execute_request correctly."""
         variables = {"valid": "keep", "invalid": Undefined}
-        
+
         with patch.object(client, '_execute_request', new_callable=AsyncMock) as mock_execute:
             mock_execute.return_value = {"data": "test"}
-            
+
             await client.execute("query", variables)
-            
+
             # Variables are passed as-is to _execute_request, cleaning happens there
             mock_execute.assert_called_once_with(
                 "query", variables, None, True, client.headers
@@ -270,7 +275,7 @@ class TestUndefinedHandling:
                 "count": False   # Schema says this is scalar
             }
         }
-        
+
         data = {
             "users": None,  # Should become [] based on schema
             "items": None,  # Should become [] based on schema
@@ -288,7 +293,7 @@ class TestUndefinedHandling:
 
     def test_transform_null_arrays_nested(self, client):
         """Test transforming null arrays in nested structures with automatic schema introspection."""
-        # Mock complete schema introspection 
+        # Mock complete schema introspection
         mock_schema = {
             "__schema": {
                 "types": [
@@ -296,44 +301,54 @@ class TestUndefinedHandling:
                         "name": "Query",
                         "kind": "OBJECT",
                         "fields": [
-                            {"name": "user", "type": {"kind": "OBJECT", "name": "User"}},
-                            {"name": "results", "type": {"kind": "LIST", "ofType": {"kind": "OBJECT", "name": "Result"}}}
+                            {"name": "user", "type": {
+                                "kind": "OBJECT", "name": "User"}},
+                            {"name": "results", "type": {"kind": "LIST",
+                                                         "ofType": {"kind": "OBJECT", "name": "Result"}}}
                         ]
                     },
                     {
                         "name": "User",
                         "kind": "OBJECT",
                         "fields": [
-                            {"name": "name", "type": {"kind": "SCALAR", "name": "String"}},
-                            {"name": "addresses", "type": {"kind": "LIST", "ofType": {"kind": "OBJECT", "name": "Address"}}},
-                            {"name": "profile", "type": {"kind": "OBJECT", "name": "Profile"}}
+                            {"name": "name", "type": {
+                                "kind": "SCALAR", "name": "String"}},
+                            {"name": "addresses", "type": {"kind": "LIST",
+                                                           "ofType": {"kind": "OBJECT", "name": "Address"}}},
+                            {"name": "profile", "type": {
+                                "kind": "OBJECT", "name": "Profile"}}
                         ]
                     },
                     {
                         "name": "Profile",
                         "kind": "OBJECT",
                         "fields": [
-                            {"name": "tags", "type": {"kind": "LIST", "ofType": {"kind": "SCALAR", "name": "String"}}},
-                            {"name": "bio", "type": {"kind": "SCALAR", "name": "String"}}
+                            {"name": "tags", "type": {"kind": "LIST", "ofType": {
+                                "kind": "SCALAR", "name": "String"}}},
+                            {"name": "bio", "type": {
+                                "kind": "SCALAR", "name": "String"}}
                         ]
                     }
                 ]
             }
         }
-        
+
         # Use automatic schema introspection
         import asyncio
         from unittest.mock import patch
         with patch.object(client, '_raw_execute_request', return_value=mock_schema):
             asyncio.run(client._introspect_schema())
-        
+
         data = {
             "user": {
                 "name": "John",
-                "addresses": None,  # Should become [] (schema: User.addresses is list)
+                # Should become [] (schema: User.addresses is list)
+                "addresses": None,
                 "profile": {
-                    "tags": None,    # Should become [] (schema: Profile.tags is list)
-                    "bio": None      # Should remain None (schema: Profile.bio is scalar)
+                    # Should become [] (schema: Profile.tags is list)
+                    "tags": None,
+                    # Should remain None (schema: Profile.bio is scalar)
+                    "bio": None
                 }
             },
             "results": None  # Should become [] (schema: Query.results is list)
@@ -357,20 +372,24 @@ class TestUndefinedHandling:
         # No schema introspection for this test - relies on sibling analysis
         client._introspected = False
         client._array_fields_cache = {}
-        
+
         data = {
             "data": [
                 {"items": None, "name": "test1"},
-                {"items": ["a", "b"], "name": "test2"},     # This sibling shows items can be an array
-                {"items": None, "name": "test3"}           # Should also become [] due to sibling
+                # This sibling shows items can be an array
+                {"items": ["a", "b"], "name": "test2"},
+                # Should also become [] due to sibling
+                {"items": None, "name": "test3"}
             ]
         }
         result = client._transform_null_arrays(data)
         expected = {
             "data": [
-                {"items": [], "name": "test1"},          # Converted due to sibling analysis
+                # Converted due to sibling analysis
+                {"items": [], "name": "test1"},
                 {"items": ["a", "b"], "name": "test2"},
-                {"items": [], "name": "test3"}           # Converted due to sibling analysis
+                # Converted due to sibling analysis
+                {"items": [], "name": "test3"}
             ]
         }
         assert result == expected
@@ -380,23 +399,23 @@ class TestUndefinedHandling:
         # Ensure no schema information is available
         client._introspected = False
         client._array_fields_cache = {}
-        
+
         data = {
             "users": None,      # Would have become [] with old heuristics, now stays None
-            "items": None,      # Would have become [] with old heuristics, now stays None  
+            "items": None,      # Would have become [] with old heuristics, now stays None
             "results": None,    # Would have become [] with old heuristics, now stays None
-            "components": None, # Would have become [] with old heuristics, now stays None
+            "components": None,  # Would have become [] with old heuristics, now stays None
             "name": None        # Should remain None (never had heuristics)
         }
         result = client._transform_null_arrays(data)
-        
+
         # Without schema information, nothing should be converted
         # This confirms we got rid of "Fallback to field name heuristics as last resort"
         expected = {
             "users": None,      # Stays None (no heuristic fallback)
             "items": None,      # Stays None (no heuristic fallback)
-            "results": None,    # Stays None (no heuristic fallback) 
-            "components": None, # Stays None (no heuristic fallback)
+            "results": None,    # Stays None (no heuristic fallback)
+            "components": None,  # Stays None (no heuristic fallback)
             "name": None
         }
         assert result == expected
@@ -406,15 +425,16 @@ class TestUndefinedHandling:
         # No schema information available
         client._introspected = False
         client._array_fields_cache = {}
-        
+
         data = {
             "items": None,
-            "other_items": ["a", "b", "c"],  # Sibling shows this field can be an array
+            # Sibling shows this field can be an array
+            "other_items": ["a", "b", "c"],
             "users": None,
             "name": None
         }
         result = client._transform_null_arrays(data)
-        
+
         # Only fields with explicit sibling evidence should convert
         expected = {
             "items": None,              # No sibling with same name showing it's an array

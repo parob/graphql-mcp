@@ -33,7 +33,8 @@ class TestSchemaIntrospection:
 
     def test_is_list_type_simple_list(self, client):
         """Test detection of simple LIST type."""
-        field_type = {"kind": "LIST", "ofType": {"kind": "SCALAR", "name": "String"}}
+        field_type = {"kind": "LIST", "ofType": {
+            "kind": "SCALAR", "name": "String"}}
         assert client._is_list_type(field_type) is True
 
     def test_is_list_type_non_null_list(self, client):
@@ -70,41 +71,46 @@ class TestSchemaIntrospection:
                 "name": False      # This is not a list field
             }
         }
-        
+
         data = {"tags": None, "name": None}
-        
+
         # tags should convert to array based on schema
-        assert client._should_convert_to_array("tags", None, data, "User") is True
-        
+        assert client._should_convert_to_array(
+            "tags", None, data, "User") is True
+
         # name should not convert based on schema
-        assert client._should_convert_to_array("name", None, data, "User") is False
+        assert client._should_convert_to_array(
+            "name", None, data, "User") is False
 
     def test_should_convert_to_array_no_fallback_heuristics(self, client):
         """Test that field name heuristics are NOT used when no schema info (as requested)."""
         data = {"users": None, "name": None}
-        
+
         # Without schema info, field name heuristics are NOT used (removed as requested)
         # users should NOT convert based on field name alone
         assert client._should_convert_to_array("users", None, data) is False
-        
+
         # name should not convert (same as before)
         assert client._should_convert_to_array("name", None, data) is False
 
     def test_should_convert_to_array_non_null_value(self, client):
         """Test that non-null values are never converted."""
         data = {"users": ["existing", "data"]}
-        
-        assert client._should_convert_to_array("users", ["existing", "data"], data) is False
+
+        assert client._should_convert_to_array(
+            "users", ["existing", "data"], data) is False
 
     @pytest.mark.asyncio
     async def test_raw_execute_request(self, client):
         """Test raw GraphQL request execution without transformations."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"data": {"test": "result"}})
+        mock_response.json = AsyncMock(
+            return_value={"data": {"test": "result"}})
 
         with patch('aiohttp.ClientSession.post') as mock_post:
-            mock_post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post.return_value.__aenter__ = AsyncMock(
+                return_value=mock_response)
             mock_post.return_value.__aexit__ = AsyncMock(return_value=None)
 
             result = await client._raw_execute_request("query { test }")
@@ -146,8 +152,10 @@ class TestSchemaIntrospection:
 
             assert client._introspected is True
             assert "User" in client._array_fields_cache
-            assert client._array_fields_cache["User"]["name"] is False  # Scalar field
-            assert client._array_fields_cache["User"]["tags"] is True   # List field
+            # Scalar field
+            assert client._array_fields_cache["User"]["name"] is False
+            # List field
+            assert client._array_fields_cache["User"]["tags"] is True
 
     @pytest.mark.asyncio
     async def test_introspect_schema_failure_fallback(self, client):
@@ -191,7 +199,7 @@ class TestSchemaIntrospection:
         data = {
             "user": {
                 "name": None,      # Should stay None (not array field)
-                "tags": None,      # Should become [] (array field)  
+                "tags": None,      # Should become [] (array field)
                 "addresses": None  # Should become [] (array field)
             }
         }
@@ -277,9 +285,9 @@ class TestSchemaIntrospection:
             assert client._session is not None
             assert client._session.connector._ssl is not None
 
-    @pytest.mark.asyncio  
+    @pytest.mark.asyncio
     async def test_create_session_without_ssl(self, client_no_ssl):
-        """Test session creation with SSL verification disabled."""  
+        """Test session creation with SSL verification disabled."""
         # Test inside an async context where event loop is available
         async with client_no_ssl:
             # Session should be created with SSL verification disabled

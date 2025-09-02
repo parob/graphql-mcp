@@ -48,7 +48,8 @@ class TestUpdatedUndefinedHandling:
             "age": 25
         }
         result = client._clean_variables(variables)
-        expected = {"name": "test", "age": 25}  # undefined_field removed entirely
+        # undefined_field removed entirely
+        expected = {"name": "test", "age": 25}
         assert result == expected
         assert "undefined_field" not in result
 
@@ -108,7 +109,8 @@ class TestUpdatedUndefinedHandling:
             "items": [
                 {"name": "item1"},  # optional removed entirely
                 {"name": "item2", "optional": "value"},
-                {"name": "item3", "nested": {"keep": "this"}}  # remove removed entirely
+                # remove removed entirely
+                {"name": "item3", "nested": {"keep": "this"}}
             ]
         }
         assert result == expected
@@ -186,14 +188,16 @@ class TestUpdatedUndefinedHandling:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"data": {"test": "result"}})
-        
+        mock_response.json = AsyncMock(
+            return_value={"data": {"test": "result"}})
+
         # Mock schema introspection to avoid interfering with the test
         with patch.object(client, '_introspect_schema', new_callable=AsyncMock):
             with patch('aiohttp.ClientSession.post') as mock_post:
-                mock_post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+                mock_post.return_value.__aenter__ = AsyncMock(
+                    return_value=mock_response)
                 mock_post.return_value.__aexit__ = AsyncMock(return_value=None)
-                
+
                 result = await client._execute_request(
                     "query Test($name: String, $nested: TestInput) { test }",
                     variables,
@@ -205,55 +209,55 @@ class TestUpdatedUndefinedHandling:
                 # Verify that the request was made with cleaned variables (Undefined removed)
                 call_args = mock_post.call_args
                 sent_payload = call_args[1]['json']
-                
+
                 expected_variables = {
                     "name": "test",
-                    "nested": {"required": "value"}  # optional removed entirely
+                    # optional removed entirely
+                    "nested": {"required": "value"}
                     # optional_field removed entirely
                 }
                 assert sent_payload['variables'] == expected_variables
                 assert result == {"test": "result"}
-                
+
                 # Verify the query was also cleaned to remove unused variable declarations
-                sent_query = sent_payload['query']
                 # The query should be modified to only include variables that exist
                 # This prevents GraphQL validation errors
 
     def test_mixed_null_and_undefined_handling(self, client):
         """Test that explicit None values are preserved while Undefined values are removed."""
-        
+
         variables = {
             "explicitNull": None,        # Should be preserved as null
-            "undefinedValue": Undefined, # Should be removed entirely
+            "undefinedValue": Undefined,  # Should be removed entirely
             "actualValue": "keep"        # Should be preserved
         }
-        
+
         cleaned = client._clean_variables(variables)
-        
+
         expected = {
             "explicitNull": None,  # Preserved
             "actualValue": "keep"  # Preserved
             # undefinedValue should be missing entirely
         }
-        
+
         assert cleaned == expected
         assert "undefinedValue" not in cleaned
 
     def test_empty_list_after_undefined_removal(self, client):
         """Test that lists become empty when all items are Undefined."""
-        
+
         variables = {
             "emptyList": [Undefined, Undefined],
             "partialList": [Undefined, "keep", Undefined],
             "normalField": "value"
         }
-        
+
         cleaned = client._clean_variables(variables)
-        
+
         expected = {
             "emptyList": [],  # All items removed, list remains
             "partialList": ["keep"],  # Only non-Undefined items remain
             "normalField": "value"
         }
-        
+
         assert cleaned == expected
