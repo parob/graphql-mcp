@@ -3,7 +3,6 @@ from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
 
 
-
 def create_app():
     """Creates a minimal Starlette application instrumented with the middleware."""
     app = Starlette()

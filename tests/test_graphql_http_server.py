@@ -197,7 +197,8 @@ def test_graphql_http_auth_configuration():
 
             # Verify warning was logged
             mock_logger.critical.assert_called_once_with(
-                "Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. Please use a different auth mechanism, or disable GraphQLHTTP."
+                "Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
+                "Please use a different auth mechanism, or disable GraphQLHTTP."
             )
 
 

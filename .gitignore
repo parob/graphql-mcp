@@ -3,12 +3,25 @@
 .coverage
 .pytest_cache
 
-env
-venv
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Testing
 tests/logs/
-objectql.egg-info
-dist
-tests/htmlcov
-*.pyc
-*.lock
+tests/htmlcov/
+htmlcov/
 tests/remote_app.py
+
+# Python
+*.pyc
+__pycache__/
+
+# Lock files (keep uv.lock, ignore others)
+Pipfile.lock

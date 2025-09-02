@@ -1,0 +1,66 @@
+[project]
+name = "graphql_mcp"
+dynamic = ["version"]
+description = "A framework for building Python GraphQL MCP servers."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11,<3.13"
+authors = [
+    {name = "Robert Parker", email = "rob@parob.com"}
+]
+keywords = ["GraphQL", "GraphQL-API", "GraphQLAPI", "Server", "MCP", "Multi-Model-Protocol"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "graphql-core",
+    "fastmcp",
+    "graphql-api",
+    "graphql-http",
+    "aiohttp",
+]
+
+[project.urls]
+Homepage = "https://gitlab.com/parob/graphql-mcp"
+Repository = "https://gitlab.com/parob/graphql-mcp"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "strawberry-graphql",
+    "coverage",
+    "faker",
+    "flake8",
+    "flake8-pyproject",
+]
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["graphql_mcp"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:PYTEST_DONT_REWRITE:DeprecationWarning",
+    "ignore:ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead:DeprecationWarning:docstring_parser.attrdoc"
+]
+
+[tool.flake8]
+max-line-length = 160
+ignore = ["E203", "W503", "E402"]
+

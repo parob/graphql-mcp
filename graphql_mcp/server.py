@@ -231,7 +231,8 @@ try:
                         auth_enabled=False,
                     ).app
                     if self.auth:
-                        logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. Please use a different auth mechanism, or disable GraphQLHTTP.")
+                        logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
+                                        "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
                 app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
             return app
@@ -812,7 +813,8 @@ def _create_tool_function(
                                                                 nested_field_list_type = nested_field_list_type.of_type
                                                             if isinstance(nested_field_list_type, GraphQLList):
                                                                 nested_list_item_type = get_named_type(nested_field_list_type.of_type)
-                                                                if isinstance(nested_list_item_type, GraphQLEnumType) and isinstance(list_item[nested_field_name], list):
+                                                                if isinstance(nested_list_item_type, GraphQLEnumType) \
+                                                                        and isinstance(list_item[nested_field_name], list):
                                                                     converted_nested_list = []
                                                                     for nested_item in list_item[nested_field_name]:
                                                                         if nested_item not in nested_list_item_type.values:
