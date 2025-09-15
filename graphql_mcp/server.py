@@ -319,7 +319,7 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             # Create a Union type that accepts integers, strings, or enum names
             if integer_values:
                 # type: ignore
-                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]
+                return Union[Literal[tuple(integer_values)], Literal[tuple(string_values)]]  # type: ignore
             else:
                 return Literal[tuple(string_values)]  # type: ignore
         else:
