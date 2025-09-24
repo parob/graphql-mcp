@@ -1,5 +1,5 @@
 [project]
-name = "graphql_mcp"
+name = "graphql-mcp"
 dynamic = ["version"]
 description = "A framework for building Python GraphQL MCP servers."
 readme = "README.md"
