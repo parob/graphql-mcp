@@ -56,7 +56,7 @@ That's it! Your GraphQL API is now available as MCP tools.
 
 ## Usage with graphql-api
 
-The recommended way to use GraphQL MCP is with the [graphql-api](https://github.com/graphql-python/graphql-api) library, which provides a simple, decorator-based approach to building GraphQL APIs:
+The recommended way to use GraphQL MCP is with the [graphql-api](https://github.com/parob/graphql-api) library, which provides a simple, decorator-based approach to building GraphQL APIs:
 
 ```python
 from graphql_api import GraphQLAPI, field
