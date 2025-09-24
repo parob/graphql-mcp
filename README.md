@@ -1,4 +1,4 @@
-# GraphQL MCP
+# GraphQL-MCP
 
 A library for automatically generating [FastMCP](https://pypi.org/project/fastmcp/) tools from GraphQL APIs using [graphql-api](https://pypi.org/project/graphql-api/).
 
