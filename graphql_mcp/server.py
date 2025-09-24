@@ -41,7 +41,7 @@ from graphql import (
     GraphQLObjectType,
 )
 
-from .remote import RemoteGraphQLClient
+from graphql_mcp.remote import RemoteGraphQLClient
 
 
 logger = logging.getLogger(__name__)
@@ -79,40 +79,13 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
 class GraphQLMCP(FastMCP):  # type: ignore
 
     @classmethod
-    def from_schema(cls, graphql_schema: GraphQLSchema, allow_mutations: bool = True, *args, **kwargs):
-        """
-        Create a GraphQLMCP from a LOCAL GraphQL schema.
-
-        This method creates tools that execute GraphQL operations directly against the
-        provided schema. Bearer token authentication is handled automatically through
-        the FastMCP Context object - no token forwarding configuration is needed.
-
-        Args:
-            graphql_schema: The GraphQL schema to expose as MCP tools
-            allow_mutations: Whether to expose mutations as tools (default: True)
-            *args: Additional arguments to pass to FastMCP
-            **kwargs: Additional keyword arguments to pass to FastMCP
-
-        Returns:
-            GraphQLMCP: A server instance with tools generated from the schema
-
-        Note:
-            For remote GraphQL servers, use `from_remote_url()` instead, which provides
-            the `forward_bearer_token` option for token forwarding scenarios.
-        """
-        # Create a FastMCP instance and add tools from schema
-        instance = FastMCP(*args, **kwargs)
-        add_tools_from_schema(graphql_schema, instance,
-                              allow_mutations=allow_mutations)
-        return instance
-
-    @classmethod
     def from_remote_url(
         cls,
         url: str,
         bearer_token: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: int = 30,
+        graphql_http: bool = True,
         allow_mutations: bool = True,
         forward_bearer_token: bool = False,
         verify_ssl: bool = True,
@@ -154,7 +127,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
             - Consider implementing token validation or transformation before forwarding
             - Monitor access logs for both the MCP server and remote GraphQL server
         """
-        from .remote import fetch_remote_schema_sync, RemoteGraphQLClient
+        from graphql_mcp.remote import fetch_remote_schema_sync, RemoteGraphQLClient
 
         # Prepare headers with bearer token if provided
         request_headers = headers.copy() if headers else {}
@@ -165,7 +138,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         schema = fetch_remote_schema_sync(url, request_headers, timeout)
 
         # Create a FastMCP server instance
-        instance = FastMCP(*args, **kwargs)
+        instance = GraphQLMCP(schema=schema, graphql_http=graphql_http, allow_mutations=allow_mutations, *args, **kwargs)
 
         # Create a remote client for executing queries
         client = RemoteGraphQLClient(
@@ -176,6 +149,13 @@ class GraphQLMCP(FastMCP):  # type: ignore
             schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
 
         return instance
+
+    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
+        self.schema = schema
+        self.graphql_http = graphql_http
+        self.allow_mutations = allow_mutations
+        super().__init__(*args, **kwargs)
+        add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
 
     def http_app(
         self,
@@ -188,6 +168,29 @@ class GraphQLMCP(FastMCP):  # type: ignore
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
+
+        if self.graphql_http:
+            from graphql_http import GraphQLHTTP  # type: ignore
+
+            if JWTVerifier and isinstance(self.auth, JWTVerifier):
+                graphql_app = GraphQLHTTP(
+                    schema=self.schema,
+                    auth_enabled=True,
+                    auth_jwks_uri=self.auth.jwks_uri,
+                    auth_issuer=self.auth.issuer,
+                    auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None
+                ).app
+            else:
+                graphql_app = GraphQLHTTP(
+                    schema=self.schema,
+                    auth_enabled=False,
+                ).app
+                if self.auth:
+                    logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
+                                    "Please use a different auth mechanism, or disable GraphQLHTTP.")
+
+            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
+
         return app
 
 
@@ -207,42 +210,15 @@ try:
 
         @classmethod
         def from_api(cls, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
-            mcp = GraphQLMCP(api=api, graphql_http=graphql_http,
-                             allow_mutations=allow_mutations, *args, **kwargs)
+            mcp = GraphQLMCP(
+                schema=api.build_schema()[0],
+                graphql_http=graphql_http,
+                allow_mutations=allow_mutations,
+                *args,
+                **kwargs
+            )
+            mcp.api = api  # type: ignore
             return mcp
-
-        def __init__(self, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.api = api
-            self.graphql_http = graphql_http
-            add_tools_from_schema(
-                api.build_schema()[0], self, allow_mutations=allow_mutations)
-
-        def http_app(self, *args, **kwargs):
-            app = super().http_app(*args, **kwargs)
-            if self.graphql_http:
-                from graphql_http import GraphQLHTTP  # type: ignore
-
-                if JWTVerifier and isinstance(self.auth, JWTVerifier):
-                    graphql_app = GraphQLHTTP.from_api(
-                        api=self.api,
-                        auth_enabled=True,
-                        auth_jwks_uri=self.auth.jwks_uri,
-                        auth_issuer=self.auth.issuer,
-                        auth_audience=self.auth.audience
-                    ).app
-                else:
-                    graphql_app = GraphQLHTTP.from_api(
-                        api=self.api,
-                        auth_enabled=False,
-                    ).app
-                    if self.auth:
-                        logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
-                                        "Please use a different auth mechanism, or disable GraphQLHTTP.")
-
-                app.add_middleware(GraphQLRootMiddleware,
-                                   graphql_app=graphql_app)
-            return app
 
 
 except ImportError:

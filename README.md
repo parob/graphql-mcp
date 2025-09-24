@@ -195,6 +195,8 @@ if __name__ == "__main__":
 # example_from_schema.py
 import asyncio
 import strawberry
+import uvicorn
+
 from graphql_mcp.server import GraphQLMCP
 
 # 1. Define your schema (e.g., with Strawberry)
@@ -216,14 +218,23 @@ readonly_server = GraphQLMCP.from_schema(
     name="ReadOnlyGraphQLServer"
 )
 
+mcp_app = readonly_server.http_app(
+    transport="streamable-http",
+    stateless_http=True
+)
+
 # 4. Use the server
-async def main():
-    print("Available tools:", server.get_tool_names())
-    result = await server.acall_tool("hello", name="From Schema")
-    print("Query result:", result)
+async def demo():
+    # Get available tools
+    print(f"Available tools: {await server.get_tools()}")
+
+    # Call the hello tool
+    print(f"Query result: {await server._mcp_call_tool('hello', arguments={'name': 'Rob'})}")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(demo())
+    uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
 ```
 
 ### From a `graphql-api` object
@@ -231,32 +242,33 @@ if __name__ == "__main__":
 If you are using the `graphql-api` library, you can use the `GraphQLMCP.from_api()` method.
 
 ```python
-# example_from_api.py
 import asyncio
+import uvicorn
+
 from graphql_api import GraphQLAPI, field
-from graphql_mcp.server import GraphQLMCP, HAS_GRAPHQL_API
+from graphql_mcp.server import GraphQLMCP
 
-# The .from_graphql_api() method is only available if `graphql-api` is installed.
-if HAS_GRAPHQL_API:
-    # 1. Define your API using `graphql-api`
-    class MyAPI:
-        @field
-        def hello(self, name: str = "World") -> str:
-            return f"Hello, {name}!"
 
-    api = GraphQLAPI(roottype=MyAPI)
+class HelloWorldAPI:
 
-    # 2. Create the server from the API object
-    server = GraphQLMCP.from_graphql_api(api)
+    @field
+    def hello(self, name: str = "World") -> str:
+        return f"Hello, {name}!"
 
-    # 3. Use the server
-    async def main():
-        print("Available tools:", server.get_tool_names())
-        result = await server.acall_tool("hello", name="From API")
-        print("Query result:", result)
 
-    if __name__ == "__main__":
-        asyncio.run(main())
+api = GraphQLAPI(root_type=HelloWorldAPI)
+
+server = GraphQLMCP.from_api(api)
+
+mcp_app = server.http_app(
+    transport="streamable-http",
+    stateless_http=True
+)
+
+
+if __name__ == "__main__":
+    uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
+
 ```
 
 ## Advanced Features

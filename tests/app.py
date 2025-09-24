@@ -28,17 +28,14 @@ class DemoApp:
         return {"key": "ai_model", "value": "x"}
 
 
-mcp_server = GraphQLMCP(api=api)
+mcp_server = GraphQLMCP.from_api(api=api)
 
 
 # Add an addition tool
 @mcp_server.tool()
-def set_preference(key: PreferenceKey, value: str) -> bool:
-    """Set a preference"""
-    if isinstance(key, PreferenceKey):
-        return True
-    else:
-        return False
+def clear_preferences() -> bool:
+    """Clear all preferences"""
+    return True
 
 
 if __name__ == "__main__":

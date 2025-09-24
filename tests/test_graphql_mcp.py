@@ -346,7 +346,7 @@ async def test_from_schema_class_method():
 
     schema, _ = api.build_schema()
 
-    mcp_server = GraphQLMCP.from_schema(schema, name="TestServer")
+    mcp_server = GraphQLMCP(schema=schema, name="TestServer")
     assert isinstance(mcp_server, FastMCP)
     assert mcp_server.name == "TestServer"
 
@@ -685,7 +685,7 @@ async def test_enum_argument_mcp_vs_graphql_mapping():
             # Returns whether we actually received the Enum instance
             return isinstance(key, PreferenceKey)
 
-    mcp_server = GraphQLMCP(api=api)
+    mcp_server = GraphQLMCP.from_api(api=api)
 
     # Add a direct MCP tool that expects the Enum annotation
     @mcp_server.tool
@@ -726,7 +726,7 @@ async def test_string_enum_argument_mcp_vs_graphql_mapping():
             # Returns whether we actually received the Enum instance
             return isinstance(key, PreferenceKey)
 
-    mcp_server = GraphQLMCP(api=api)
+    mcp_server = GraphQLMCP.from_api(api=api)
 
     # Add a direct MCP tool that expects the Enum annotation
     @mcp_server.tool
@@ -767,7 +767,7 @@ async def test_int_enum_argument_mcp_vs_graphql_mapping():
             # Returns whether we actually received the Enum instance
             return isinstance(key, PreferenceKey)
 
-    mcp_server = GraphQLMCP(api=api)
+    mcp_server = GraphQLMCP.from_api(api=api)
 
     # Add a direct MCP tool that expects the Enum annotation
     @mcp_server.tool
@@ -804,7 +804,7 @@ async def test_dict_mcp_vs_graphql_mapping():
             # Returns whether we actually received the Enum instance
             return {"key": "ai_model", "value": "x"}
 
-    mcp_server = GraphQLMCP(api=api)
+    mcp_server = GraphQLMCP.from_api(api=api)
 
     # Add a direct MCP tool that expects the Enum annotation
     @mcp_server.tool
