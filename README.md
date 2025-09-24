@@ -1,245 +1,18 @@
-# graphql-mcp
+# GraphQL MCP
 
-A library for automatically generating [FastMCP](https://pypi.org/project/fastmcp/) tools from a GraphQL schema.
+A library for automatically generating [FastMCP](https://pypi.org/project/fastmcp/) tools from GraphQL APIs using [graphql-api](https://pypi.org/project/graphql-api/).
 
-This allows you to expose your GraphQL API as a set of tools that can be used by other systems, such as AI agents or other services that understand the MCP (Multi-Model-Protocol).
+This allows you to expose your GraphQL API as MCP tools that can be used by AI agents and other systems.
 
-## Features
+## Quick Start
 
-- **Automatic Tool Generation**: Converts GraphQL queries and mutations into callable Python functions.
-- **Type-Safe**: Maps GraphQL scalar types, enums, and input objects to corresponding Python types.
-- **`FastMCP` Integration**: Seamlessly adds the generated functions as tools to a `FastMCP` server instance.
-- **Modern GraphQL Libraries**: Works with modern, code-first GraphQL libraries like `strawberry-graphql`.
-- **Asynchronous Support**: While the tool generation is synchronous, the created tools execute GraphQL queries in a way that can be integrated into asynchronous applications.
-- **Remote GraphQL Server Support**: Connect to any remote GraphQL endpoint and automatically generate MCP tools from its schema.
-- **Bearer Token Authentication**: Built-in support for bearer token authentication with automatic token refresh capability.
-- **Flexible Authentication**: Combine bearer tokens with additional headers for complex authentication scenarios.
-- **Bearer Token Forwarding**: Forward MCP client bearer tokens to remote GraphQL servers for seamless authentication.
-- **SSL/TLS Configuration**: Configurable SSL certificate verification for development and production environments.
-- **Mutation Control**: Optionally disable mutations to create read-only tool interfaces for enhanced security.
-- **Advanced Enum Handling**: Intelligent conversion between GraphQL enum names and values with nested structure support.
-- **Nested Query Tools**: Automatic generation of MCP tools for nested GraphQL field chains with argument support.
-- **Schema Introspection**: Automatic schema analysis for type-aware transformations and validation.
-- **Variable Cleaning**: Smart handling of undefined variables and automatic query optimization.
-- **Debug Mode**: Comprehensive logging and debugging capabilities for request/response analysis.
-
-## Installation
-
-You can install `graphql-mcp` using pip. To follow the usage example, you'll also need `strawberry-graphql`:
+Install graphql-mcp with graphql-api:
 
 ```bash
-pip install graphql-mcp "strawberry-graphql[cli]"
+pip install graphql-mcp graphql-api
 ```
 
-## Usage with Strawberry
-
-Here's a simple example of how to use `graphql-mcp` to create tools from a `strawberry-graphql` schema.
-
-```python
-# example.py
-import asyncio
-import strawberry
-from fastmcp import FastMCP
-from graphql_mcp.server import add_tools_from_schema
-
-# 1. Define your GraphQL schema using Strawberry
-@strawberry.type
-class Query:
-    @strawberry.field
-    def hello(self, name: str = "World") -> str:
-        """Returns a greeting."""
-        return f"Hello, {name}!"
-
-@strawberry.type
-class Mutation:
-    @strawberry.mutation
-    def send_message(self, message: str) -> str:
-        """Prints a message and returns a confirmation."""
-        print(f"Received message: {message}")
-        return f"Message '{message}' sent successfully."
-
-# The strawberry.Schema object is compatible with graphql-core's GraphQLSchema
-schema = strawberry.Schema(query=Query, mutation=Mutation)
-
-# 2. Create a FastMCP server instance
-server = FastMCP(name="MyGraphQLServer")
-
-# 3. Add tools from the schema
-# The `strawberry.Schema` object can be passed directly.
-add_tools_from_schema(schema, server)
-
-# 4. Use the generated tools
-async def main():
-    # You can inspect the tools
-    print("Available tools:", server.get_tool_names())
-
-    # You can also inspect a specific tool's signature
-    print("Tool 'hello' signature:", server.get_tool_signature("hello"))
-
-    # Call a query tool
-    result = await server.acall_tool("hello", name="Bob")
-    print("Query result:", result)
-
-    # Call a mutation tool
-    result = await server.acall_tool("send_message", message="This is a test")
-    print("Mutation result:", result)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-When you run this script, you will see the following output:
-
-```
-Available tools: ['send_message', 'hello']
-Tool 'hello' signature: (name: str = 'World') -> str
-Query result: Hello, Bob!
-Received message: This is a test
-Mutation result: Message 'This is a test' sent successfully.
-```
-
-## Alternative Usage: `GraphQLMCP`
-
-For convenience, you can also use the `GraphQLMCP` class, which inherits from `FastMCP` and provides class methods to create a server directly from a schema.
-
-### From a `GraphQLSchema` object
-
-You can use `GraphQLMCP.from_schema()` and pass any `graphql-core`-compatible `GraphQLSchema` object. This includes schemas created with `strawberry-graphql`.
-
-### From a Remote GraphQL Server
-
-You can connect to a remote GraphQL endpoint and automatically generate MCP tools from its schema:
-
-```python
-# example_remote_server.py
-import asyncio
-from graphql_mcp.server import GraphQLMCP
-from fastmcp.client import Client
-
-# Connect to a remote GraphQL server
-server = GraphQLMCP.from_remote_url(
-    url="https://countries.trevorblades.com/",  # Public GraphQL API
-    name="Countries API"
-)
-
-# With bearer token authentication
-authenticated_server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    bearer_token="YOUR_BEARER_TOKEN",  # Bearer token authentication
-    timeout=60,  # Custom timeout in seconds
-    name="Private API"
-)
-
-# With bearer token and additional headers
-multi_auth_server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    bearer_token="YOUR_BEARER_TOKEN",
-    headers={
-        "X-API-Key": "YOUR_API_KEY",
-        "X-Request-ID": "request-123"
-    },
-    timeout=60,
-    name="Multi-Auth API"
-)
-
-# With bearer token forwarding from MCP client
-forwarding_server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    forward_bearer_token=True,  # Forward MCP client token to remote server
-    timeout=60,
-    name="Token Forwarding API"
-)
-
-# With SSL verification disabled (for development)
-dev_server = GraphQLMCP.from_remote_url(
-    url="https://localhost:8000/graphql",
-    verify_ssl=False,  # Disable SSL verification
-    debug=True,  # Enable debug logging
-    name="Development API"
-)
-
-# With advanced configuration
-advanced_server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    bearer_token="YOUR_BEARER_TOKEN",
-    undefined_strategy="remove",  # or "null" - how to handle undefined variables
-    debug=True,  # Enable verbose logging
-    timeout=30,
-    name="Advanced API"
-)
-
-# Read-only server (queries only, no mutations)
-readonly_server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    bearer_token="YOUR_BEARER_TOKEN",
-    allow_mutations=False,  # Disable mutations for security
-    name="Read-Only API"
-)
-
-# Use the server - all queries/mutations from the remote schema are now MCP tools
-async def main():
-    async with Client(server) as client:
-        # List available tools
-        tools = await client.list_tools()
-        print(f"Available tools: {[tool.name for tool in tools]}")
-
-        # Call a tool (executes against the remote server)
-        # The actual tool names depend on the remote schema
-        # result = await client.call_tool("countries", {"filter": {"currency": {"eq": "USD"}}})
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-```python
-# example_from_schema.py
-import asyncio
-import strawberry
-import uvicorn
-
-from graphql_mcp.server import GraphQLMCP
-
-# 1. Define your schema (e.g., with Strawberry)
-@strawberry.type
-class Query:
-    @strawberry.field
-    def hello(self, name: str = "World") -> str:
-        return f"Hello, {name}!"
-
-schema = strawberry.Schema(query=Query)
-
-# 2. Create the server from the schema
-server = GraphQLMCP.from_schema(schema, name="MyGraphQLServer")
-
-# 3. Create a read-only server (queries only)
-readonly_server = GraphQLMCP.from_schema(
-    schema,
-    allow_mutations=False,  # Disable mutations
-    name="ReadOnlyGraphQLServer"
-)
-
-mcp_app = readonly_server.http_app(
-    transport="streamable-http",
-    stateless_http=True
-)
-
-# 4. Use the server
-async def demo():
-    # Get available tools
-    print(f"Available tools: {await server.get_tools()}")
-
-    # Call the hello tool
-    print(f"Query result: {await server._mcp_call_tool('hello', arguments={'name': 'Rob'})}")
-
-
-if __name__ == "__main__":
-    asyncio.run(demo())
-    uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
-```
-
-### From a `graphql-api` object
-
-If you are using the `graphql-api` library, you can use the `GraphQLMCP.from_api()` method.
+Create a simple GraphQL API and expose it as MCP tools:
 
 ```python
 import asyncio
@@ -268,108 +41,121 @@ mcp_app = server.http_app(
 
 if __name__ == "__main__":
     uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
-
 ```
 
-## Advanced Features
+That's it! Your GraphQL API is now available as MCP tools.
 
-### Bearer Token Forwarding
+## Features
 
-When using `forward_bearer_token=True`, the server will automatically forward the MCP client's bearer token to the remote GraphQL server. This enables seamless authentication chains where the MCP client's credentials are passed through to the backend GraphQL API.
+- **Automatic Tool Generation**: Converts GraphQL queries and mutations into MCP tools
+- **Type-Safe**: Maps GraphQL types to Python types with full type hints
+- **Built-in HTTP Server**: Serves both MCP and GraphQL endpoints
+- **Authentication**: Supports JWT and bearer token authentication
+- **Remote GraphQL**: Connect to existing GraphQL APIs
+- **Production Ready**: Built on FastMCP and Starlette
+
+## Usage with graphql-api
+
+The recommended way to use GraphQL MCP is with the [graphql-api](https://github.com/graphql-python/graphql-api) library, which provides a simple, decorator-based approach to building GraphQL APIs:
 
 ```python
-# The MCP client's bearer token will be forwarded to the remote GraphQL server
+from graphql_api import GraphQLAPI, field
+from graphql_mcp.server import GraphQLMCP
+
+class BookAPI:
+    books = [
+        {"id": "1", "title": "The Hobbit", "author": "J.R.R. Tolkien"},
+        {"id": "2", "title": "1984", "author": "George Orwell"}
+    ]
+
+    @field
+    def book(self, id: str) -> dict:
+        """Get a book by ID."""
+        return next((book for book in self.books if book["id"] == id), None)
+
+    @field
+    def books(self) -> list[dict]:
+        """Get all books."""
+        return self.books
+
+    @field
+    def add_book(self, title: str, author: str) -> dict:
+        """Add a new book."""
+        book = {"id": str(len(self.books) + 1), "title": title, "author": author}
+        self.books.append(book)
+        return book
+
+api = GraphQLAPI(root_type=BookAPI)
+server = GraphQLMCP.from_api(api, name="BookStore")
+```
+
+## Remote GraphQL APIs
+
+You can also connect to existing GraphQL APIs:
+
+```python
+from graphql_mcp.server import GraphQLMCP
+
+# Connect to a public GraphQL API
 server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    forward_bearer_token=True,
-    name="Forwarding Server"
+    url="https://countries.trevorblades.com/",
+    name="Countries API"
+)
+
+# With authentication
+authenticated_server = GraphQLMCP.from_remote_url(
+    url="https://api.github.com/graphql",
+    bearer_token="your_github_token",
+    name="GitHub API"
 )
 ```
 
-**Security Note**: Only enable bearer token forwarding when you trust the remote GraphQL server with your MCP client's credentials.
+## Other GraphQL Libraries
 
-### Undefined Variable Handling
-
-GraphQL-MCP provides sophisticated handling of undefined variables through the `undefined_strategy` parameter:
-
-- `"remove"` (default): Removes undefined variables from the query and variable declarations
-- `"null"`: Converts undefined values to null
+GraphQL MCP works with any GraphQL library that produces a `graphql-core` schema:
 
 ```python
-server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    undefined_strategy="remove",  # Clean undefined variables
-    name="Clean Variables Server"
-)
+import strawberry
+from graphql_mcp.server import GraphQLMCP
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    def hello(self, name: str = "World") -> str:
+        return f"Hello, {name}!"
+
+schema = strawberry.Schema(query=Query)
+server = GraphQLMCP(schema=schema._schema, name="Strawberry API")
 ```
 
-### Debug Mode
-
-Enable comprehensive logging to troubleshoot GraphQL requests and responses:
+## Configuration
 
 ```python
-server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    debug=True,  # Enable verbose logging
-    name="Debug Server"
+server = GraphQLMCP.from_api(
+    api,
+    name="My API",
+    graphql_http=True,          # Enable GraphQL HTTP endpoint
+    allow_mutations=True,       # Allow mutation tools
+    auth=jwt_verifier,         # Optional JWT authentication
+)
+
+# Serve with custom configuration
+app = server.http_app(
+    transport="streamable-http",  # or "http" or "sse"
+    stateless_http=True,         # Don't maintain client state
 )
 ```
-
-### SSL Configuration
-
-For development or internal APIs, you can disable SSL certificate verification:
-
-```python
-server = GraphQLMCP.from_remote_url(
-    url="https://localhost:8000/graphql",
-    verify_ssl=False,  # Only for development!
-    name="Local Development Server"
-)
-```
-
-### Nested Query Tools
-
-GraphQL-MCP automatically generates MCP tools for nested GraphQL field chains. For example, if your schema has:
-
-```graphql
-type Query {
-  user(id: ID!): User
-}
-
-type User {
-  profile: Profile
-}
-
-type Profile {
-  settings(category: String): Settings
-}
-```
-
-The following MCP tools will be generated:
-- `user` - Gets a user by ID
-- `user_profile` - Gets a user's profile
-- `user_profile_settings` - Gets profile settings with optional category filter
-
-### Enum Handling
-
-GraphQL-MCP intelligently handles GraphQL enums:
-- **Input**: Accepts both enum values and names as input
-- **Output**: Returns enum values for MCP compatibility
-- **Schema**: Shows only enum values in MCP tool schemas (Pydantic-compatible)
-- **Nested**: Handles enums in complex nested structures and arrays
 
 ## How It Works
 
-`graphql-mcp` introspects your GraphQL schema's queries and mutations. For each field, it does the following:
+1. **Schema Analysis**: GraphQL MCP analyzes your GraphQL schema
+2. **Tool Generation**: Each query and mutation becomes an MCP tool
+3. **Type Mapping**: GraphQL types are mapped to Python types
+4. **Execution**: Tools execute GraphQL operations when called
+5. **HTTP Serving**: Both MCP and GraphQL endpoints are served
 
-1.  **Creates a Python Function**: A wrapper function is generated that has a signature matching the GraphQL field's arguments.
-2.  **Handles Type Conversion**: It maps GraphQL types like `String`, `Int`, `ID`, and custom `Enum` types to their Python equivalents. Input objects are treated as dictionaries.
-3.  **Constructs a GraphQL Query**: When the generated function is called, it dynamically constructs the appropriate GraphQL query or mutation string.
-4.  **Executes the Query**: It uses `graphql-sync` to execute the query against the schema, passing in the provided arguments as variables.
-5.  **Returns the Result**: The data from the GraphQL response is returned.
-
-The tool names are converted from `camelCase` (GraphQL convention) to `snake_case` (Python convention). For example, a mutation `sendMessage` becomes a tool named `send_message`.
+The generated tools use `snake_case` naming (e.g., `addBook` becomes `add_book`) and preserve all type information and documentation from your GraphQL schema.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.

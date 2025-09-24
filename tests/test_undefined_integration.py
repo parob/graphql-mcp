@@ -226,7 +226,10 @@ class TestUndefinedSerializationIntegration:
                 return_value=mock_response)
             mock_post.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            await client.execute("query Search($ids: [Int], $filters: [FilterInput]) { search }", variables_with_list_undefined)
+            await client.execute(
+                "query Search($ids: [Int], $filters: [FilterInput]) { search }",
+                variables_with_list_undefined
+            )
 
             sent_payload = mock_post.call_args[1]['json']
             expected_cleaned = {

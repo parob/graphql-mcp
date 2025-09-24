@@ -78,7 +78,9 @@ class TestRealServerIntegration:
         }
 
     @pytest.mark.asyncio
-    async def test_real_server_undefined_variable_handling(self, client: RemoteGraphQLClient, server: RealGraphQLServer):
+    async def test_real_server_undefined_variable_handling(
+        self, client: RemoteGraphQLClient, server: RealGraphQLServer
+    ):
         """Test that Undefined variables are cleaned properly for JSON serialization."""
 
         # Simple test with only used variables to avoid GraphQL validation issues
@@ -261,7 +263,9 @@ class TestRealServerIntegration:
                 assert isinstance(product["variants"], list)
 
     @pytest.mark.asyncio
-    async def test_real_server_mutation_with_undefined_input(self, client: RemoteGraphQLClient, server: RealGraphQLServer):
+    async def test_real_server_mutation_with_undefined_input(
+        self, client: RemoteGraphQLClient, server: RealGraphQLServer
+    ):
         """Test mutation with complex input containing Undefined values."""
 
         mutation = """
@@ -614,7 +618,9 @@ class TestRealServerIntegration:
                         assert isinstance(product["metadata"]["tags"], list)
 
     @pytest.mark.asyncio
-    async def test_real_server_variable_cleaning_edge_cases(self, client: RemoteGraphQLClient, server: RealGraphQLServer):
+    async def test_real_server_variable_cleaning_edge_cases(
+        self, client: RemoteGraphQLClient, server: RealGraphQLServer
+    ):
         """Test edge cases of variable cleaning against real server."""
 
         query = """

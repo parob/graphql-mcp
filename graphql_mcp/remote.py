@@ -168,7 +168,9 @@ class RemoteGraphQLClient:
         if self.bearer_token:
             self.headers["Authorization"] = f"Bearer {self.bearer_token}"
 
-    def _clean_variables(self, variables: Optional[Dict[str, Any]], strategy: str = "remove") -> Optional[Dict[str, Any]]:
+    def _clean_variables(
+        self, variables: Optional[Dict[str, Any]], strategy: str = "remove"
+    ) -> Optional[Dict[str, Any]]:
         """
         Handle Undefined values in GraphQL variables with configurable strategies.
 
@@ -558,7 +560,9 @@ class RemoteGraphQLClient:
 
         return None
 
-    def _should_convert_to_array(self, key: str, value: Any, siblings: Dict[str, Any], type_context: Optional[str] = None) -> bool:
+    def _should_convert_to_array(
+        self, key: str, value: Any, siblings: Dict[str, Any], type_context: Optional[str] = None
+    ) -> bool:
         """Determine if a null value should become an empty array based on GraphQL schema types."""
         if value is not None:
             return False
@@ -779,7 +783,12 @@ DEBUG: GraphQL Request Processing:
                 if "errors" in result:
                     # Check for authentication-related errors in GraphQL response
                     error_messages = str(result['errors']).lower()
-                    if ('unauthorized' in error_messages or 'authentication' in error_messages or 'forbidden' in error_messages) and retry_on_auth_error:
+                    auth_errors = (
+                        'unauthorized' in error_messages or
+                        'authentication' in error_messages or
+                        'forbidden' in error_messages
+                    )
+                    if auth_errors and retry_on_auth_error:
                         if await self.refresh_token():
                             if close_session:
                                 await session.close()

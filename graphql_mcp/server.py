@@ -138,7 +138,9 @@ class GraphQLMCP(FastMCP):  # type: ignore
         schema = fetch_remote_schema_sync(url, request_headers, timeout)
 
         # Create a FastMCP server instance
-        instance = GraphQLMCP(schema=schema, graphql_http=graphql_http, allow_mutations=allow_mutations, *args, **kwargs)
+        instance = GraphQLMCP(
+            schema=schema, graphql_http=graphql_http, allow_mutations=allow_mutations, *args, **kwargs
+        )
 
         # Create a remote client for executing queries
         client = RemoteGraphQLClient(
@@ -173,18 +175,41 @@ class GraphQLMCP(FastMCP):  # type: ignore
             from graphql_http import GraphQLHTTP  # type: ignore
 
             if JWTVerifier and isinstance(self.auth, JWTVerifier):
-                graphql_app = GraphQLHTTP(
-                    schema=self.schema,
-                    auth_enabled=True,
-                    auth_jwks_uri=self.auth.jwks_uri,
-                    auth_issuer=self.auth.issuer,
-                    auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None
-                ).app
+                if hasattr(self, 'api'):
+                    api = self.api  # type: ignore
+                    if api is None:
+                        raise ValueError("api is not set")
+                    graphql_server = GraphQLHTTP.from_api(
+                        api=api,
+                        auth_enabled=True,
+                        auth_jwks_uri=self.auth.jwks_uri,
+                        auth_issuer=self.auth.issuer,
+                        auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None
+                    )
+                    graphql_app = graphql_server.app
+                else:
+                    graphql_app = GraphQLHTTP(
+                        schema=self.schema,
+                        auth_enabled=True,
+                        auth_jwks_uri=self.auth.jwks_uri,
+                        auth_issuer=self.auth.issuer,
+                        auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None
+                    ).app
             else:
-                graphql_app = GraphQLHTTP(
-                    schema=self.schema,
-                    auth_enabled=False,
-                ).app
+                if hasattr(self, 'api'):
+                    api = self.api  # type: ignore
+                    if api is None:
+                        raise ValueError("api is not set")
+                    graphql_server = GraphQLHTTP.from_api(
+                        api=api,
+                        auth_enabled=False,
+                    )
+                    graphql_app = graphql_server.app
+                else:
+                    graphql_app = GraphQLHTTP(
+                        schema=self.schema,
+                        auth_enabled=False,
+                    ).app
                 if self.auth:
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
@@ -570,12 +595,14 @@ def add_tools_from_schema_with_remote(
     # Process mutations first (if allowed), then queries
     if allow_mutations and schema.mutation_type:
         _add_tools_from_fields_remote(
-            server, schema, schema.mutation_type.fields, remote_client, is_mutation=True, forward_bearer_token=forward_bearer_token
+            server, schema, schema.mutation_type.fields, remote_client,
+            is_mutation=True, forward_bearer_token=forward_bearer_token
         )
 
     if schema.query_type:
         _add_tools_from_fields_remote(
-            server, schema, schema.query_type.fields, remote_client, is_mutation=False, forward_bearer_token=forward_bearer_token
+            server, schema, schema.query_type.fields, remote_client,
+            is_mutation=False, forward_bearer_token=forward_bearer_token
         )
 
     # Add nested tools for remote schema
@@ -712,7 +739,9 @@ def _create_tool_function(
                                                     for list_val in val:
                                                         if list_val not in list_item_type_inner.values:
                                                             # Try to map VALUE->NAME for each item in the list
-                                                            for enum_name, enum_value in list_item_type_inner.values.items():
+                                                            for enum_name, enum_value in (
+                                                                list_item_type_inner.values.items()
+                                                            ):
                                                                 try:
                                                                     if (enum_value.value == list_val
                                                                             or str(enum_value.value) == str(list_val)):
@@ -789,7 +818,9 @@ def _create_tool_function(
                                         for list_item in val:
                                             if isinstance(list_item, dict):
                                                 # Recursively process each input object in the list
-                                                for nested_field_name, nested_field_def in list_item_type.fields.items():
+                                                for nested_field_name, nested_field_def in (
+                                                    list_item_type.fields.items()
+                                                ):
                                                     if nested_field_name in list_item:
                                                         nested_field_type = get_named_type(
                                                             nested_field_def.type)
@@ -797,7 +828,9 @@ def _create_tool_function(
                                                             nested_val = list_item[nested_field_name]
                                                             # Convert enum value to name if needed
                                                             if nested_val not in nested_field_type.values:
-                                                                for enum_name, enum_value in nested_field_type.values.items():
+                                                                for enum_name, enum_value in (
+                                                                    nested_field_type.values.items()
+                                                                ):
                                                                     try:
                                                                         if str(enum_value.value) == str(nested_val):
                                                                             list_item[nested_field_name] = enum_name
@@ -805,7 +838,8 @@ def _create_tool_function(
                                                                     except Exception:
                                                                         continue
                                                         elif isinstance(nested_field_type, GraphQLList):
-                                                            # Handle nested lists (like list of enums within input object)
+                                                            # Handle nested lists
+                                                            # (like list of enums within input object)
                                                             nested_field_list_type = nested_field_def.type
                                                             # Unwrap NonNull wrappers for list fields
                                                             while isinstance(nested_field_list_type, GraphQLNonNull):
@@ -813,14 +847,27 @@ def _create_tool_function(
                                                             if isinstance(nested_field_list_type, GraphQLList):
                                                                 nested_list_item_type = get_named_type(
                                                                     nested_field_list_type.of_type)
-                                                                if isinstance(nested_list_item_type, GraphQLEnumType) \
-                                                                        and isinstance(list_item[nested_field_name], list):
+                                                                is_nested_enum_type = isinstance(
+                                                                    nested_list_item_type, GraphQLEnumType
+                                                                )
+                                                                is_list_field = isinstance(
+                                                                    list_item[nested_field_name], list
+                                                                )
+                                                                is_enum_list = is_nested_enum_type and is_list_field
+                                                                if is_enum_list:
                                                                     converted_nested_list = []
                                                                     for nested_item in list_item[nested_field_name]:
-                                                                        if nested_item not in nested_list_item_type.values:
-                                                                            for enum_name, enum_value in nested_list_item_type.values.items():
+                                                                        values = nested_list_item_type.values
+                                                                        item_not_in_values = nested_item not in values
+                                                                        if item_not_in_values:
+                                                                            for enum_name, enum_value in (
+                                                                                nested_list_item_type.values.items()
+                                                                            ):
                                                                                 try:
-                                                                                    if str(enum_value.value) == str(nested_item):
+                                                                                    value_str = str(enum_value.value)
+                                                                                    item_str = str(nested_item)
+                                                                                    values_match = value_str == item_str
+                                                                                    if values_match:
                                                                                         converted_nested_list.append(
                                                                                             enum_name)
                                                                                         break

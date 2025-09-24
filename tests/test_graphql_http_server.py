@@ -46,7 +46,7 @@ async def test_graphql_http_enabled_by_default():
     mcp_server = GraphQLMCP.from_api(api, name="TestServer")
 
     # Verify the server has the expected attributes
-    assert mcp_server.api == api
+    assert mcp_server.api == api  # type: ignore
     assert mcp_server.graphql_http is True
 
 
@@ -61,7 +61,7 @@ async def test_graphql_http_can_be_disabled():
         api, graphql_http=False, name="TestServer")
 
     # Verify the server has the expected attributes
-    assert mcp_server.api == api
+    assert mcp_server.api == api  # type: ignore
     assert mcp_server.graphql_http is False
 
 

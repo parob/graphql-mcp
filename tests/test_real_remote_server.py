@@ -45,7 +45,10 @@ MOCK_SCHEMA_RESPONSE = {
                                     "defaultValue": '"World"'
                                 }
                             ],
-                            "type": {"kind": "NON_NULL", "name": None, "ofType": {"kind": "SCALAR", "name": "String", "ofType": None}},
+                            "type": {
+                                "kind": "NON_NULL", "name": None,
+                                "ofType": {"kind": "SCALAR", "name": "String", "ofType": None}
+                            },
                             "isDeprecated": False,
                             "deprecationReason": None
                         },

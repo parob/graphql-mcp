@@ -49,6 +49,7 @@ async def test_from_graphql_schema():
     try:
         from graphql import GraphQLEnumType, get_named_type
         # type: ignore[attr-defined]
+        assert schema.query_type is not None
         arg_type = get_named_type(
             schema.query_type.fields["echoPreference"].args["key"].type)
         if not isinstance(arg_type, GraphQLEnumType):
