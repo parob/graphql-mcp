@@ -1,9 +1,7 @@
 import enum
-from graphql_api import GraphQLAPI
+from graphql_api import GraphQLAPI, field
 
 from graphql_mcp.server import GraphQLMCP
-
-api = GraphQLAPI()
 
 
 class PreferenceKey(str, enum.Enum):
@@ -11,10 +9,9 @@ class PreferenceKey(str, enum.Enum):
     TOOLS_ENABLED = "tools_enabled"
 
 
-@api.type(is_root_type=True)
 class DemoApp:
 
-    @api.field
+    @field
     def set_preference_test(self, key: PreferenceKey, value: str) -> bool:
         """Set a preference"""
         if isinstance(key, PreferenceKey):
@@ -22,16 +19,16 @@ class DemoApp:
         else:
             return False
 
-    @api.field
+    @field
     def get_preference_test(self) -> dict:
         """Get a preference"""
         return {"key": "ai_model", "value": "x"}
 
 
-mcp_server = GraphQLMCP.from_api(api=api)
+mcp_server = GraphQLMCP.from_api(api=GraphQLAPI(root_type=DemoApp))
 
 
-# Add an addition tool
+# Add an addition standard fastmcp tool
 @mcp_server.tool()
 def clear_preferences() -> bool:
     """Clear all preferences"""

@@ -53,6 +53,7 @@ That's it! Your GraphQL API is now available as MCP tools.
 - **Authentication**: Supports JWT and bearer token authentication
 - **Remote GraphQL**: Connect to existing GraphQL APIs
 - **Production Ready**: Built on FastMCP and Starlette
+- **Built-in MCP Inspector**: Web-based GraphiQL interface for testing and debugging
 
 ## Usage with graphql-api
 
@@ -155,6 +156,38 @@ app = server.http_app(
 5. **HTTP Serving**: Both MCP and GraphQL endpoints are served
 
 The generated tools use `snake_case` naming (e.g., `addBook` becomes `add_book`) and preserve all type information and documentation from your GraphQL schema.
+
+## MCP Inspector
+
+GraphQL-MCP includes a built-in MCP Inspector that provides a web-based interface for testing and debugging your MCP tools. The inspector is automatically injected into GraphiQL interfaces when serving your GraphQL endpoints.
+
+<img src="docs/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
+
+### Features
+
+- **Tool Discovery**: Browse all available MCP tools generated from your GraphQL schema
+- **Interactive Testing**: Execute tools with custom parameters and see real-time results
+- **Authentication Support**: Test with Bearer tokens, API keys, or custom headers
+- **Call History**: Track and review previous tool executions
+- **Schema Inspection**: View detailed parameter and output schemas for each tool
+- **Real-time Status**: Monitor connection status and tool availability
+
+### Accessing the Inspector
+
+When you enable GraphQL HTTP endpoints, the MCP Inspector is automatically available:
+
+```python
+server = GraphQLMCP.from_api(
+    api,
+    name="My API",
+    graphql_http=True,  # This enables the GraphQL endpoint with MCP Inspector
+)
+
+app = server.http_app()
+```
+
+Navigate to your server in a web browser to access the inspector interface.
+
 
 ## License
 
