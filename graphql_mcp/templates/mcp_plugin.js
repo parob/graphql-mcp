@@ -85,6 +85,7 @@
                 const [customHeaders, setCustomHeaders] = React.useState(() => localStorage.getItem('mcp-custom-headers') || '{}');
                 const [showAuth, setShowAuth] = React.useState(() => localStorage.getItem('mcp-show-auth') === 'true');
                 const [applyingAuth, setApplyingAuth] = React.useState(false);
+                const [refreshing, setRefreshing] = React.useState(false);
 
                 // MCP Client setup - now uses configurable URL
 
@@ -538,16 +539,39 @@
                         // Refresh button (icon-first, minimal)
                         React.createElement('button', {
                             key: 'refresh-btn',
-                            onClick: () => {
-                                connectAndLoadTools('🔄 Refreshing...');
+                            disabled: refreshing,
+                            onClick: async () => {
+                                try {
+                                    setRefreshing(true);
+                                    const startTime = Date.now();
+
+                                    // Call the refresh function
+                                    await connectAndLoadTools('🔄 Refreshing...');
+
+                                    // Ensure minimum 0.4s press time for visual feedback
+                                    const elapsedTime = Date.now() - startTime;
+                                    const remainingTime = Math.max(0, 400 - elapsedTime);
+                                    setTimeout(() => {
+                                        setRefreshing(false);
+                                    }, remainingTime);
+                                } catch (error) {
+                                    console.error('Failed to refresh:', error);
+
+                                    // Ensure minimum 0.4s press time for error case too
+                                    const elapsedTime = Date.now() - startTime;
+                                    const remainingTime = Math.max(0, 400 - elapsedTime);
+                                    setTimeout(() => {
+                                        setRefreshing(false);
+                                    }, remainingTime);
+                                }
                             },
                             style: {
                                 padding: '6px 10px',
                                 fontSize: '12px',
-                                backgroundColor: '#f8f9fa',
+                                backgroundColor: refreshing ? '#e9ecef' : '#f8f9fa',
                                 border: 'none',
                                 borderRadius: '6px',
-                                cursor: 'pointer',
+                                cursor: refreshing ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '4px',
@@ -567,7 +591,7 @@
                             }
                         }, [
                             React.createElement('span', { key: 'refresh-icon', style: { fontSize: '14px' } }, '⟲'),
-                            'Refresh'
+                            refreshing ? 'Refreshing...' : 'Refresh'
                         ]),
 
                         // Auth button (minimal, modern)
@@ -848,18 +872,18 @@
                                             }, 2000);
                                         }
 
-                                        // Ensure minimum 0.2s press time
+                                        // Ensure minimum 0.4s press time for visual feedback
                                         const elapsedTime = Date.now() - startTime;
-                                        const remainingTime = Math.max(0, 200 - elapsedTime);
+                                        const remainingTime = Math.max(0, 400 - elapsedTime);
                                         setTimeout(() => {
                                             setApplyingAuth(false);
                                         }, remainingTime);
                                     } catch (error) {
                                         console.error('Failed to apply authentication:', error);
 
-                                        // Ensure minimum 0.2s press time for error case too
+                                        // Ensure minimum 0.4s press time for error case too
                                         const elapsedTime = Date.now() - startTime;
-                                        const remainingTime = Math.max(0, 200 - elapsedTime);
+                                        const remainingTime = Math.max(0, 400 - elapsedTime);
                                         setTimeout(() => {
                                             setApplyingAuth(false);
                                         }, remainingTime);
