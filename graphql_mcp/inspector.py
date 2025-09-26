@@ -7,10 +7,8 @@ as a plugin into GraphiQL interfaces. It provides a web-based interface
 for inspecting and testing MCP tools.
 """
 
-import os
 from pathlib import Path
-from typing import Dict, Any, Optional
-from starlette.types import Scope, Receive, Send
+from starlette.types import Scope
 
 
 class MCPInspector:

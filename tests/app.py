@@ -37,6 +37,7 @@ def clear_preferences() -> bool:
     """Clear all preferences"""
     return True
 
+
 app = mcp_server.http_app
 
 if __name__ == "__main__":

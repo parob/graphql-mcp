@@ -998,12 +998,12 @@ class GraphQLRootMiddleware:
 
         # Route GraphQL requests if available - with MCP plugin injection
         if (self.graphql_app and scope.get("type") == "http" and
-            not path.endswith("/mcp") and not path.endswith("/mcp/")):
+                not path.endswith("/mcp") and not path.endswith("/mcp/")):
 
             # If this looks like a GraphiQL request, inject MCP plugin
             if (path == "/" and
-                scope.get("method") == "GET" and
-                self._is_graphiql_request(scope)):
+                    scope.get("method") == "GET" and
+                    self._is_graphiql_request(scope)):
                 await self._inject_mcp_plugin(scope, receive, send)
                 return
 
