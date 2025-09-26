@@ -330,11 +330,11 @@
                     }
 
                     if (!response.ok) {
-                        // If we get a 400 "Missing session ID" error, try to initialize
+                        // If we get a 400 "Missing session ID" error, capture session ID and signal for initialization
                         if (response.status === 400) {
                             const errorText = await response.text();
                             if (errorText.includes('Missing session ID')) {
-                                console.log('Server requires session initialization');
+                                console.log('🔑 Server requires session - captured session ID:', this.sessionId);
                                 return { error: { code: -32600, message: 'Session required' } };
                             }
                         }
@@ -399,6 +399,7 @@
             async initialize() {
                 if (this.initialized) return;
 
+                // Step 1: Send initialize request
                 const initRequest = {
                     jsonrpc: '2.0',
                     id: ++this.requestId,
@@ -423,8 +424,22 @@
                     throw new Error(`Initialization failed: ${response.error.message}`);
                 }
 
+                // Step 2: Send initialized notification (required for stateful servers)
+                const initNotification = {
+                    jsonrpc: '2.0',
+                    method: 'notifications/initialized',
+                    params: {}
+                };
+
+                try {
+                    await this.transport.send(initNotification);
+                    console.log('✅ MCP session initialized and ready');
+                } catch (notificationError) {
+                    // Some servers might not support this notification, continue anyway
+                    console.warn('⚠️ Initialized notification failed, but continuing:', notificationError.message);
+                }
+
                 this.initialized = true;
-                console.log('MCP session initialized successfully');
                 return response.result;
             }
 
