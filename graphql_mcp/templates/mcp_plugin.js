@@ -7,8 +7,7 @@
                     style: {
                         fontSize: '12px',
                         fontWeight: 'bold',
-                        fontFamily: 'monospace',
-                        color: '#1976d2'
+                        fontFamily: 'monospace'
                     }
                 }, 'MCP');
             },
