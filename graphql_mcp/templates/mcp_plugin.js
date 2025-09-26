@@ -18,22 +18,103 @@
                 const [expandedTool, setExpandedTool] = React.useState(null);
                 const [toolResults, setToolResults] = React.useState({});
                 const [toolInputs, setToolInputs] = React.useState({});
-                const [callHistory, setCallHistory] = React.useState([]);
+                const [callHistory, setCallHistory] = React.useState(() => {
+                    try {
+                        return JSON.parse(localStorage.getItem('mcp-call-history') || '[]');
+                    } catch {
+                        return [];
+                    }
+                });
+                const [mcpUrl, setMcpUrl] = React.useState(() => localStorage.getItem('mcp-server-url') || (window.location.origin + '/mcp'));
+                const [clearingHistory, setClearingHistory] = React.useState(false);
+                const [authType, setAuthType] = React.useState(() => localStorage.getItem('mcp-auth-type') || 'none');
+                const [bearerToken, setBearerToken] = React.useState(() => localStorage.getItem('mcp-bearer-token') || '');
+                const [apiKey, setApiKey] = React.useState(() => localStorage.getItem('mcp-api-key') || '');
+                const [apiKeyHeader, setApiKeyHeader] = React.useState(() => localStorage.getItem('mcp-api-key-header') || 'X-API-Key');
+                const [customHeaders, setCustomHeaders] = React.useState(() => localStorage.getItem('mcp-custom-headers') || '{}');
+                const [showAuth, setShowAuth] = React.useState(() => localStorage.getItem('mcp-show-auth') === 'true');
+                const [applyingAuth, setApplyingAuth] = React.useState(false);
 
-                // MCP Client setup
-                const mcpUrl = window.location.origin + '/mcp';
+                // MCP Client setup - now uses configurable URL
+
+                // Helper function to build auth headers
+                const buildAuthHeaders = React.useCallback(() => {
+                    const headers = {};
+
+                    if (authType === 'bearer' && bearerToken) {
+                        headers['Authorization'] = `Bearer ${bearerToken}`;
+                    } else if (authType === 'apikey' && apiKey && apiKeyHeader) {
+                        headers[apiKeyHeader] = apiKey;
+                    } else if (authType === 'custom' && customHeaders) {
+                        try {
+                            const parsed = JSON.parse(customHeaders);
+                            Object.assign(headers, parsed);
+                        } catch (e) {
+                            console.warn('Invalid custom headers JSON:', e);
+                        }
+                    }
+
+                    return headers;
+                }, [authType, bearerToken, apiKey, apiKeyHeader, customHeaders]);
+
+                // Persist auth state to localStorage
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-auth-type', authType);
+                }, [authType]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-bearer-token', bearerToken);
+                }, [bearerToken]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-api-key', apiKey);
+                }, [apiKey]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-api-key-header', apiKeyHeader);
+                }, [apiKeyHeader]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-custom-headers', customHeaders);
+                }, [customHeaders]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-show-auth', showAuth.toString());
+                }, [showAuth]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-server-url', mcpUrl);
+                }, [mcpUrl]);
+
+                React.useEffect(() => {
+                    localStorage.setItem('mcp-call-history', JSON.stringify(callHistory));
+                }, [callHistory]);
+
+                // Clear tools when URL changes
+                React.useEffect(() => {
+                    setTools([]);
+                    setConnected(false);
+                    setStatus('URL changed - ready to connect');
+                }, [mcpUrl]);
+
                 const client = React.useMemo(() => {
                     // MCP Transport and Client classes (simplified for direct injection)
                     class MCPHttpTransport {
-                        constructor(url) {
+                        constructor(url, customHeaders = {}) {
                             this.url = url;
                             this.sessionId = null;
+                            this.customHeaders = customHeaders;
+                        }
+
+                        updateHeaders(newHeaders) {
+                            this.customHeaders = { ...this.customHeaders, ...newHeaders };
                         }
 
                         async send(request) {
                             const headers = {
                                 'Content-Type': 'application/json',
                                 'Accept': 'application/json, text/event-stream',
+                                ...this.customHeaders
                             };
 
                             if (this.sessionId) {
@@ -161,8 +242,8 @@
                         }
                     }
 
-                    return new MCPClient(new MCPHttpTransport(mcpUrl));
-                }, [mcpUrl]);
+                    return new MCPClient(new MCPHttpTransport(mcpUrl, buildAuthHeaders()));
+                }, [mcpUrl, buildAuthHeaders]);
 
                 // Initialize MCP connection
                 React.useEffect(() => {
@@ -327,17 +408,343 @@
                             color: 'rgba(59, 75, 104, 0.76)'
                         }
                     }, 'Inspect and execute MCP (Model Context Protocol) tools'),
+                    // Status and URL configuration
                     React.createElement('div', {
-                        key: 'status',
+                        key: 'status-section',
                         style: {
-                            padding: '8px 12px',
-                            marginBottom: '12px',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            background: connected ? '#e8f4f8' : '#e3f2fd',
-                            color: connected ? '#1976d2' : '#1565c0'
+                            marginBottom: '12px'
                         }
-                    }, status)
+                    }, [
+                        // URL input and refresh button row
+                        React.createElement('div', {
+                            key: 'url-row',
+                            style: {
+                                display: 'flex',
+                                gap: '8px',
+                                alignItems: 'center',
+                                marginBottom: '8px'
+                            }
+                        }, [
+                            React.createElement('input', {
+                                key: 'url-input',
+                                type: 'text',
+                                value: mcpUrl,
+                                onChange: (e) => setMcpUrl(e.target.value),
+                                placeholder: '/mcp',
+                                style: {
+                                    flex: 1,
+                                    padding: '6px 8px',
+                                    fontSize: '12px',
+                                    border: '1px solid #e0e0e0',
+                                    borderRadius: '3px',
+                                    fontFamily: 'monospace'
+                                }
+                            }),
+                            React.createElement('button', {
+                                key: 'refresh-btn',
+                                onClick: async () => {
+                                    try {
+                                        setStatus('Reconnecting...');
+                                        setConnected(false);
+                                        setTools([]); // Clear tools first
+                                        const toolsResponse = await client.listTools();
+                                        setTools(toolsResponse.tools || []);
+                                        setConnected(true);
+                                        setStatus('✓ Connected');
+                                    } catch (error) {
+                                        setStatus(`✗ Connection failed: ${error.message || error}`);
+                                        setConnected(false);
+                                        setTools([]); // Clear tools on error too
+                                    }
+                                },
+                                style: {
+                                    padding: '6px 10px',
+                                    fontSize: '12px',
+                                    backgroundColor: '#f5f5f5',
+                                    border: '1px solid #e0e0e0',
+                                    borderRadius: '3px',
+                                    cursor: 'pointer'
+                                }
+                            }, '↻')
+                        ]),
+
+                        // Status display
+                        React.createElement('div', {
+                            key: 'status',
+                            style: {
+                                padding: '8px 12px',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                background: connected ? '#e8f4f8' : '#e3f2fd',
+                                color: connected ? '#1976d2' : '#1565c0'
+                            }
+                        }, status)
+                    ]),
+
+                    // Authentication section
+                    React.createElement('div', {
+                        key: 'auth-section',
+                        style: {
+                            marginBottom: '12px',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '4px',
+                            overflow: 'hidden'
+                        }
+                    }, [
+                        // Auth header with toggle and status
+                        React.createElement('div', {
+                            key: 'auth-header',
+                            style: {
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '8px 12px',
+                                backgroundColor: '#f5f5f5',
+                                borderBottom: showAuth ? '1px solid #e0e0e0' : 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                            },
+                            onClick: () => setShowAuth(!showAuth)
+                        }, [
+                            React.createElement('div', {
+                                key: 'auth-title',
+                                style: {
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }
+                            }, [
+                                React.createElement('span', {
+                                    key: 'auth-icon',
+                                    style: {
+                                        fontSize: '12px',
+                                        display: 'inline-block',
+                                        width: '14px',
+                                        height: '14px',
+                                        textAlign: 'center',
+                                        filter: 'grayscale(100%)',
+                                        color: authType !== 'none' ? '#1976d2' : '#666'
+                                    }
+                                }, authType !== 'none' ? '🔒' : '🔓'),
+                                React.createElement('span', {
+                                    key: 'auth-label'
+                                }, 'Authentication'),
+                                authType !== 'none' ? React.createElement('span', {
+                                    key: 'auth-badge',
+                                    style: {
+                                        fontSize: '10px',
+                                        padding: '2px 6px',
+                                        backgroundColor: '#1976d2',
+                                        color: 'white',
+                                        borderRadius: '2px'
+                                    }
+                                }, authType.toUpperCase()) : null
+                            ]),
+                            React.createElement('span', {
+                                key: 'auth-arrow',
+                                style: {
+                                    transform: showAuth ? 'rotate(180deg)' : 'rotate(0deg)',
+                                    transition: 'transform 0.2s'
+                                }
+                            }, '▼')
+                        ]),
+
+                        // Auth form (collapsible)
+                        showAuth ? React.createElement('div', {
+                            key: 'auth-form',
+                            style: {
+                                padding: '12px',
+                                fontSize: '12px'
+                            }
+                        }, [
+                            // Auth type selector
+                            React.createElement('div', {
+                                key: 'auth-type',
+                                style: { marginBottom: '8px' }
+                            }, [
+                                React.createElement('label', {
+                                    key: 'auth-type-label',
+                                    style: { display: 'block', marginBottom: '4px', fontWeight: 'bold' }
+                                }, 'Authentication Type:'),
+                                React.createElement('select', {
+                                    key: 'auth-type-select',
+                                    value: authType,
+                                    onChange: (e) => setAuthType(e.target.value),
+                                    style: {
+                                        width: '100%',
+                                        padding: '4px',
+                                        fontSize: '12px'
+                                    }
+                                }, [
+                                    React.createElement('option', { key: 'none', value: 'none' }, 'None'),
+                                    React.createElement('option', { key: 'bearer', value: 'bearer' }, 'Bearer Token'),
+                                    React.createElement('option', { key: 'apikey', value: 'apikey' }, 'API Key'),
+                                    React.createElement('option', { key: 'custom', value: 'custom' }, 'Custom Headers')
+                                ])
+                            ]),
+
+                            // Bearer token input
+                            authType === 'bearer' ? React.createElement('div', {
+                                key: 'bearer-input',
+                                style: { marginBottom: '8px' }
+                            }, [
+                                React.createElement('label', {
+                                    key: 'bearer-label',
+                                    style: { display: 'block', marginBottom: '4px' }
+                                }, 'Bearer Token:'),
+                                React.createElement('input', {
+                                    key: 'bearer-field',
+                                    type: 'text',
+                                    value: bearerToken,
+                                    onChange: (e) => setBearerToken(e.target.value),
+                                    placeholder: 'Enter bearer token',
+                                    style: {
+                                        width: '100%',
+                                        padding: '4px',
+                                        fontSize: '12px'
+                                    }
+                                })
+                            ]) : null,
+
+                            // API key inputs
+                            authType === 'apikey' ? React.createElement('div', {
+                                key: 'apikey-inputs'
+                            }, [
+                                React.createElement('div', {
+                                    key: 'apikey-header',
+                                    style: { marginBottom: '8px' }
+                                }, [
+                                    React.createElement('label', {
+                                        key: 'apikey-header-label',
+                                        style: { display: 'block', marginBottom: '4px' }
+                                    }, 'Header Name:'),
+                                    React.createElement('input', {
+                                        key: 'apikey-header-field',
+                                        type: 'text',
+                                        value: apiKeyHeader,
+                                        onChange: (e) => setApiKeyHeader(e.target.value),
+                                        placeholder: 'X-API-Key',
+                                        style: {
+                                            width: '100%',
+                                            padding: '4px',
+                                            fontSize: '12px'
+                                        }
+                                    })
+                                ]),
+                                React.createElement('div', {
+                                    key: 'apikey-value',
+                                    style: { marginBottom: '8px' }
+                                }, [
+                                    React.createElement('label', {
+                                        key: 'apikey-value-label',
+                                        style: { display: 'block', marginBottom: '4px' }
+                                    }, 'API Key:'),
+                                    React.createElement('input', {
+                                        key: 'apikey-value-field',
+                                        type: 'text',
+                                        value: apiKey,
+                                        onChange: (e) => setApiKey(e.target.value),
+                                        placeholder: 'Enter API key',
+                                        style: {
+                                            width: '100%',
+                                            padding: '4px',
+                                            fontSize: '12px'
+                                        }
+                                    })
+                                ])
+                            ]) : null,
+
+                            // Custom headers input
+                            authType === 'custom' ? React.createElement('div', {
+                                key: 'custom-input',
+                                style: { marginBottom: '8px' }
+                            }, [
+                                React.createElement('label', {
+                                    key: 'custom-label',
+                                    style: { display: 'block', marginBottom: '4px' }
+                                }, 'Custom Headers (JSON):'),
+                                React.createElement('textarea', {
+                                    key: 'custom-field',
+                                    value: customHeaders,
+                                    onChange: (e) => setCustomHeaders(e.target.value),
+                                    placeholder: '{"X-Custom-Header": "value"}',
+                                    rows: 3,
+                                    style: {
+                                        width: '100%',
+                                        padding: '4px',
+                                        fontSize: '12px',
+                                        fontFamily: 'monospace'
+                                    }
+                                })
+                            ]) : null,
+
+                            // Apply button
+                            authType !== 'none' ? React.createElement('button', {
+                                key: 'apply-auth',
+                                disabled: applyingAuth,
+                                onClick: async () => {
+                                    try {
+                                        setApplyingAuth(true);
+                                        // Show feedback that auth is being applied
+                                        setStatus('Applying authentication...');
+
+                                        // Minimum 0.2s press time for better UX
+                                        const startTime = Date.now();
+
+                                        // Update transport headers
+                                        const newHeaders = buildAuthHeaders();
+                                        client.transport.updateHeaders(newHeaders);
+                                        console.log('🔒 Authentication headers updated:', Object.keys(newHeaders));
+
+                                        // Reload tools list to demonstrate auth is working
+                                        setStatus('Reloading tools with authentication...');
+                                        const toolsResponse = await client.listTools();
+                                        setTools(toolsResponse.tools || []);
+                                        setConnected(true);
+
+                                        // Show success message briefly, then return to normal status
+                                        setStatus('✓ Authentication applied successfully!');
+                                        setTimeout(() => {
+                                            setStatus(connected ? '✓ Connected with authentication' : 'Connecting...');
+                                        }, 2000);
+
+                                        // Ensure minimum 0.2s press time
+                                        const elapsedTime = Date.now() - startTime;
+                                        const remainingTime = Math.max(0, 200 - elapsedTime);
+                                        setTimeout(() => {
+                                            setApplyingAuth(false);
+                                        }, remainingTime);
+                                    } catch (error) {
+                                        console.error('Failed to apply authentication:', error);
+                                        setStatus('✗ Authentication failed: ' + error.message);
+                                        setTimeout(() => {
+                                            setStatus(connected ? '⚠ Connected but auth may be invalid' : '✗ Disconnected');
+                                        }, 3000);
+
+                                        // Ensure minimum 0.2s press time for error case too
+                                        const elapsedTime = Date.now() - startTime;
+                                        const remainingTime = Math.max(0, 200 - elapsedTime);
+                                        setTimeout(() => {
+                                            setApplyingAuth(false);
+                                        }, remainingTime);
+                                    }
+                                },
+                                style: {
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    backgroundColor: applyingAuth ? '#90caf9' : '#1976d2',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    cursor: applyingAuth ? 'not-allowed' : 'pointer',
+                                    opacity: applyingAuth ? 0.8 : 1,
+                                    transform: applyingAuth ? 'translateY(1px)' : 'translateY(0px)',
+                                    boxShadow: applyingAuth ? '0 1px 2px rgba(0,0,0,0.2)' : '0 2px 4px rgba(0,0,0,0.2)',
+                                    transition: 'all 0.1s ease'
+                                }
+                            }, applyingAuth ? 'Authenticating...' : 'Authenticate') : null
+                        ]) : null
+                    ])
                     ]),
 
                     // Scrollable content section
@@ -585,15 +992,50 @@
                             paddingTop: '16px'
                         }
                     }, [
-                        React.createElement('h4', {
-                            key: 'history-title',
+                        // Call History header with clear button
+                        React.createElement('div', {
+                            key: 'history-header',
                             style: {
-                                margin: '0 0 12px 0',
-                                fontSize: '16px',
-                                fontWeight: '600',
-                                color: '#333'
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '12px'
                             }
-                        }, 'Call History'),
+                        }, [
+                            React.createElement('h4', {
+                                key: 'history-title',
+                                style: {
+                                    margin: '0',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    color: '#333'
+                                }
+                            }, 'Call History'),
+                            React.createElement('button', {
+                                key: 'clear-history-btn',
+                                disabled: clearingHistory || callHistory.length === 0,
+                                onClick: async () => {
+                                    setClearingHistory(true);
+                                    setCallHistory([]);
+
+                                    // Keep the button in "cleared" state for 1 second
+                                    setTimeout(() => {
+                                        setClearingHistory(false);
+                                    }, 1000);
+                                },
+                                style: {
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    backgroundColor: clearingHistory ? '#c8e6c9' : (callHistory.length === 0 ? '#f5f5f5' : '#f5f5f5'),
+                                    color: clearingHistory ? '#2e7d32' : (callHistory.length === 0 ? '#999' : '#666'),
+                                    border: '1px solid #e0e0e0',
+                                    borderRadius: '3px',
+                                    cursor: (clearingHistory || callHistory.length === 0) ? 'not-allowed' : 'pointer',
+                                    opacity: (clearingHistory || callHistory.length === 0) ? 0.8 : 1,
+                                    transition: 'all 0.2s ease'
+                                }
+                            }, clearingHistory ? 'Cleared!' : 'Clear')
+                        ]),
                         React.createElement('div', {
                             key: 'history-list',
                             style: {

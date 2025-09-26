@@ -38,7 +38,7 @@ def clear_preferences() -> bool:
     return True
 
 
-app = mcp_server.http_app
+app = mcp_server.http_app(transport="streamable-http", stateless_http=True)
 
 if __name__ == "__main__":
     import uvicorn
