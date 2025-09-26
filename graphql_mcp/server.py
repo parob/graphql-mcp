@@ -174,12 +174,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
 
-        # Create inspector app if enabled (independent of GraphQL HTTP)
-        inspector_app = None
-        if self.inspector:
-            from graphql_mcp.inspector import MCPInspector
-            inspector = MCPInspector(self, self.inspector_title)
-            inspector_app = inspector.app
+        # Inspector is now built into the GraphQL plugin - no separate app needed
 
         if self.graphql_http:
             from graphql_http import GraphQLHTTP  # type: ignore
@@ -224,11 +219,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
-            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app, inspector_app=inspector_app)
-        else:
-            # Add middleware even when GraphQL HTTP is disabled (for inspector-only mode)
-            if inspector_app:
-                app.add_middleware(GraphQLRootMiddleware, graphql_app=None, inspector_app=inspector_app)
+            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app, inspector_app=None)
 
         return app
 
@@ -1000,30 +991,17 @@ class GraphQLRootMiddleware:
     def __init__(self, app: ASGIApp, graphql_app: Optional[ASGIApp] = None, inspector_app: Optional[ASGIApp] = None) -> None:
         self.app = app
         self.graphql_app = graphql_app
-        self.inspector_app = inspector_app
+        # inspector_app parameter kept for compatibility but no longer used
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path") or ""
-
-        # Route inspector requests if enabled
-        if (self.inspector_app and scope.get("type") == "http" and
-            (path.startswith("/inspector") or path == "/inspector")):
-            # Remove /inspector prefix for the inspector app
-            if path.startswith("/inspector"):
-                new_path = path[10:] or "/"
-                scope = dict(scope)
-                scope['path'] = new_path
-                if 'raw_path' in scope:
-                    scope['raw_path'] = new_path.encode()
-            await self.inspector_app(scope, receive, send)
-            return
 
         # Route GraphQL requests if available - with MCP plugin injection
         if (self.graphql_app and scope.get("type") == "http" and
             not path.endswith("/mcp") and not path.endswith("/mcp/")):
 
-            # If inspector is enabled and this looks like a GraphiQL request, inject MCP plugin
-            if (self.inspector_app and path == "/" and
+            # If this looks like a GraphiQL request, inject MCP plugin
+            if (path == "/" and
                 scope.get("method") == "GET" and
                 self._is_graphiql_request(scope)):
                 await self._inject_mcp_plugin(scope, receive, send)
@@ -1422,7 +1400,7 @@ class GraphQLRootMiddleware:
                     React.createElement('div', {
                         key: 'header',
                         style: {
-                            padding: '16px 16px 0 16px',
+                            padding: '0',
                             flexShrink: 0
                         }
                     }, [
@@ -1461,7 +1439,7 @@ class GraphQLRootMiddleware:
                         style: {
                             flex: 1,
                             overflow: 'auto',
-                            padding: '16px'
+                            padding: '0'
                         }
                     }, [
                         // Tools section
