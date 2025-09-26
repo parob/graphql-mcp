@@ -76,7 +76,27 @@
                         return [];
                     }
                 });
-                const [mcpUrl, setMcpUrl] = React.useState(() => localStorage.getItem('mcp-server-url') || (window.location.origin + '/mcp'));
+                // Smart MCP URL detection - works with GraphiQL at any path
+                const getDefaultMcpUrl = () => {
+                    const currentUrl = new URL(window.location.href);
+                    // Remove any existing query parameters and fragments
+                    currentUrl.search = '';
+                    currentUrl.hash = '';
+
+                    // If we're at root (/), MCP is at /mcp
+                    if (currentUrl.pathname === '/' || currentUrl.pathname === '') {
+                        return currentUrl.origin + '/mcp';
+                    }
+
+                    // Otherwise, MCP is relative to current path: /tools/ -> /tools/mcp
+                    let basePath = currentUrl.pathname;
+                    if (!basePath.endsWith('/')) {
+                        basePath += '/';
+                    }
+                    return currentUrl.origin + basePath + 'mcp';
+                };
+
+                const [mcpUrl, setMcpUrl] = React.useState(() => localStorage.getItem('mcp-server-url') || getDefaultMcpUrl());
                 const [clearingHistory, setClearingHistory] = React.useState(false);
                 const [authType, setAuthType] = React.useState(() => localStorage.getItem('mcp-auth-type') || 'none');
                 const [bearerToken, setBearerToken] = React.useState(() => localStorage.getItem('mcp-bearer-token') || '');
