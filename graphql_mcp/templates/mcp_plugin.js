@@ -125,6 +125,7 @@
                     localStorage.setItem('mcp-auth-type', authType);
                 }, [authType]);
 
+
                 React.useEffect(() => {
                     localStorage.setItem('mcp-bearer-token', bearerToken);
                 }, [bearerToken]);
@@ -359,7 +360,7 @@
                         setConnected(true);
 
                         // Set success status
-                        const authIndicator = Object.keys(newHeaders).length > 0 ? ' with authentication' : '';
+                        const authIndicator = authType !== 'none' ? ' with authentication' : '';
                         setStatus(`✓ Connected${authIndicator} (${toolsList.length} tools)`);
 
                         return { success: true, toolCount: toolsList.length };
@@ -370,6 +371,18 @@
                         return { success: false, error: error.message || error };
                     }
                 }, [client, buildAuthHeaders]);
+
+                // Auto-apply authentication when authType changes to 'none' (but not on initial load)
+                const isInitialMount = React.useRef(true);
+                React.useEffect(() => {
+                    if (isInitialMount.current) {
+                        isInitialMount.current = false;
+                        return;
+                    }
+                    if (authType === 'none') {
+                        applyAuthentication();
+                    }
+                }, [authType, applyAuthentication]);
 
                 // Initialize MCP connection
                 React.useEffect(() => {
@@ -523,9 +536,9 @@
                         key: 'server-details-title',
                         style: {
                             margin: '20px 0px 12px',
-                            fontSize: '14px',
+                            fontSize: '16px',
                             fontWeight: '600',
-                            color: '#374151',
+                            color: '#333',
                             fontFamily: 'system-ui, -apple-system, sans-serif'
                         }
                     }, 'Server Details'),
@@ -640,7 +653,13 @@
                         // Auth button (minimal, modern)
                         React.createElement('button', {
                             key: 'auth-btn',
-                            onClick: () => setShowAuth(!showAuth),
+                            onClick: () => {
+                                // If closing auth tab, auto-apply authentication
+                                if (showAuth) {
+                                    applyAuthentication();
+                                }
+                                setShowAuth(!showAuth);
+                            },
                             style: {
                                 padding: '6px 10px',
                                 fontSize: '12px',
@@ -679,8 +698,8 @@
                                     marginRight: '4px'
                                 },
                                 dangerouslySetInnerHTML: {
-                                    __html: `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                        <path d="M6 1C4.3 1 3 2.3 3 4v1H2.5c-.6 0-1 .4-1 1v5c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H9V4c0-1.7-1.3-3-3-3zM6 2c1.1 0 2 .9 2 2v1H4V4c0-1.1.9-2 2-2z"/>
+                                    __html: `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="background: transparent;">
+                                        <path d="M6 1C4.3 1 3 2.3 3 4v1H2.5c-.6 0-1 .4-1 1v5c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H9V4c0-1.7-1.3-3-3-3zM6 2c1.1 0 2 .9 2 2v1H4V4c0-1.1.9-2 2-2z" fill="currentColor"/>
                                     </svg>`
                                 }
                             }),
@@ -739,7 +758,10 @@
                                 React.createElement('select', {
                                     key: 'auth-type-select',
                                     value: authType,
-                                    onChange: (e) => setAuthType(e.target.value),
+                                    onChange: (e) => {
+                                        const newAuthType = e.target.value;
+                                        setAuthType(newAuthType);
+                                    },
                                     style: {
                                         width: '100%',
                                         padding: '8px 10px',
@@ -902,7 +924,7 @@
                                 })
                             ]) : null,
 
-                            // Apply button
+                            // Apply button (only show for non-none auth)
                             authType !== 'none' ? React.createElement('button', {
                                 key: 'apply-auth',
                                 disabled: applyingAuth,
@@ -1239,15 +1261,16 @@
                                     }, 1000);
                                 },
                                 style: {
-                                    padding: '4px 8px',
-                                    fontSize: '11px',
-                                    backgroundColor: clearingHistory ? '#c8e6c9' : (callHistory.length === 0 ? '#f5f5f5' : '#f5f5f5'),
-                                    color: clearingHistory ? '#2e7d32' : (callHistory.length === 0 ? '#999' : '#666'),
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: '3px',
+                                    padding: '6px 10px',
+                                    fontSize: '12px',
+                                    backgroundColor: clearingHistory ? '#e9ecef' : '#f8f9fa',
+                                    color: clearingHistory ? '#666' : '#495057',
+                                    border: 'none',
+                                    borderRadius: '6px',
                                     cursor: (clearingHistory || callHistory.length === 0) ? 'not-allowed' : 'pointer',
                                     opacity: (clearingHistory || callHistory.length === 0) ? 0.8 : 1,
                                     fontFamily: 'system-ui, -apple-system, sans-serif !important',
+                                    fontWeight: '500',
                                     transition: 'all 0.2s ease'
                                 }
                             }, clearingHistory ? 'Cleared!' : 'Clear')
