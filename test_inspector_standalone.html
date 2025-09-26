@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MCP Inspector Test</title>
+</head>
+<body>
+    <h1>MCP Inspector Test</h1>
+    <div id="status">Testing...</div>
+    <div id="tools"></div>
+
+    <script>
+        // Simple test of MCP communication
+        async function testMCP() {
+            const statusEl = document.getElementById('status');
+            const toolsEl = document.getElementById('tools');
+
+            try {
+                statusEl.textContent = 'Connecting to MCP server...';
+
+                const response = await fetch('http://localhost:8003/mcp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/event-stream',
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'tools/list',
+                        params: {}
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+
+                // Parse SSE format
+                if (responseText.startsWith('event: message')) {
+                    const lines = responseText.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const result = JSON.parse(line.substring(6));
+                            if (result.result && result.result.tools) {
+                                statusEl.textContent = `✅ Connected! Found ${result.result.tools.length} tools`;
+                                toolsEl.innerHTML = result.result.tools.map(tool =>
+                                    `<div>• ${tool.name}: ${tool.description}</div>`
+                                ).join('');
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                statusEl.textContent = '❌ Could not parse response';
+                toolsEl.textContent = 'Response: ' + responseText.substring(0, 200);
+
+            } catch (error) {
+                statusEl.textContent = '❌ Connection failed: ' + error.message;
+                console.error('Test failed:', error);
+            }
+        }
+
+        // Run test when page loads
+        testMCP();
+    </script>
+</body>
+</html>

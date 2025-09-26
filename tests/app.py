@@ -37,7 +37,8 @@ def clear_preferences() -> bool:
     """Clear all preferences"""
     return True
 
+app = mcp_server.http_app(transport="http", stateless_http=True)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(mcp_server.http_app, host="0.0.0.0", port=8010)
+    uvicorn.run(app, host="0.0.0.0", port=8010)

@@ -152,10 +152,13 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         return instance
 
-    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
+    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True,
+                 inspector: bool = True, inspector_title: str = "MCP Inspector", *args, **kwargs):
         self.schema = schema
         self.graphql_http = graphql_http
         self.allow_mutations = allow_mutations
+        self.inspector = inspector
+        self.inspector_title = inspector_title
         super().__init__(*args, **kwargs)
         add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
 
@@ -170,6 +173,13 @@ class GraphQLMCP(FastMCP):  # type: ignore
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
+
+        # Create inspector app if enabled (independent of GraphQL HTTP)
+        inspector_app = None
+        if self.inspector:
+            from graphql_mcp.inspector import MCPInspector
+            inspector = MCPInspector(self, self.inspector_title)
+            inspector_app = inspector.app
 
         if self.graphql_http:
             from graphql_http import GraphQLHTTP  # type: ignore
@@ -214,7 +224,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
-            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
+            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app, inspector_app=inspector_app)
+        else:
+            # Add middleware even when GraphQL HTTP is disabled (for inspector-only mode)
+            if inspector_app:
+                app.add_middleware(GraphQLRootMiddleware, graphql_app=None, inspector_app=inspector_app)
 
         return app
 
@@ -983,15 +997,34 @@ def _create_tool_function(
 
 
 class GraphQLRootMiddleware:
-    def __init__(self, app: ASGIApp, graphql_app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, graphql_app: Optional[ASGIApp] = None, inspector_app: Optional[ASGIApp] = None) -> None:
         self.app = app
         self.graphql_app = graphql_app
+        self.inspector_app = inspector_app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path") or ""
-        if scope.get("type") == "http" and not path.endswith("/mcp") and not path.endswith("/mcp/"):
+
+        # Route inspector requests if enabled
+        if (self.inspector_app and scope.get("type") == "http" and
+            (path.startswith("/inspector") or path == "/inspector")):
+            # Remove /inspector prefix for the inspector app
+            if path.startswith("/inspector"):
+                new_path = path[10:] or "/"
+                scope = dict(scope)
+                scope['path'] = new_path
+                if 'raw_path' in scope:
+                    scope['raw_path'] = new_path.encode()
+            await self.inspector_app(scope, receive, send)
+            return
+
+        # Route GraphQL requests if available
+        if (self.graphql_app and scope.get("type") == "http" and
+            not path.endswith("/mcp") and not path.endswith("/mcp/")):
             await self.graphql_app(scope, receive, send)
             return
+
+        # Handle MCP requests
         if scope['type'] == 'http':
             path = scope['path']
             if path.endswith('/mcp/'):
