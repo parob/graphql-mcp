@@ -386,7 +386,7 @@ class MCPInspector:
 
             return React.createElement('div', {
                 style: {
-                    padding: '16px',
+                    padding: '0px',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     fontSize: '14px'
                 }

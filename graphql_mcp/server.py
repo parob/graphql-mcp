@@ -1135,6 +1135,7 @@ class GraphQLRootMiddleware:
                 const [expandedTool, setExpandedTool] = React.useState(null);
                 const [toolResults, setToolResults] = React.useState({});
                 const [toolInputs, setToolInputs] = React.useState({});
+                const [callHistory, setCallHistory] = React.useState([]);
 
                 // MCP Client setup
                 const mcpUrl = window.location.origin + '/mcp';
@@ -1344,47 +1345,87 @@ class GraphQLRootMiddleware:
                 };
 
                 const callTool = async (toolName) => {
+                    const timestamp = new Date();
+                    const args = toolInputs[toolName] || {};
+
+                    // Add to history immediately (pending)
+                    const historyEntry = {
+                        id: Date.now() + Math.random(),
+                        toolName,
+                        inputs: { ...args },
+                        timestamp: timestamp.toLocaleTimeString(),
+                        fullTimestamp: timestamp,
+                        status: 'pending'
+                    };
+
+                    setCallHistory(prev => [historyEntry, ...prev]);
+
                     try {
                         console.log(`Calling MCP tool: ${toolName}`);
-
-                        // Get arguments from inputs
-                        const args = toolInputs[toolName] || {};
 
                         const result = await client.callTool(toolName, args);
                         console.log('MCP tool result:', result);
 
                         // Store formatted result in state
                         const formattedResult = formatMCPResponse(result);
+                        const successResult = {
+                            success: true,
+                            result: formattedResult,
+                            timestamp: timestamp.toLocaleTimeString()
+                        };
+
                         setToolResults(prev => ({
                             ...prev,
-                            [toolName]: {
-                                success: true,
-                                result: formattedResult,
-                                timestamp: new Date().toLocaleTimeString()
-                            }
+                            [toolName]: successResult
                         }));
+
+                        // Update history with success
+                        setCallHistory(prev => prev.map(entry =>
+                            entry.id === historyEntry.id
+                                ? { ...entry, status: 'success', result: formattedResult }
+                                : entry
+                        ));
                     } catch (error) {
                         console.error('MCP tool call failed:', error);
+
+                        const errorResult = {
+                            success: false,
+                            error: error.message,
+                            timestamp: timestamp.toLocaleTimeString()
+                        };
 
                         // Store error in state
                         setToolResults(prev => ({
                             ...prev,
-                            [toolName]: {
-                                success: false,
-                                error: error.message,
-                                timestamp: new Date().toLocaleTimeString()
-                            }
+                            [toolName]: errorResult
                         }));
+
+                        // Update history with error
+                        setCallHistory(prev => prev.map(entry =>
+                            entry.id === historyEntry.id
+                                ? { ...entry, status: 'error', error: error.message }
+                                : entry
+                        ));
                     }
                 };
 
                 return React.createElement('div', {
                     style: {
-                        padding: '16px',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
                         fontFamily: 'system-ui, -apple-system, sans-serif',
                         fontSize: '14px'
                     }
                 }, [
+                    // Header section (fixed)
+                    React.createElement('div', {
+                        key: 'header',
+                        style: {
+                            padding: '16px 16px 0 16px',
+                            flexShrink: 0
+                        }
+                    }, [
                     React.createElement('h3', {
                         key: 'title',
                         style: {
@@ -1411,9 +1452,33 @@ class GraphQLRootMiddleware:
                             background: connected ? '#e8f4f8' : '#e3f2fd',
                             color: connected ? '#1976d2' : '#1565c0'
                         }
-                    }, status),
+                    }, status)
+                    ]),
 
+                    // Scrollable content section
                     React.createElement('div', {
+                        key: 'content',
+                        style: {
+                            flex: 1,
+                            overflow: 'auto',
+                            padding: '16px'
+                        }
+                    }, [
+                        // Tools section
+                        React.createElement('div', {
+                            key: 'tools-section',
+                            style: { marginBottom: '24px' }
+                        }, [
+                            React.createElement('h4', {
+                                key: 'tools-title',
+                                style: {
+                                    margin: '0 0 12px 0',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    color: '#333'
+                                }
+                            }, 'Tools'),
+                            React.createElement('div', {
                         key: 'tools',
                         style: { display: 'flex', flexDirection: 'column', gap: '8px' }
                     }, tools.map((tool, index) => {
@@ -1516,7 +1581,7 @@ class GraphQLRootMiddleware:
                                                     marginBottom: '4px',
                                                     fontFamily: 'monospace'
                                                 }
-                                            }, `${paramName}${tool.inputSchema.required && tool.inputSchema.required.includes(paramName) ? ' *' : ''}`),
+                                            }, `${paramName}${tool.inputSchema.required && tool.inputSchema.required.includes(paramName) ? ' *' : ''} (${paramSchema.type || 'any'})`),
                                             React.createElement('input', {
                                                 key: 'input',
                                                 type: 'text',
@@ -1533,6 +1598,37 @@ class GraphQLRootMiddleware:
                                             })
                                         ])
                                     ))
+                                ]) : null,
+
+                                // Output schema section
+                                tool.outputSchema ? React.createElement('div', {
+                                    key: 'output-schema-section',
+                                    style: { marginBottom: '16px' }
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'output-schema-title',
+                                        style: {
+                                            fontSize: '13px',
+                                            fontWeight: '600',
+                                            color: '#333',
+                                            marginBottom: '8px'
+                                        }
+                                    }, 'Output Schema:'),
+                                    React.createElement('div', {
+                                        key: 'output-schema-content',
+                                        style: {
+                                            background: '#f8f9fa',
+                                            border: '1px solid #e0e0e0',
+                                            borderRadius: '4px',
+                                            padding: '12px',
+                                            fontSize: '11px',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'pre-wrap',
+                                            maxHeight: '150px',
+                                            overflow: 'auto',
+                                            color: '#333'
+                                        }
+                                    }, JSON.stringify(tool.outputSchema, null, 2))
                                 ]) : null,
 
                                 // Run button
@@ -1593,6 +1689,158 @@ class GraphQLRootMiddleware:
                             ]) : null
                         ]);
                     }))
+                        ]),
+
+                        // History section (at the end)
+                        callHistory.length > 0 ? React.createElement('div', {
+                        key: 'history-section',
+                        style: {
+                            marginTop: '24px',
+                            borderTop: '2px solid #e0e0e0',
+                            paddingTop: '16px'
+                        }
+                    }, [
+                        React.createElement('h4', {
+                            key: 'history-title',
+                            style: {
+                                margin: '0 0 12px 0',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                color: '#333'
+                            }
+                        }, 'Call History'),
+                        React.createElement('div', {
+                            key: 'history-list',
+                            style: {
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                            }
+                        }, callHistory.slice(0, 10).map((historyItem, index) =>
+                            React.createElement('div', {
+                                key: historyItem.id,
+                                style: {
+                                    background: historyItem.status === 'success' ? '#e8f5e8' :
+                                               historyItem.status === 'error' ? '#ffebee' : '#fff3e0',
+                                    border: `1px solid ${historyItem.status === 'success' ? '#4caf50' :
+                                                         historyItem.status === 'error' ? '#f44336' : '#ff9800'}`,
+                                    borderRadius: '4px',
+                                    padding: '8px 12px',
+                                    fontSize: '12px'
+                                }
+                            }, [
+                                React.createElement('div', {
+                                    key: 'header',
+                                    style: {
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: '4px'
+                                    }
+                                }, [
+                                    React.createElement('span', {
+                                        key: 'tool-name',
+                                        style: {
+                                            fontWeight: '600',
+                                            fontFamily: 'monospace',
+                                            color: '#1976d2'
+                                        }
+                                    }, historyItem.toolName),
+                                    React.createElement('span', {
+                                        key: 'timestamp',
+                                        style: {
+                                            fontSize: '11px',
+                                            color: '#666'
+                                        }
+                                    }, historyItem.timestamp)
+                                ]),
+                                Object.keys(historyItem.inputs).length > 0 ? React.createElement('div', {
+                                    key: 'inputs',
+                                    style: { marginBottom: '4px' }
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'inputs-label',
+                                        style: {
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            color: '#555',
+                                            marginBottom: '2px'
+                                        }
+                                    }, 'Inputs:'),
+                                    React.createElement('div', {
+                                        key: 'inputs-content',
+                                        style: {
+                                            fontFamily: 'monospace',
+                                            fontSize: '11px',
+                                            color: '#666',
+                                            backgroundColor: 'rgba(255,255,255,0.5)',
+                                            padding: '4px 6px',
+                                            borderRadius: '2px'
+                                        }
+                                    }, JSON.stringify(historyItem.inputs, null, 1))
+                                ]) : null,
+                                historyItem.result ? React.createElement('div', {
+                                    key: 'result',
+                                    style: {}
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'result-label',
+                                        style: {
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            color: '#555',
+                                            marginBottom: '2px'
+                                        }
+                                    }, 'Output:'),
+                                    React.createElement('div', {
+                                        key: 'result-content',
+                                        style: {
+                                            fontFamily: 'monospace',
+                                            fontSize: '11px',
+                                            color: '#666',
+                                            backgroundColor: 'rgba(255,255,255,0.5)',
+                                            padding: '4px 6px',
+                                            borderRadius: '2px',
+                                            maxHeight: '100px',
+                                            overflow: 'auto'
+                                        }
+                                    }, typeof historyItem.result === 'string' ? historyItem.result : JSON.stringify(historyItem.result, null, 1))
+                                ]) : historyItem.error ? React.createElement('div', {
+                                    key: 'error',
+                                    style: {}
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'error-label',
+                                        style: {
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            color: '#d32f2f',
+                                            marginBottom: '2px'
+                                        }
+                                    }, 'Error:'),
+                                    React.createElement('div', {
+                                        key: 'error-content',
+                                        style: {
+                                            fontFamily: 'monospace',
+                                            fontSize: '11px',
+                                            color: '#d32f2f',
+                                            backgroundColor: 'rgba(255,255,255,0.5)',
+                                            padding: '4px 6px',
+                                            borderRadius: '2px'
+                                        }
+                                    }, historyItem.error)
+                                ]) : React.createElement('div', {
+                                    key: 'pending',
+                                    style: {
+                                        fontSize: '11px',
+                                        color: '#ff9800',
+                                        fontStyle: 'italic'
+                                    }
+                                }, 'Running...')
+                            ])
+                        ))
+                    ]) : null
+                    ])
                 ]);
             }
         };'''
