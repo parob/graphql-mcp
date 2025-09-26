@@ -92,20 +92,25 @@
                 // Helper function to build auth headers
                 const buildAuthHeaders = React.useCallback(() => {
                     const headers = {};
+                    console.log('🔍 buildAuthHeaders called with:', { authType, bearerToken: bearerToken ? '[SET]' : '[EMPTY]', apiKey: apiKey ? '[SET]' : '[EMPTY]', apiKeyHeader, customHeaders: customHeaders ? '[SET]' : '[EMPTY]' });
 
                     if (authType === 'bearer' && bearerToken) {
                         headers['Authorization'] = `Bearer ${bearerToken}`;
+                        console.log('🔑 Added Bearer token header');
                     } else if (authType === 'apikey' && apiKey && apiKeyHeader) {
                         headers[apiKeyHeader] = apiKey;
+                        console.log('🔑 Added API key header:', apiKeyHeader);
                     } else if (authType === 'custom' && customHeaders) {
                         try {
                             const parsed = JSON.parse(customHeaders);
                             Object.assign(headers, parsed);
+                            console.log('🔑 Added custom headers:', Object.keys(parsed));
                         } catch (e) {
                             console.warn('Invalid custom headers JSON:', e);
                         }
                     }
 
+                    console.log('🔍 Final auth headers:', Object.keys(headers));
                     return headers;
                 }, [authType, bearerToken, apiKey, apiKeyHeader, customHeaders]);
 
@@ -170,7 +175,9 @@
                         }
 
                         updateHeaders(newHeaders) {
-                            this.customHeaders = { ...this.customHeaders, ...newHeaders };
+                            // Replace auth headers completely instead of merging
+                            this.customHeaders = { ...newHeaders };
+                            console.log('🔄 Transport headers updated to:', this.customHeaders);
                         }
 
                         async send(request) {
@@ -183,6 +190,8 @@
                             if (this.sessionId) {
                                 headers['mcp-session-id'] = this.sessionId;
                             }
+
+                            console.log('📡 MCPHttpTransport sending request with headers:', headers);
 
                             const response = await fetch(this.url, {
                                 method: 'POST',
@@ -317,6 +326,7 @@
 
                         // Update auth headers and reconnect
                         const newHeaders = buildAuthHeaders();
+                        console.log('🔄 Updating transport with headers:', newHeaders);
                         client.transport.updateHeaders(newHeaders);
 
                         // Initialize connection
@@ -339,7 +349,7 @@
                         setTools([]);
                         return { success: false, error: error.message || error };
                     }
-                }, [client]);
+                }, [client, buildAuthHeaders]);
 
                 // Initialize MCP connection
                 React.useEffect(() => {
@@ -487,6 +497,19 @@
                             color: 'rgba(59, 75, 104, 0.76)'
                         }
                     }, 'Inspect and execute MCP (Model Context Protocol) tools'),
+
+                    // MCP Server Details section title
+                    React.createElement('h3', {
+                        key: 'server-details-title',
+                        style: {
+                            margin: '20px 0px 12px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#374151',
+                            fontFamily: 'system-ui, -apple-system, sans-serif'
+                        }
+                    }, 'Server Details'),
+
                     // Modern header layout: URL | Status | Refresh | Auth
                     React.createElement('div', {
                         key: 'header-section',
@@ -630,10 +653,17 @@
                             React.createElement('span', {
                                 key: 'auth-icon',
                                 style: {
-                                    fontSize: '12px',
-                                    color: 'inherit'
+                                    display: 'inline-block',
+                                    width: '12px',
+                                    height: '12px',
+                                    marginRight: '4px'
+                                },
+                                dangerouslySetInnerHTML: {
+                                    __html: `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                        <path d="M6 1C4.3 1 3 2.3 3 4v1H2.5c-.6 0-1 .4-1 1v5c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V6c0-.6-.4-1-1-1H9V4c0-1.7-1.3-3-3-3zM6 2c1.1 0 2 .9 2 2v1H4V4c0-1.1.9-2 2-2z"/>
+                                    </svg>`
                                 }
-                            }, '🔒'),
+                            }),
                             'Authentication',
                             authType !== 'none' ? React.createElement('span', {
                                 key: 'auth-tag',
@@ -645,7 +675,7 @@
                                     borderRadius: '3px',
                                     fontWeight: '600'
                                 }
-                            }, authType.toUpperCase()) : null
+                            }, authType === 'bearer' ? 'Bearer Token' : authType === 'apikey' ? 'API Key' : authType === 'custom' ? 'Custom Headers' : authType.toUpperCase()) : null
                         ])
                     ]),
 
@@ -868,7 +898,8 @@
                                         if (result.success) {
                                             setStatus('✓ Authentication applied successfully!');
                                             setTimeout(() => {
-                                                setStatus(`✓ Connected with authentication (${result.toolCount} tools)`);
+                                                const authIndicator = authType !== 'none' ? ' with authentication' : '';
+                                                setStatus(`✓ Connected${authIndicator} (${result.toolCount} tools)`);
                                             }, 2000);
                                         }
 
