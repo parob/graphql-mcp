@@ -92,25 +92,20 @@
                 // Helper function to build auth headers
                 const buildAuthHeaders = React.useCallback(() => {
                     const headers = {};
-                    console.log('🔍 buildAuthHeaders called with:', { authType, bearerToken: bearerToken ? '[SET]' : '[EMPTY]', apiKey: apiKey ? '[SET]' : '[EMPTY]', apiKeyHeader, customHeaders: customHeaders ? '[SET]' : '[EMPTY]' });
 
                     if (authType === 'bearer' && bearerToken) {
                         headers['Authorization'] = `Bearer ${bearerToken}`;
-                        console.log('🔑 Added Bearer token header');
                     } else if (authType === 'apikey' && apiKey && apiKeyHeader) {
                         headers[apiKeyHeader] = apiKey;
-                        console.log('🔑 Added API key header:', apiKeyHeader);
                     } else if (authType === 'custom' && customHeaders) {
                         try {
                             const parsed = JSON.parse(customHeaders);
                             Object.assign(headers, parsed);
-                            console.log('🔑 Added custom headers:', Object.keys(parsed));
                         } catch (e) {
                             console.warn('Invalid custom headers JSON:', e);
                         }
                     }
 
-                    console.log('🔍 Final auth headers:', Object.keys(headers));
                     return headers;
                 }, [authType, bearerToken, apiKey, apiKeyHeader, customHeaders]);
 
@@ -177,7 +172,6 @@
                         updateHeaders(newHeaders) {
                             // Replace auth headers completely instead of merging
                             this.customHeaders = { ...newHeaders };
-                            console.log('🔄 Transport headers updated to:', this.customHeaders);
                         }
 
                         async send(request) {
@@ -191,7 +185,6 @@
                                 headers['mcp-session-id'] = this.sessionId;
                             }
 
-                            console.log('📡 MCPHttpTransport sending request with headers:', headers);
 
                             const response = await fetch(this.url, {
                                 method: 'POST',
@@ -317,8 +310,36 @@
                     return new MCPClient(new MCPHttpTransport(mcpUrl, {}));
                 }, [mcpUrl]);
 
-                // Standardized connection function used by all connection methods
-                const connectAndLoadTools = React.useCallback(async (statusMessage = '🔄 Connecting...') => {
+                // Basic connection function without auth headers (for initial connection)
+                const connectWithoutAuth = React.useCallback(async (statusMessage = '🔄 Connecting...') => {
+                    try {
+                        setStatus(statusMessage);
+                        setConnected(false);
+                        setTools([]);
+
+                        // Initialize connection
+                        await client.initialize();
+
+                        // Load tools
+                        const toolsResponse = await client.listTools();
+                        const toolsList = toolsResponse.tools || [];
+                        setTools(toolsList);
+                        setConnected(true);
+
+                        // Set success status
+                        setStatus(`✓ Connected (${toolsList.length} tools)`);
+
+                        return { success: true, toolCount: toolsList.length };
+                    } catch (error) {
+                        setStatus(`✗ Connection failed: ${error.message || error}`);
+                        setConnected(false);
+                        setTools([]);
+                        return { success: false, error: error.message || error };
+                    }
+                }, [client]);
+
+                // Authentication application function (called explicitly)
+                const applyAuthentication = React.useCallback(async (statusMessage = '🔒 Applying authentication...') => {
                     try {
                         setStatus(statusMessage);
                         setConnected(false);
@@ -326,7 +347,6 @@
 
                         // Update auth headers and reconnect
                         const newHeaders = buildAuthHeaders();
-                        console.log('🔄 Updating transport with headers:', newHeaders);
                         client.transport.updateHeaders(newHeaders);
 
                         // Initialize connection
@@ -353,8 +373,8 @@
 
                 // Initialize MCP connection
                 React.useEffect(() => {
-                    connectAndLoadTools('🔄 Initializing...');
-                }, [connectAndLoadTools]);
+                    connectWithoutAuth('🔄 Initializing...');
+                }, [connectWithoutAuth]);
 
                 // Clean up MCP response format
                 const formatMCPResponse = (result) => {
@@ -569,7 +589,7 @@
                                     const startTime = Date.now();
 
                                     // Call the refresh function
-                                    await connectAndLoadTools('🔄 Refreshing...');
+                                    await applyAuthentication('🔄 Refreshing...');
 
                                     // Ensure minimum 0.4s press time for visual feedback
                                     const elapsedTime = Date.now() - startTime;
@@ -891,8 +911,8 @@
                                         setApplyingAuth(true);
                                         const startTime = Date.now();
 
-                                        // Use standardized connection function
-                                        const result = await connectAndLoadTools('🔒 Applying authentication...');
+                                        // Use authentication function
+                                        const result = await applyAuthentication('🔒 Applying authentication...');
 
                                         // Show success message briefly if successful
                                         if (result.success) {
