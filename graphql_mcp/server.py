@@ -1385,24 +1385,20 @@ class GraphQLRootMiddleware:
                         fontSize: '14px'
                     }
                 }, [
-                    React.createElement('div', {
+                    React.createElement('h3', {
                         key: 'title',
                         style: {
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            color: '#1976d2',
-                            marginBottom: '8px',
-                            paddingBottom: '8px',
-                            borderBottom: '1px solid #e0e0e0'
+                            margin: '0px 0px 4px',
+                            fontSize: '29px',
+                            fontWeight: 'bold'
                         }
                     }, 'MCP Inspector'),
-                    React.createElement('div', {
+                    React.createElement('p', {
                         key: 'description',
+                        className: 'graphiql-markdown-description',
                         style: {
-                            fontSize: '12px',
-                            color: '#666',
-                            marginBottom: '16px',
-                            lineHeight: '1.4'
+                            margin: '0px 0px 20px',
+                            color: 'rgba(59, 75, 104, 0.76)'
                         }
                     }, 'Inspect and execute MCP (Model Context Protocol) tools'),
                     React.createElement('div', {
