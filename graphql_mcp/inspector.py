@@ -332,8 +332,8 @@ class MCPInspector:
         }
     }
 
-    // Plugin injection logic
-    function injectMCPPanel() {
+    // GraphiQL Plugin Registration
+    function createMCPPlugin() {
         // Dynamically determine MCP URL from current page location
         const mcpUrl = window.location.origin + '/mcp';
         console.log('🔗 MCP URL:', mcpUrl);
@@ -341,7 +341,186 @@ class MCPInspector:
         const transport = new MCPHttpTransport(mcpUrl);
         const client = new MCPClient(transport);
 
-        // Create MCP panel HTML
+        // Create the plugin component
+        function MCPToolsPlugin() {
+            const [status, setStatus] = React.useState('🔄 Connecting...');
+            const [tools, setTools] = React.useState([]);
+            const [connected, setConnected] = React.useState(false);
+
+            // Initialize MCP connection
+            React.useEffect(() => {
+                async function initMCP() {
+                    try {
+                        setStatus('🔄 Initializing session...');
+                        await client.initialize();
+
+                        setStatus('🔄 Loading tools...');
+                        const result = await client.listTools();
+                        const toolsList = result.tools || [];
+
+                        setTools(toolsList);
+                        setStatus(`✅ Connected (${toolsList.length} tools)`);
+                        setConnected(true);
+                    } catch (error) {
+                        setStatus(`❌ Failed: ${error.message}`);
+                        console.error('MCP initialization failed:', error);
+                    }
+                }
+                initMCP();
+            }, []);
+
+            // Tool call handler
+            const callTool = async (toolName) => {
+                try {
+                    console.log(`Calling MCP tool: ${toolName}`);
+                    const result = await client.callTool(toolName, {});
+                    console.log('MCP tool result:', result);
+
+                    // Show result in a modal or alert
+                    alert(`${toolName} result:\\n${JSON.stringify(result, null, 2)}`);
+                } catch (error) {
+                    console.error('MCP tool call failed:', error);
+                    alert(`Error calling ${toolName}:\\n${error.message}`);
+                }
+            };
+
+            return React.createElement('div', {
+                style: {
+                    padding: '16px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    fontSize: '14px'
+                }
+            }, [
+                React.createElement('div', {
+                    key: 'status',
+                    style: {
+                        padding: '8px 12px',
+                        marginBottom: '12px',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        background: connected ? '#e8f5e8' : '#e3f2fd',
+                        color: connected ? '#2e7d32' : '#1565c0'
+                    }
+                }, status),
+
+                React.createElement('div', {
+                    key: 'tools',
+                    style: { display: 'flex', flexDirection: 'column', gap: '8px' }
+                }, tools.map(tool =>
+                    React.createElement('div', {
+                        key: tool.name,
+                        style: {
+                            background: '#f8f9fa',
+                            border: '1px solid #e9ecef',
+                            borderRadius: '4px',
+                            padding: '12px',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s'
+                        },
+                        onClick: () => callTool(tool.name),
+                        onMouseEnter: (e) => e.target.style.background = '#e9ecef',
+                        onMouseLeave: (e) => e.target.style.background = '#f8f9fa'
+                    }, [
+                        React.createElement('div', {
+                            key: 'name',
+                            style: {
+                                fontWeight: '600',
+                                color: '#007bff',
+                                fontFamily: 'monospace',
+                                marginBottom: '4px'
+                            }
+                        }, tool.name),
+                        React.createElement('div', {
+                            key: 'description',
+                            style: {
+                                fontSize: '12px',
+                                color: '#6c757d'
+                            }
+                        }, tool.description || 'No description')
+                    ])
+                ))
+            ]);
+        }
+
+        return {
+            title: 'MCP Tools',
+            icon: () => React.createElement('span', {}, '🔧'),
+            content: MCPToolsPlugin
+        };
+    }
+
+    // Inject MCP plugin directly into GraphiQL plugins array
+    function registerMCPPlugin() {
+        console.log('📊 Looking for GraphiQL plugins array...');
+
+        // Try to find and modify the plugins array in the global scope
+        if (typeof window !== 'undefined') {
+            // Look for the plugins array variable
+            const scripts = document.querySelectorAll('script');
+            let foundPluginsArray = false;
+
+            for (const script of scripts) {
+                if (script.innerHTML && script.innerHTML.includes('const plugins = [')) {
+                    console.log('📊 Found GraphiQL plugins array, injecting MCP plugin...');
+
+                    // Create the MCP plugin
+                    const mcpPlugin = createMCPPlugin();
+
+                    // Try to inject by modifying the script content
+                    const originalContent = script.innerHTML;
+                    const newContent = originalContent.replace(
+                        /const plugins = \[(.*?)\];/s,
+                        (match, pluginsList) => {
+                            return `const plugins = [${pluginsList}, (() => ${JSON.stringify(mcpPlugin).replace(/"function MCPToolsPlugin\(\)[\s\S]*?return React\.createElement[^}]+}[^}]+}[^}]+}/, '"FUNCTION_PLACEHOLDER"')})()];`.replace('"FUNCTION_PLACEHOLDER"', mcpPlugin.content.toString());
+                        }
+                    );
+
+                    if (newContent !== originalContent) {
+                        // Replace the script
+                        const newScript = document.createElement('script');
+                        newScript.innerHTML = newContent;
+                        script.parentNode.insertBefore(newScript, script);
+                        script.remove();
+                        foundPluginsArray = true;
+                        console.log('✅ MCP plugin injected into GraphiQL plugins array');
+                        break;
+                    }
+                }
+            }
+
+            if (!foundPluginsArray) {
+                console.log('⚠️ Could not find GraphiQL plugins array, trying alternative approach...');
+
+                // Alternative: Try to inject into window after GraphiQL loads
+                if (window.GraphiQL) {
+                    console.log('📊 Found GraphiQL global, attempting to add plugin...');
+                    // This approach might work if GraphiQL exposes plugins
+                    injectIntoLoadedGraphiQL();
+                } else {
+                    console.log('⚠️ GraphiQL not found, falling back to manual panel');
+                    injectMCPPanelFallback();
+                }
+            }
+        } else {
+            console.log('⚠️ Window not available, falling back to manual panel');
+            injectMCPPanelFallback();
+        }
+    }
+
+    // Try to inject into already loaded GraphiQL
+    function injectIntoLoadedGraphiQL() {
+        // This is a more complex approach - for now, use fallback
+        console.log('⚠️ Alternative GraphiQL injection not implemented, using fallback');
+        injectMCPPanelFallback();
+    }
+
+    // Fallback: Manual panel injection (original approach)
+    function injectMCPPanelFallback() {
+        const mcpUrl = window.location.origin + '/mcp';
+        const transport = new MCPHttpTransport(mcpUrl);
+        const client = new MCPClient(transport);
+
+        // Create MCP panel HTML (simplified version of original)
         const mcpPanel = document.createElement('div');
         mcpPanel.id = 'mcp-panel';
         mcpPanel.style.cssText = `
@@ -364,7 +543,7 @@ class MCPInspector:
 
         mcpPanel.innerHTML = `
             <div style="padding: 12px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-weight: 600; color: #495057;">
-                🔧 MCP Tools
+                🔧 MCP Tools (Fallback)
                 <span id="mcp-toggle" style="float: right; cursor: pointer; font-size: 12px;">−</span>
             </div>
             <div id="mcp-content" style="flex: 1; overflow: auto; padding: 12px;">
@@ -388,10 +567,10 @@ class MCPInspector:
         });
 
         // Initialize MCP connection
-        initializeMCP(client);
+        initializeMCPFallback(client);
     }
 
-    async function initializeMCP(client) {
+    async function initializeMCPFallback(client) {
         const status = document.getElementById('mcp-status');
         const toolsContainer = document.getElementById('mcp-tools');
 
@@ -437,11 +616,15 @@ class MCPInspector:
         }
     }
 
-    // Inject panel when GraphiQL loads
+    // Register MCP plugin when GraphiQL loads
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', injectMCPPanel);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait a bit for GraphiQL to fully initialize
+            setTimeout(registerMCPPlugin, 1000);
+        });
     } else {
-        injectMCPPanel();
+        // Wait a bit for GraphiQL to fully initialize
+        setTimeout(registerMCPPlugin, 1000);
     }
 
     console.log('✅ MCP GraphiQL Plugin loaded');

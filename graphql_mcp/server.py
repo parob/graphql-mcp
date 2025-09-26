@@ -1103,18 +1103,282 @@ class GraphQLRootMiddleware:
         await self.graphql_app(scope, receive, collect_send)
 
     def _inject_plugin_into_html(self, html_body: bytes) -> bytes:
-        """Inject MCP plugin script into GraphiQL HTML."""
+        """Inject MCP plugin directly into GraphiQL plugins array."""
         html_str = html_body.decode('utf-8', errors='ignore')
 
         # Check if this looks like GraphiQL HTML
         if not ("graphiql" in html_str.lower() and "<html" in html_str.lower()):
             return html_body
 
-        # Create the injection script
-        injection_script = '''
-    <!-- MCP Plugin Auto-Injection -->
+        # Try to inject directly into plugins array for proper GraphiQL integration
+        if "const plugins = [" in html_str:
+            # Create the MCP plugin code
+            mcp_plugin_code = '''
+        // MCP Tools Plugin for GraphiQL
+        const mcpPlugin = {
+            title: 'MCP Tools',
+            icon: function() { return React.createElement('span', { style: { fontSize: '16px' } }, '🔧'); },
+            content: function() {
+                const [status, setStatus] = React.useState('🔄 Connecting...');
+                const [tools, setTools] = React.useState([]);
+                const [connected, setConnected] = React.useState(false);
+
+                // MCP Client setup
+                const mcpUrl = window.location.origin + '/mcp';
+                const client = React.useMemo(() => {
+                    // MCP Transport and Client classes (simplified for direct injection)
+                    class MCPHttpTransport {
+                        constructor(url) {
+                            this.url = url;
+                            this.sessionId = null;
+                        }
+
+                        async send(request) {
+                            const headers = {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json, text/event-stream',
+                            };
+
+                            if (this.sessionId) {
+                                headers['mcp-session-id'] = this.sessionId;
+                            }
+
+                            const response = await fetch(this.url, {
+                                method: 'POST',
+                                headers: headers,
+                                body: JSON.stringify(request)
+                            });
+
+                            const mcpSessionId = response.headers.get('mcp-session-id');
+                            if (mcpSessionId) {
+                                this.sessionId = mcpSessionId;
+                            }
+
+                            if (!response.ok) {
+                                if (response.status === 400) {
+                                    const errorText = await response.text();
+                                    if (errorText.includes('Missing session ID')) {
+                                        return { error: { code: -32600, message: 'Session required' } };
+                                    }
+                                }
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+
+                            const responseText = await response.text();
+                            if (responseText.startsWith('event: message')) {
+                                const lines = responseText.split('\\n');
+                                for (const line of lines) {
+                                    if (line.startsWith('data: ')) {
+                                        return JSON.parse(line.substring(6));
+                                    }
+                                }
+                                throw new Error('No data found in SSE response');
+                            } else {
+                                return JSON.parse(responseText);
+                            }
+                        }
+                    }
+
+                    class MCPClient {
+                        constructor(transport) {
+                            this.transport = transport;
+                            this.requestId = 0;
+                            this.initialized = false;
+                        }
+
+                        async request(method, params = {}) {
+                            const request = {
+                                jsonrpc: '2.0',
+                                id: ++this.requestId,
+                                method: method,
+                                params: params
+                            };
+
+                            const response = await this.transport.send(request);
+
+                            if (response.error && response.error.message === 'Session required') {
+                                console.log('🔄 Initializing MCP session...');
+                                await this.initialize();
+                                return await this.request(method, params);
+                            }
+
+                            if (response.error) {
+                                throw new Error(response.error.message || 'MCP request failed');
+                            }
+
+                            return response.result;
+                        }
+
+                        async initialize() {
+                            if (this.initialized) return;
+
+                            const initRequest = {
+                                jsonrpc: '2.0',
+                                id: ++this.requestId,
+                                method: 'initialize',
+                                params: {
+                                    protocolVersion: '2024-11-05',
+                                    capabilities: {
+                                        roots: {
+                                            listChanged: false
+                                        }
+                                    },
+                                    clientInfo: {
+                                        name: 'GraphiQL MCP Plugin',
+                                        version: '1.0.0'
+                                    }
+                                }
+                            };
+
+                            const response = await this.transport.send(initRequest);
+
+                            if (response.error) {
+                                throw new Error(`Initialization failed: ${response.error.message}`);
+                            }
+
+                            const initNotification = {
+                                jsonrpc: '2.0',
+                                method: 'notifications/initialized',
+                                params: {}
+                            };
+
+                            try {
+                                await this.transport.send(initNotification);
+                                console.log('✅ MCP session initialized');
+                            } catch (notificationError) {
+                                console.warn('⚠️ Initialized notification failed:', notificationError.message);
+                            }
+
+                            this.initialized = true;
+                            return response.result;
+                        }
+
+                        async listTools() {
+                            return await this.request('tools/list');
+                        }
+
+                        async callTool(name, args) {
+                            return await this.request('tools/call', { name, arguments: args });
+                        }
+                    }
+
+                    return new MCPClient(new MCPHttpTransport(mcpUrl));
+                }, [mcpUrl]);
+
+                // Initialize MCP connection
+                React.useEffect(() => {
+                    async function initMCP() {
+                        try {
+                            setStatus('🔄 Initializing session...');
+                            await client.initialize();
+
+                            setStatus('🔄 Loading tools...');
+                            const result = await client.listTools();
+                            const toolsList = result.tools || [];
+
+                            setTools(toolsList);
+                            setStatus(`✅ Connected (${toolsList.length} tools)`);
+                            setConnected(true);
+                        } catch (error) {
+                            setStatus(`❌ Failed: ${error.message}`);
+                            console.error('MCP initialization failed:', error);
+                        }
+                    }
+                    initMCP();
+                }, [client]);
+
+                // Tool call handler
+                const callTool = async (toolName) => {
+                    try {
+                        console.log(`Calling MCP tool: ${toolName}`);
+                        const result = await client.callTool(toolName, {});
+                        console.log('MCP tool result:', result);
+
+                        // Show result in alert - could be enhanced with better UI
+                        alert(`${toolName} result:\\n${JSON.stringify(result, null, 2)}`);
+                    } catch (error) {
+                        console.error('MCP tool call failed:', error);
+                        alert(`Error calling ${toolName}:\\n${error.message}`);
+                    }
+                };
+
+                return React.createElement('div', {
+                    style: {
+                        padding: '16px',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        fontSize: '14px'
+                    }
+                }, [
+                    React.createElement('div', {
+                        key: 'status',
+                        style: {
+                            padding: '8px 12px',
+                            marginBottom: '12px',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            background: connected ? '#e8f5e8' : '#e3f2fd',
+                            color: connected ? '#2e7d32' : '#1565c0'
+                        }
+                    }, status),
+
+                    React.createElement('div', {
+                        key: 'tools',
+                        style: { display: 'flex', flexDirection: 'column', gap: '8px' }
+                    }, tools.map((tool, index) =>
+                        React.createElement('div', {
+                            key: tool.name || index,
+                            style: {
+                                background: '#f8f9fa',
+                                border: '1px solid #e9ecef',
+                                borderRadius: '4px',
+                                padding: '12px',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s'
+                            },
+                            onClick: () => callTool(tool.name),
+                            onMouseEnter: function(e) { e.target.style.background = '#e9ecef'; },
+                            onMouseLeave: function(e) { e.target.style.background = '#f8f9fa'; }
+                        }, [
+                            React.createElement('div', {
+                                key: 'name',
+                                style: {
+                                    fontWeight: '600',
+                                    color: '#007bff',
+                                    fontFamily: 'monospace',
+                                    marginBottom: '4px'
+                                }
+                            }, tool.name),
+                            React.createElement('div', {
+                                key: 'description',
+                                style: {
+                                    fontSize: '12px',
+                                    color: '#6c757d'
+                                }
+                            }, tool.description || 'No description')
+                        ])
+                    ))
+                ]);
+            }
+        };'''
+
+            # Inject the plugin into the plugins array
+            html_str = html_str.replace(
+                "const plugins = [",
+                mcp_plugin_code + "\n        const plugins = [mcpPlugin, "
+            )
+
+            injection_script = '''
+    <!-- MCP Plugin Successfully Injected -->
     <script>
-        console.log('🔧 Auto-loading MCP GraphiQL Plugin...');
+        console.log('✅ MCP Plugin injected directly into GraphiQL plugins array');
+    </script>
+</head>'''
+        else:
+            # Fallback to external script loading if plugins array not found
+            injection_script = '''
+    <!-- MCP Plugin Auto-Injection (Fallback) -->
+    <script>
+        console.log('🔧 Auto-loading MCP GraphiQL Plugin (Fallback)...');
 
         // Wait for GraphiQL to load, then inject MCP plugin
         function loadMCPPlugin() {
@@ -1132,7 +1396,7 @@ class GraphQLRootMiddleware:
         // Load plugin after DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(loadMCPPlugin, 1000); // Give GraphiQL time to initialize
+                setTimeout(loadMCPPlugin, 1000);
             });
         } else {
             setTimeout(loadMCPPlugin, 1000);
