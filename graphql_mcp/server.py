@@ -1116,12 +1116,25 @@ class GraphQLRootMiddleware:
             mcp_plugin_code = '''
         // MCP Tools Plugin for GraphiQL
         const mcpPlugin = {
-            title: 'MCP Tools',
-            icon: function() { return React.createElement('span', { style: { fontSize: '16px' } }, '🔧'); },
+            title: 'MCP Inspector',
+            description: 'Inspect and execute MCP (Model Context Protocol) tools directly from GraphiQL',
+            icon: function() {
+                return React.createElement('span', {
+                    style: {
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        fontFamily: 'monospace',
+                        color: '#1976d2'
+                    }
+                }, 'MCP');
+            },
             content: function() {
                 const [status, setStatus] = React.useState('🔄 Connecting...');
                 const [tools, setTools] = React.useState([]);
                 const [connected, setConnected] = React.useState(false);
+                const [expandedTool, setExpandedTool] = React.useState(null);
+                const [toolResults, setToolResults] = React.useState({});
+                const [toolInputs, setToolInputs] = React.useState({});
 
                 // MCP Client setup
                 const mcpUrl = window.location.origin + '/mcp';
@@ -1277,7 +1290,7 @@ class GraphQLRootMiddleware:
                             const toolsList = result.tools || [];
 
                             setTools(toolsList);
-                            setStatus(`✅ Connected (${toolsList.length} tools)`);
+                            setStatus(`● Connected (${toolsList.length} tools)`);
                             setConnected(true);
                         } catch (error) {
                             setStatus(`❌ Failed: ${error.message}`);
@@ -1287,18 +1300,81 @@ class GraphQLRootMiddleware:
                     initMCP();
                 }, [client]);
 
-                // Tool call handler
+                // Clean up MCP response format
+                const formatMCPResponse = (result) => {
+                    // If result has structuredContent, prefer that
+                    if (result.structuredContent) {
+                        return result.structuredContent;
+                    }
+
+                    // If result has content array, extract and format
+                    if (result.content && Array.isArray(result.content)) {
+                        if (result.content.length === 1 && result.content[0].type === 'text') {
+                            const text = result.content[0].text;
+                            try {
+                                // Try to parse as JSON for better formatting
+                                const parsed = JSON.parse(text);
+                                return parsed;
+                            } catch {
+                                // Return as-is if not JSON
+                                return text;
+                            }
+                        }
+                        // Multiple content items - return the array
+                        return result.content;
+                    }
+
+                    // Return as-is for other formats
+                    return result;
+                };
+
+                // Tool interaction handlers
+                const toggleTool = (toolName) => {
+                    setExpandedTool(expandedTool === toolName ? null : toolName);
+                };
+
+                const updateToolInput = (toolName, paramName, value) => {
+                    setToolInputs(prev => ({
+                        ...prev,
+                        [toolName]: {
+                            ...prev[toolName],
+                            [paramName]: value
+                        }
+                    }));
+                };
+
                 const callTool = async (toolName) => {
                     try {
                         console.log(`Calling MCP tool: ${toolName}`);
-                        const result = await client.callTool(toolName, {});
+
+                        // Get arguments from inputs
+                        const args = toolInputs[toolName] || {};
+
+                        const result = await client.callTool(toolName, args);
                         console.log('MCP tool result:', result);
 
-                        // Show result in alert - could be enhanced with better UI
-                        alert(`${toolName} result:\\n${JSON.stringify(result, null, 2)}`);
+                        // Store formatted result in state
+                        const formattedResult = formatMCPResponse(result);
+                        setToolResults(prev => ({
+                            ...prev,
+                            [toolName]: {
+                                success: true,
+                                result: formattedResult,
+                                timestamp: new Date().toLocaleTimeString()
+                            }
+                        }));
                     } catch (error) {
                         console.error('MCP tool call failed:', error);
-                        alert(`Error calling ${toolName}:\\n${error.message}`);
+
+                        // Store error in state
+                        setToolResults(prev => ({
+                            ...prev,
+                            [toolName]: {
+                                success: false,
+                                error: error.message,
+                                timestamp: new Date().toLocaleTimeString()
+                            }
+                        }));
                     }
                 };
 
@@ -1310,62 +1386,235 @@ class GraphQLRootMiddleware:
                     }
                 }, [
                     React.createElement('div', {
+                        key: 'title',
+                        style: {
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: '#1976d2',
+                            marginBottom: '8px',
+                            paddingBottom: '8px',
+                            borderBottom: '1px solid #e0e0e0'
+                        }
+                    }, 'MCP Inspector'),
+                    React.createElement('div', {
+                        key: 'description',
+                        style: {
+                            fontSize: '12px',
+                            color: '#666',
+                            marginBottom: '16px',
+                            lineHeight: '1.4'
+                        }
+                    }, 'Inspect and execute MCP (Model Context Protocol) tools'),
+                    React.createElement('div', {
                         key: 'status',
                         style: {
                             padding: '8px 12px',
                             marginBottom: '12px',
                             borderRadius: '4px',
                             fontSize: '13px',
-                            background: connected ? '#e8f5e8' : '#e3f2fd',
-                            color: connected ? '#2e7d32' : '#1565c0'
+                            background: connected ? '#e8f4f8' : '#e3f2fd',
+                            color: connected ? '#1976d2' : '#1565c0'
                         }
                     }, status),
 
                     React.createElement('div', {
                         key: 'tools',
                         style: { display: 'flex', flexDirection: 'column', gap: '8px' }
-                    }, tools.map((tool, index) =>
-                        React.createElement('div', {
+                    }, tools.map((tool, index) => {
+                        const isExpanded = expandedTool === tool.name;
+                        const toolResult = toolResults[tool.name];
+
+                        return React.createElement('div', {
                             key: tool.name || index,
                             style: {
-                                background: '#f8f9fa',
-                                border: '1px solid #e9ecef',
-                                borderRadius: '4px',
-                                padding: '12px',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.2s'
-                            },
-                            onClick: () => callTool(tool.name),
-                            onMouseEnter: function(e) { e.target.style.background = '#e9ecef'; },
-                            onMouseLeave: function(e) { e.target.style.background = '#f8f9fa'; }
+                                background: isExpanded ? '#f1f3f4' : '#ffffff',
+                                border: isExpanded ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                                borderRadius: '6px',
+                                overflow: 'hidden',
+                                transition: 'all 0.2s ease'
+                            }
                         }, [
+                            // Tool header (clickable to expand)
                             React.createElement('div', {
-                                key: 'name',
+                                key: 'header',
                                 style: {
-                                    fontWeight: '600',
-                                    color: '#007bff',
-                                    fontFamily: 'monospace',
-                                    marginBottom: '4px'
-                                }
-                            }, tool.name),
-                            React.createElement('div', {
-                                key: 'description',
+                                    padding: '12px',
+                                    cursor: 'pointer',
+                                    background: isExpanded ? '#e3f2fd' : 'transparent',
+                                    borderBottom: isExpanded ? '1px solid #e0e0e0' : 'none'
+                                },
+                                onClick: () => toggleTool(tool.name)
+                            }, [
+                                React.createElement('div', {
+                                    key: 'name-row',
+                                    style: {
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between'
+                                    }
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'name',
+                                        style: {
+                                            fontWeight: '600',
+                                            color: '#1976d2',
+                                            fontFamily: 'monospace',
+                                            fontSize: '14px'
+                                        }
+                                    }, tool.name),
+                                    React.createElement('div', {
+                                        key: 'expand-icon',
+                                        style: {
+                                            fontSize: '12px',
+                                            color: '#666',
+                                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                            transition: 'transform 0.2s'
+                                        }
+                                    }, '▼')
+                                ]),
+                                React.createElement('div', {
+                                    key: 'description',
+                                    style: {
+                                        fontSize: '12px',
+                                        color: '#666',
+                                        marginTop: '4px'
+                                    }
+                                }, tool.description || 'No description')
+                            ]),
+
+                            // Expanded content (parameters + results)
+                            isExpanded ? React.createElement('div', {
+                                key: 'expanded',
                                 style: {
-                                    fontSize: '12px',
-                                    color: '#6c757d'
+                                    padding: '16px',
+                                    background: '#fafafa'
                                 }
-                            }, tool.description || 'No description')
-                        ])
-                    ))
+                            }, [
+                                // Parameters section (only if there are parameters)
+                                tool.inputSchema && tool.inputSchema.properties && Object.keys(tool.inputSchema.properties).length > 0 ? React.createElement('div', {
+                                    key: 'params-section',
+                                    style: { marginBottom: '16px' }
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'params-title',
+                                        style: {
+                                            fontSize: '13px',
+                                            fontWeight: '600',
+                                            color: '#333',
+                                            marginBottom: '8px'
+                                        }
+                                    }, 'Parameters:'),
+                                    React.createElement('div', {
+                                        key: 'params-list',
+                                        style: { display: 'flex', flexDirection: 'column', gap: '8px' }
+                                    }, Object.entries(tool.inputSchema.properties).map(([paramName, paramSchema]) =>
+                                        React.createElement('div', {
+                                            key: paramName,
+                                            style: { display: 'flex', flexDirection: 'column' }
+                                        }, [
+                                            React.createElement('label', {
+                                                key: 'label',
+                                                style: {
+                                                    fontSize: '12px',
+                                                    color: '#555',
+                                                    marginBottom: '4px',
+                                                    fontFamily: 'monospace'
+                                                }
+                                            }, `${paramName}${tool.inputSchema.required && tool.inputSchema.required.includes(paramName) ? ' *' : ''}`),
+                                            React.createElement('input', {
+                                                key: 'input',
+                                                type: 'text',
+                                                placeholder: paramSchema.description || `Enter ${paramName}`,
+                                                style: {
+                                                    padding: '6px 8px',
+                                                    border: '1px solid #ccc',
+                                                    borderRadius: '4px',
+                                                    fontSize: '12px',
+                                                    fontFamily: 'monospace'
+                                                },
+                                                value: (toolInputs[tool.name] && toolInputs[tool.name][paramName]) || '',
+                                                onChange: (e) => updateToolInput(tool.name, paramName, e.target.value)
+                                            })
+                                        ])
+                                    ))
+                                ]) : null,
+
+                                // Run button
+                                React.createElement('button', {
+                                    key: 'run-button',
+                                    style: {
+                                        background: '#1976d2',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '8px 16px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        marginBottom: toolResult ? '16px' : '0'
+                                    },
+                                    onClick: () => callTool(tool.name)
+                                }, 'Run Tool'),
+
+                                // Results section
+                                toolResult ? React.createElement('div', {
+                                    key: 'results-section'
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'results-header',
+                                        style: {
+                                            fontSize: '13px',
+                                            fontWeight: '600',
+                                            color: '#333',
+                                            marginBottom: '8px'
+                                        }
+                                    }, `Result (${toolResult.timestamp}):`),
+                                    React.createElement('div', {
+                                        key: 'results-content',
+                                        style: {
+                                            background: toolResult.success ? '#e8f5e8' : '#ffebee',
+                                            border: `1px solid ${toolResult.success ? '#4caf50' : '#f44336'}`,
+                                            borderRadius: '4px',
+                                            padding: '12px',
+                                            fontSize: '12px',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'pre-wrap',
+                                            maxHeight: '200px',
+                                            overflow: 'auto'
+                                        }
+                                    }, toolResult.success ? (() => {
+                                        // Smart formatting based on result type
+                                        const result = toolResult.result;
+                                        if (typeof result === 'string') {
+                                            return result;
+                                        } else if (typeof result === 'boolean' || typeof result === 'number') {
+                                            return String(result);
+                                        } else {
+                                            return JSON.stringify(result, null, 2);
+                                        }
+                                    })() : `Error: ${toolResult.error}`)
+                                ]) : null
+                            ]) : null
+                        ]);
+                    }))
                 ]);
             }
         };'''
 
-            # Inject the plugin into the plugins array
-            html_str = html_str.replace(
-                "const plugins = [",
-                mcp_plugin_code + "\n        const plugins = [mcpPlugin, "
-            )
+            # Inject the plugin into the plugins array at the end
+            # First, find the plugins array and inject the plugin definition before it
+            plugins_start = html_str.find("const plugins = [")
+            if plugins_start != -1:
+                # Find the end of the plugins array
+                plugins_end = html_str.find("];", plugins_start)
+                if plugins_end != -1:
+                    # Insert our plugin definition before the plugins array
+                    before_plugins = html_str[:plugins_start]
+                    plugins_array = html_str[plugins_start:plugins_end]
+                    after_plugins = html_str[plugins_end:]
+
+                    # Add mcpPlugin at the end of the array (before the closing bracket)
+                    html_str = before_plugins + mcp_plugin_code + "\n        " + plugins_array + ", mcpPlugin" + after_plugins
 
             injection_script = '''
     <!-- MCP Plugin Successfully Injected -->
