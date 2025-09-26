@@ -152,10 +152,13 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         return instance
 
-    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
+    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True,
+                 inspector: bool = True, inspector_title: str = "MCP Inspector", *args, **kwargs):
         self.schema = schema
         self.graphql_http = graphql_http
         self.allow_mutations = allow_mutations
+        self.inspector = inspector
+        self.inspector_title = inspector_title
         super().__init__(*args, **kwargs)
         add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
 
@@ -170,6 +173,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
+
+        # Inspector is now built into the GraphQL plugin - no separate app needed
 
         if self.graphql_http:
             from graphql_http import GraphQLHTTP  # type: ignore
@@ -214,7 +219,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
-            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
+            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app, inspector_app=None)
 
         return app
 
@@ -983,15 +988,29 @@ def _create_tool_function(
 
 
 class GraphQLRootMiddleware:
-    def __init__(self, app: ASGIApp, graphql_app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, graphql_app: Optional[ASGIApp] = None, inspector_app: Optional[ASGIApp] = None) -> None:
         self.app = app
         self.graphql_app = graphql_app
+        # inspector_app parameter kept for compatibility but no longer used
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path") or ""
-        if scope.get("type") == "http" and not path.endswith("/mcp") and not path.endswith("/mcp/"):
+
+        # Route GraphQL requests if available - with MCP plugin injection
+        if (self.graphql_app and scope.get("type") == "http" and
+                not path.endswith("/mcp") and not path.endswith("/mcp/")):
+
+            # If this looks like a GraphiQL request, inject MCP plugin
+            if (path == "/" and
+                    scope.get("method") == "GET" and
+                    self._is_graphiql_request(scope)):
+                await self._inject_mcp_plugin(scope, receive, send)
+                return
+
             await self.graphql_app(scope, receive, send)
             return
+
+        # Handle MCP requests
         if scope['type'] == 'http':
             path = scope['path']
             if path.endswith('/mcp/'):
@@ -1000,6 +1019,73 @@ class GraphQLRootMiddleware:
                 if 'raw_path' in scope:
                     scope['raw_path'] = new_path.encode()
         await self.app(scope, receive, send)
+
+    def _is_graphiql_request(self, scope: Scope) -> bool:
+        """Check if this is a GraphiQL request (HTML content, not JSON)."""
+        headers = dict(scope.get("headers", []))
+        accept = headers.get(b"accept", b"").decode()
+        return "text/html" in accept or "*/*" in accept
+
+    async def _inject_mcp_plugin(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Intercept GraphiQL response and inject MCP plugin."""
+
+        # Collect response from GraphQL app
+        response_started = False
+        response_body = b""
+        original_headers = []
+        original_status = 200
+
+        async def collect_send(message):
+            nonlocal response_started, response_body, original_headers, original_status
+
+            if message["type"] == "http.response.start":
+                response_started = True
+                # Store original headers and status for modification
+                original_headers = list(message.get("headers", []))
+                original_status = message.get("status", 200)
+                # Don't send headers yet, wait for body modification
+            elif message["type"] == "http.response.body":
+                body = message.get("body", b"")
+                response_body += body
+
+                # If this is the last chunk, inject our plugin
+                if not message.get("more_body", False):
+                    modified_body = self._inject_plugin_into_html(response_body)
+
+                    # Update Content-Length header
+                    updated_headers = []
+                    for name, value in original_headers:
+                        if name.lower() == b'content-length':
+                            updated_headers.append((name, str(len(modified_body)).encode()))
+                        else:
+                            updated_headers.append((name, value))
+
+                    # Send headers with updated Content-Length
+                    await send({
+                        "type": "http.response.start",
+                        "status": original_status,
+                        "headers": updated_headers
+                    })
+
+                    # Send modified body
+                    await send({
+                        "type": "http.response.body",
+                        "body": modified_body,
+                        "more_body": False
+                    })
+                # Don't forward the original body chunk
+            else:
+                await send(message)
+
+        # Call GraphQL app with our send wrapper
+        await self.graphql_app(scope, receive, collect_send)
+
+    def _inject_plugin_into_html(self, html_body: bytes) -> bytes:
+        """Inject MCP plugin directly into GraphiQL plugins array."""
+        # Use the inspector module for plugin injection
+        from graphql_mcp.inspector import get_inspector
+        inspector = get_inspector()
+        return inspector.inject_plugin_into_html(html_body)
 
 
 def _create_recursive_tool_function(
