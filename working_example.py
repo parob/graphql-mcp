@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Working Example: GraphQL MCP Server with Web Inspector
+Demo: Standalone MCP Web Inspector
 
-This demonstrates the completed web inspector functionality.
+This example shows the standalone MCP inspector interface.
+Perfect for when you want to inspect MCP tools without GraphQL HTTP.
 """
 
 import sys
@@ -25,7 +26,7 @@ def resolve_add(root, info, a, b):
 
 
 def main():
-    print("🚀 Starting GraphQL MCP Server with Web Inspector...")
+    print("🚀 Starting Standalone MCP Inspector Demo...")
 
     # Create a GraphQL schema with multiple tools
     schema = GraphQLSchema(

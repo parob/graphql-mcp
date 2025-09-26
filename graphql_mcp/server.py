@@ -1018,9 +1018,17 @@ class GraphQLRootMiddleware:
             await self.inspector_app(scope, receive, send)
             return
 
-        # Route GraphQL requests if available
+        # Route GraphQL requests if available - with MCP plugin injection
         if (self.graphql_app and scope.get("type") == "http" and
             not path.endswith("/mcp") and not path.endswith("/mcp/")):
+
+            # If inspector is enabled and this looks like a GraphiQL request, inject MCP plugin
+            if (self.inspector_app and path == "/" and
+                scope.get("method") == "GET" and
+                self._is_graphiql_request(scope)):
+                await self._inject_mcp_plugin(scope, receive, send)
+                return
+
             await self.graphql_app(scope, receive, send)
             return
 
@@ -1033,6 +1041,114 @@ class GraphQLRootMiddleware:
                 if 'raw_path' in scope:
                     scope['raw_path'] = new_path.encode()
         await self.app(scope, receive, send)
+
+    def _is_graphiql_request(self, scope: Scope) -> bool:
+        """Check if this is a GraphiQL request (HTML content, not JSON)."""
+        headers = dict(scope.get("headers", []))
+        accept = headers.get(b"accept", b"").decode()
+        return "text/html" in accept or "*/*" in accept
+
+    async def _inject_mcp_plugin(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Intercept GraphiQL response and inject MCP plugin."""
+
+        # Collect response from GraphQL app
+        response_started = False
+        response_body = b""
+        original_headers = []
+        original_status = 200
+
+        async def collect_send(message):
+            nonlocal response_started, response_body, original_headers, original_status
+
+            if message["type"] == "http.response.start":
+                response_started = True
+                # Store original headers and status for modification
+                original_headers = list(message.get("headers", []))
+                original_status = message.get("status", 200)
+                # Don't send headers yet, wait for body modification
+            elif message["type"] == "http.response.body":
+                body = message.get("body", b"")
+                response_body += body
+
+                # If this is the last chunk, inject our plugin
+                if not message.get("more_body", False):
+                    modified_body = self._inject_plugin_into_html(response_body)
+
+                    # Update Content-Length header
+                    updated_headers = []
+                    for name, value in original_headers:
+                        if name.lower() == b'content-length':
+                            updated_headers.append((name, str(len(modified_body)).encode()))
+                        else:
+                            updated_headers.append((name, value))
+
+                    # Send headers with updated Content-Length
+                    await send({
+                        "type": "http.response.start",
+                        "status": original_status,
+                        "headers": updated_headers
+                    })
+
+                    # Send modified body
+                    await send({
+                        "type": "http.response.body",
+                        "body": modified_body,
+                        "more_body": False
+                    })
+                # Don't forward the original body chunk
+            else:
+                await send(message)
+
+        # Call GraphQL app with our send wrapper
+        await self.graphql_app(scope, receive, collect_send)
+
+    def _inject_plugin_into_html(self, html_body: bytes) -> bytes:
+        """Inject MCP plugin script into GraphiQL HTML."""
+        html_str = html_body.decode('utf-8', errors='ignore')
+
+        # Check if this looks like GraphiQL HTML
+        if not ("graphiql" in html_str.lower() and "<html" in html_str.lower()):
+            return html_body
+
+        # Create the injection script
+        injection_script = '''
+    <!-- MCP Plugin Auto-Injection -->
+    <script>
+        console.log('🔧 Auto-loading MCP GraphiQL Plugin...');
+
+        // Wait for GraphiQL to load, then inject MCP plugin
+        function loadMCPPlugin() {
+            const script = document.createElement('script');
+            script.src = '/inspector/mcp-plugin.js';
+            script.onload = () => {
+                console.log('✅ MCP Plugin loaded automatically!');
+            };
+            script.onerror = () => {
+                console.warn('⚠️ Failed to load MCP plugin');
+            };
+            document.head.appendChild(script);
+        }
+
+        // Load plugin after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(loadMCPPlugin, 1000); // Give GraphiQL time to initialize
+            });
+        } else {
+            setTimeout(loadMCPPlugin, 1000);
+        }
+    </script>
+</head>'''
+
+        # Inject before closing </head> tag
+        if "</head>" in html_str:
+            html_str = html_str.replace("</head>", injection_script)
+        else:
+            # Fallback: inject before closing </body>
+            injection_script_body = injection_script.replace("</head>", "")
+            html_str = html_str.replace("</body>", f"{injection_script_body}</body>")
+
+        return html_str.encode('utf-8')
 
 
 def _create_recursive_tool_function(
