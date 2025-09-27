@@ -152,13 +152,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         return instance
 
-    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True,
-                 inspector: bool = True, inspector_title: str = "MCP Inspector", *args, **kwargs):
+    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
         self.schema = schema
         self.graphql_http = graphql_http
         self.allow_mutations = allow_mutations
-        self.inspector = inspector
-        self.inspector_title = inspector_title
+
         super().__init__(*args, **kwargs)
         add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
 
@@ -173,8 +171,6 @@ class GraphQLMCP(FastMCP):  # type: ignore
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
-
-        # Inspector is now built into the GraphQL plugin - no separate app needed
 
         if self.graphql_http:
             from graphql_http import GraphQLHTTP  # type: ignore
@@ -219,7 +215,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
-            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app, inspector_app=None)
+            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
 
         return app
 
@@ -988,10 +984,9 @@ def _create_tool_function(
 
 
 class GraphQLRootMiddleware:
-    def __init__(self, app: ASGIApp, graphql_app: Optional[ASGIApp] = None, inspector_app: Optional[ASGIApp] = None) -> None:
+    def __init__(self, app: ASGIApp, graphql_app: ASGIApp):
         self.app = app
         self.graphql_app = graphql_app
-        # inspector_app parameter kept for compatibility but no longer used
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path") or ""
