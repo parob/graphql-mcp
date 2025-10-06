@@ -152,13 +152,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         return instance
 
-    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True,
-                 inspector: bool = True, inspector_title: str = "MCP Inspector", *args, **kwargs):
+    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
         self.schema = schema
         self.graphql_http = graphql_http
         self.allow_mutations = allow_mutations
-        self.inspector = inspector
-        self.inspector_title = inspector_title
+
         super().__init__(*args, **kwargs)
         add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
 
@@ -173,8 +171,6 @@ class GraphQLMCP(FastMCP):  # type: ignore
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
-
-        # Inspector is now built into the GraphQL plugin - no separate app needed
 
         if self.graphql_http:
             from graphql_http import GraphQLHTTP  # type: ignore
@@ -219,7 +215,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
 
-            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app, inspector_app=None)
+            app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
 
         return app
 
@@ -374,6 +370,49 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
                     # For GraphQL input object fields, we typically want them to be required
                     # unless they have explicit default values. Since we can't easily determine
                     # the original Pydantic model defaults, we'll make them optional for safety
+                    from typing import Union
+                    field_definitions[field_name] = (
+                        Union[field_type, type(None)], None)
+
+            # Create dynamic Pydantic model
+            model_name = f"{graphql_type.name}Model"
+            dynamic_model = create_model(model_name, **field_definitions)
+
+            # Update cache with actual model
+            _cache[cache_key] = dynamic_model
+            return dynamic_model
+
+        except ImportError:
+            # Fallback to dict if pydantic is not available
+            _cache[cache_key] = dict
+            return dict
+
+    if isinstance(graphql_type, GraphQLObjectType):
+        # Check cache to prevent infinite recursion
+        cache_key = f"object_{graphql_type.name}"
+        if cache_key in _cache:
+            return _cache[cache_key]
+
+        # Create a dynamic Pydantic model for GraphQL object types (output types)
+        # This provides better MCP schema generation with detailed field information
+        try:
+            from pydantic import create_model
+
+            # Add placeholder to cache first to prevent infinite recursion
+            _cache[cache_key] = dict  # Temporary placeholder
+
+            # Build field definitions for the dynamic model
+            field_definitions = {}
+            for field_name, field_def in graphql_type.fields.items():
+                field_type = _map_graphql_type_to_python_type(
+                    field_def.type, _cache)
+
+                # Handle required vs optional fields based on NonNull wrapper
+                if isinstance(field_def.type, GraphQLNonNull):
+                    # Required field
+                    field_definitions[field_name] = (field_type, ...)
+                else:
+                    # Optional field
                     from typing import Union
                     field_definitions[field_name] = (
                         Union[field_type, type(None)], None)
@@ -988,10 +1027,9 @@ def _create_tool_function(
 
 
 class GraphQLRootMiddleware:
-    def __init__(self, app: ASGIApp, graphql_app: Optional[ASGIApp] = None, inspector_app: Optional[ASGIApp] = None) -> None:
+    def __init__(self, app: ASGIApp, graphql_app: ASGIApp):
         self.app = app
         self.graphql_app = graphql_app
-        # inspector_app parameter kept for compatibility but no longer used
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path") or ""

@@ -1,4 +1,5 @@
 import enum
+from pydantic import BaseModel
 from graphql_api import GraphQLAPI, field
 
 from graphql_mcp.server import GraphQLMCP
@@ -7,6 +8,12 @@ from graphql_mcp.server import GraphQLMCP
 class PreferenceKey(str, enum.Enum):
     AI_MODEL = "ai_model"
     TOOLS_ENABLED = "tools_enabled"
+
+
+class PydanticTest(BaseModel):
+    key: str
+    value: str
+    number: int
 
 
 class DemoApp:
@@ -23,6 +30,11 @@ class DemoApp:
     def get_preference_test(self) -> dict:
         """Get a preference"""
         return {"key": "ai_model", "value": "x"}
+
+    @field
+    def get_pydantic_test(self) -> PydanticTest:
+        """Get a pydantic test"""
+        return PydanticTest(key="ai_model", value="x", number=1)
 
 
 mcp_server = GraphQLMCP.from_api(api=GraphQLAPI(root_type=DemoApp))
