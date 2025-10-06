@@ -387,6 +387,49 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             _cache[cache_key] = dict
             return dict
 
+    if isinstance(graphql_type, GraphQLObjectType):
+        # Check cache to prevent infinite recursion
+        cache_key = f"object_{graphql_type.name}"
+        if cache_key in _cache:
+            return _cache[cache_key]
+
+        # Create a dynamic Pydantic model for GraphQL object types (output types)
+        # This provides better MCP schema generation with detailed field information
+        try:
+            from pydantic import create_model
+
+            # Add placeholder to cache first to prevent infinite recursion
+            _cache[cache_key] = dict  # Temporary placeholder
+
+            # Build field definitions for the dynamic model
+            field_definitions = {}
+            for field_name, field_def in graphql_type.fields.items():
+                field_type = _map_graphql_type_to_python_type(
+                    field_def.type, _cache)
+
+                # Handle required vs optional fields based on NonNull wrapper
+                if isinstance(field_def.type, GraphQLNonNull):
+                    # Required field
+                    field_definitions[field_name] = (field_type, ...)
+                else:
+                    # Optional field
+                    from typing import Union
+                    field_definitions[field_name] = (
+                        Union[field_type, type(None)], None)
+
+            # Create dynamic Pydantic model
+            model_name = f"{graphql_type.name}Model"
+            dynamic_model = create_model(model_name, **field_definitions)
+
+            # Update cache with actual model
+            _cache[cache_key] = dynamic_model
+            return dynamic_model
+
+        except ImportError:
+            # Fallback to dict if pydantic is not available
+            _cache[cache_key] = dict
+            return dict
+
     return Any
 
 
