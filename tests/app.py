@@ -9,10 +9,12 @@ class PreferenceKey(str, enum.Enum):
     AI_MODEL = "ai_model"
     TOOLS_ENABLED = "tools_enabled"
 
+
 class PydanticTest(BaseModel):
     key: str
     value: str
     number: int
+
 
 class DemoApp:
 

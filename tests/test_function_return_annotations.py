@@ -13,8 +13,6 @@ from graphql import (
     GraphQLField,
     GraphQLString,
     GraphQLInt,
-    GraphQLFloat,
-    GraphQLBoolean,
     GraphQLList,
     GraphQLNonNull,
 )
