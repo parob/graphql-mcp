@@ -4,6 +4,7 @@ import re
 import uuid
 import json
 import logging
+import threading
 
 from datetime import date, datetime
 from typing import Any, Callable, Literal, Tuple, Optional, Dict
@@ -45,6 +46,10 @@ from graphql_mcp.remote import RemoteGraphQLClient
 
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache for type mapping with thread-safe access
+_TYPE_MAPPING_CACHE: Dict[str, Any] = {}
+_CACHE_LOCK = threading.Lock()
 
 
 def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
@@ -262,10 +267,12 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
 
     Args:
         graphql_type: The GraphQL type to map
-        _cache: Internal cache to prevent infinite recursion
+        _cache: Internal cache to prevent infinite recursion (uses module-level cache if None)
     """
+    # Use module-level cache for sharing models across calls
+    # Only use parameter cache for recursion tracking within a single call
     if _cache is None:
-        _cache = {}
+        _cache = _TYPE_MAPPING_CACHE
     if isinstance(graphql_type, GraphQLNonNull):
         return _map_graphql_type_to_python_type(graphql_type.of_type, _cache)
     if isinstance(graphql_type, GraphQLList):
@@ -344,19 +351,22 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
-        cache_key = f"input_object_{graphql_type.name}"
-        if cache_key in _cache:
-            return _cache[cache_key]
+        # Use object id to make cache schema-specific (different schemas with same type name won't conflict)
+        cache_key = f"input_object_{graphql_type.name}_{id(graphql_type)}"
+
+        # Thread-safe cache check
+        with _CACHE_LOCK:
+            if cache_key in _cache:
+                return _cache[cache_key]
+            # Add placeholder to cache first to prevent infinite recursion
+            _cache[cache_key] = dict  # Temporary placeholder
 
         # Create a dynamic Pydantic model for GraphQL input object types
         # This provides better MCP schema generation with detailed field information
         try:
             from pydantic import create_model
 
-            # Add placeholder to cache first to prevent infinite recursion
-            _cache[cache_key] = dict  # Temporary placeholder
-
-            # Build field definitions for the dynamic model
+            # Build field definitions outside the lock (may recursively call this function)
             field_definitions = {}
             for field_name, field_def in graphql_type.fields.items():
                 field_type = _map_graphql_type_to_python_type(
@@ -374,34 +384,47 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
                     field_definitions[field_name] = (
                         Union[field_type, type(None)], None)
 
-            # Create dynamic Pydantic model
-            model_name = f"{graphql_type.name}Model"
-            dynamic_model = create_model(model_name, **field_definitions)
+            # Create dynamic Pydantic model (reuse same name for caching)
+            with _CACHE_LOCK:
+                # Check if another thread created it while we were building field_definitions
+                if cache_key in _cache and _cache[cache_key] is not dict:
+                    return _cache[cache_key]
 
-            # Update cache with actual model
-            _cache[cache_key] = dynamic_model
-            return dynamic_model
+                model_name = f"{graphql_type.name}InputModel"
+                dynamic_model = create_model(
+                    model_name,
+                    __module__='graphql_mcp.dynamic_models',
+                    **field_definitions
+                )
+
+                # Update cache with actual model
+                _cache[cache_key] = dynamic_model
+                return dynamic_model
 
         except ImportError:
             # Fallback to dict if pydantic is not available
-            _cache[cache_key] = dict
+            with _CACHE_LOCK:
+                _cache[cache_key] = dict
             return dict
 
     if isinstance(graphql_type, GraphQLObjectType):
         # Check cache to prevent infinite recursion
-        cache_key = f"object_{graphql_type.name}"
-        if cache_key in _cache:
-            return _cache[cache_key]
+        # Use object id to make cache schema-specific (different schemas with same type name won't conflict)
+        cache_key = f"object_{graphql_type.name}_{id(graphql_type)}"
+
+        # Thread-safe cache check
+        with _CACHE_LOCK:
+            if cache_key in _cache:
+                return _cache[cache_key]
+            # Add placeholder to cache first to prevent infinite recursion
+            _cache[cache_key] = dict  # Temporary placeholder
 
         # Create a dynamic Pydantic model for GraphQL object types (output types)
         # This provides better MCP schema generation with detailed field information
         try:
             from pydantic import create_model
 
-            # Add placeholder to cache first to prevent infinite recursion
-            _cache[cache_key] = dict  # Temporary placeholder
-
-            # Build field definitions for the dynamic model
+            # Build field definitions outside the lock (may recursively call this function)
             field_definitions = {}
             for field_name, field_def in graphql_type.fields.items():
                 field_type = _map_graphql_type_to_python_type(
@@ -417,17 +440,27 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
                     field_definitions[field_name] = (
                         Union[field_type, type(None)], None)
 
-            # Create dynamic Pydantic model
-            model_name = f"{graphql_type.name}Model"
-            dynamic_model = create_model(model_name, **field_definitions)
+            # Create dynamic Pydantic model (reuse same name for caching)
+            with _CACHE_LOCK:
+                # Check if another thread created it while we were building field_definitions
+                if cache_key in _cache and _cache[cache_key] is not dict:
+                    return _cache[cache_key]
 
-            # Update cache with actual model
-            _cache[cache_key] = dynamic_model
-            return dynamic_model
+                model_name = f"{graphql_type.name}Model"
+                dynamic_model = create_model(
+                    model_name,
+                    __module__='graphql_mcp.dynamic_models',
+                    **field_definitions
+                )
+
+                # Update cache with actual model
+                _cache[cache_key] = dynamic_model
+                return dynamic_model
 
         except ImportError:
             # Fallback to dict if pydantic is not available
-            _cache[cache_key] = dict
+            with _CACHE_LOCK:
+                _cache[cache_key] = dict
             return dict
 
     return Any
