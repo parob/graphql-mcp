@@ -123,9 +123,7 @@ async def test_http_stateless_concurrent_with_processing_delays():
 
         # Should be concurrent (~100ms), not sequential (~1500ms)
         assert elapsed < 0.5, f"Took {elapsed}s, should be <0.5s for concurrent execution"
-        print(
-            f"✅ Completed 15 concurrent requests with processing delays in {
-                elapsed:.2f}s")
+        print(f"✅ Completed 15 concurrent requests with processing delays in {elapsed:.2f}s")
 
 
 @pytest.mark.asyncio
@@ -179,8 +177,7 @@ async def test_http_stateless_concurrent_mutations_with_shared_state():
         results = await asyncio.gather(*tasks)
 
         # Verify all mutations completed
-        assert len(mutation_log) == 20, f"Expected 20 mutations, got {
-            len(mutation_log)}"
+        assert len(mutation_log) == 20, f"Expected 20 mutations, got {len(mutation_log)}"
 
         # Verify each result
         import json
@@ -283,8 +280,7 @@ async def test_http_stateless_high_concurrency_stress():
             assert str(expected) in text, f"Expected {expected}, got {text}"
 
         print(
-            f"✅ Stress test: {num_requests} concurrent requests in {
-                elapsed:.2f}s")
+            f"✅ Stress test: {num_requests} concurrent requests in {elapsed:.2f}s")
         print(f"   Throughput: {num_requests / elapsed:.1f} requests/second")
 
 
@@ -506,12 +502,10 @@ async def test_http_stateless_no_state_leakage():
 
         # Verify no duplicate values (would indicate race condition)
         assert len(
-            set(values)) == 25, f"Found duplicate values, indicating race condition: {
-            sorted(values)}"
+            set(values)) == 25, f"Found duplicate values, indicating race condition: {sorted(values)}"
 
         print(
-            f"✅ Stateless mode: no state leakage between {
-                len(values)} concurrent requests")
+            f"✅ Stateless mode: no state leakage between {len(values)} concurrent requests")
 
 
 @pytest.mark.asyncio

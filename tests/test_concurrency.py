@@ -111,9 +111,7 @@ async def test_concurrent_queries_with_delays():
         # If truly concurrent, should take ~100ms, not 1000ms (10 * 100ms)
         # Allow some overhead but ensure it's much less than sequential
         assert elapsed < 0.5, f"Took {elapsed}s, should be <0.5s for concurrent execution"
-        print(
-            f"✅ Completed 10 concurrent delayed queries in {
-                elapsed:.2f}s (parallel execution)")
+        print(f"✅ Completed 10 concurrent delayed queries in {elapsed:.2f}s (parallel execution)")
 
 
 @pytest.mark.asyncio
@@ -205,8 +203,7 @@ async def test_concurrent_mutations():
         results = await asyncio.gather(*tasks)
 
         # Verify all mutations completed
-        assert len(mutation_log) == 10, f"Expected 10 mutations, got {
-            len(mutation_log)}"
+        assert len(mutation_log) == 10, f"Expected 10 mutations, got {len(mutation_log)}"
 
         # Verify each result
         for i, result in enumerate(results):
@@ -436,8 +433,7 @@ async def test_high_concurrency_stress():
             assert str(expected) in text, f"Expected {expected}, got {text}"
 
         print(
-            f"✅ Stress test: {num_requests} concurrent requests completed in {
-                elapsed:.2f}s")
+            f"✅ Stress test: {num_requests} concurrent requests completed in {elapsed:.2f}s")
         print(f"   Throughput: {num_requests / elapsed:.1f} requests/second")
 
 

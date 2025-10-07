@@ -144,9 +144,8 @@ async def test_concurrent_list_tools_with_complex_schema():
             "create_user",
             "list_users",
             "search_users"}
-        assert expected_tools.issubset(
-            set(first_tools)), f"Missing tools: {
-            expected_tools - set(first_tools)}"
+        assert expected_tools.issubset(set(first_tools)), \
+            f"Missing tools: {expected_tools - set(first_tools)}"
 
         print("✅ Successfully executed 30 concurrent list_tools requests with complex schema")
 
@@ -239,8 +238,7 @@ async def test_concurrent_list_tools_stress():
             assert tools == first_tools
 
         print(
-            f"✅ Stress test: 100 concurrent list_tools requests in {
-                elapsed:.2f}s")
+            f"✅ Stress test: 100 concurrent list_tools requests in {elapsed:.2f}s")
         print(f"   Throughput: {100 / elapsed:.1f} requests/second")
 
 
@@ -419,11 +417,7 @@ async def test_concurrent_list_tools_burst_pattern():
                 tools = sorted([t.name for t in result])
                 assert tools == first_tools
 
-            print(
-                f"   Burst {
-                    burst +
-                    1}: 20 list_tools requests in {
-                    burst_elapsed:.2f}s")
+            print(f"   Burst {burst + 1}: 20 list_tools requests in {burst_elapsed:.2f}s")
 
             # Small pause between bursts
             if burst < 2:
@@ -533,6 +527,5 @@ async def test_concurrent_list_tools_cold_start_simulation():
     assert "get_data" in first_tools
 
     print(
-        f"✅ Cold start simulation: 50 simultaneous client connections in {
-            elapsed:.2f}s")
+        f"✅ Cold start simulation: 50 simultaneous client connections in {elapsed:.2f}s")
     print(f"   Throughput: {50 / elapsed:.1f} connections/second")
