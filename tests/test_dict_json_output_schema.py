@@ -138,11 +138,6 @@ async def test_json_maps_to_dict_with_proper_schema():
     Verify that GraphQLJSON → dict → {"type": "object"} schema.
     This provides useful type information for MCP clients.
     """
-    try:
-        from graphql_api import GraphQLAPI
-    except ImportError:
-        pytest.skip("graphql-api not installed")
-
     from graphql_mcp.server import _map_graphql_type_to_python_type
     from graphql_api.types import GraphQLJSON
 
