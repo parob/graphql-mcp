@@ -815,12 +815,14 @@ async def test_dict_mcp_vs_graphql_mapping():
     async with Client(mcp_server) as client:
         # GraphQL-generated tool: currently gets a string for the enum
         r1 = await client.call_tool("get_preference_gql", {})
-        assert get_result_text(r1) == '{"key": "ai_model", "value": "x"}'
+        # Compare parsed data, not string format (JSON formatting may vary)
+        import json
+        actual_data_1 = json.loads(get_result_text(r1))
+        assert actual_data_1 == {"key": "ai_model", "value": "x"}
 
         # Direct MCP tool: pass the enum VALUE; FastMCP should coerce to Enum instance
         r2 = await client.call_tool("get_preference", {})
         # Normalize JSON format - FastMCP may use pretty-printing
-        import json
         result_text = get_result_text(r2)
         expected_data = {"key": "ai_model", "value": "x"}
         actual_data = json.loads(result_text)
