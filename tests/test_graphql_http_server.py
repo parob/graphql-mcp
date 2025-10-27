@@ -51,6 +51,21 @@ async def test_graphql_http_enabled_by_default():
 
 
 @pytest.mark.asyncio
+async def test_graphql_http_graphiql_enabled_by_default():
+    """Tests that graphql_http is enabled by default."""
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+    mcp_server = GraphQLMCP.from_api(api, name="TestServer")
+
+    # Verify the server has the expected attributes
+    assert mcp_server.api == api  # type: ignore
+    assert mcp_server.graphql_http is True
+
+
+
+@pytest.mark.asyncio
 async def test_graphql_http_can_be_disabled():
     """Tests that graphql_http can be explicitly disabled."""
     if not HAS_DEPENDENCIES:

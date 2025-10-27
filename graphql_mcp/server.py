@@ -48,8 +48,9 @@ from graphql_mcp.remote import RemoteGraphQLClient
 logger = logging.getLogger(__name__)
 
 # Module-level cache for type mapping with thread-safe access
+# Use RLock (re-entrant) to allow same thread to acquire multiple times
 _TYPE_MAPPING_CACHE: Dict[str, Any] = {}
-_CACHE_LOCK = threading.Lock()
+_CACHE_LOCK = threading.RLock()
 
 
 def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
@@ -91,6 +92,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         headers: Optional[Dict[str, str]] = None,
         timeout: int = 30,
         graphql_http: bool = True,
+        graphql_http_kwargs: Optional[Dict[str, Any]] = None,
         allow_mutations: bool = True,
         forward_bearer_token: bool = False,
         verify_ssl: bool = True,
@@ -105,6 +107,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
             bearer_token: Optional Bearer token for authentication
             headers: Optional additional headers to include in requests
             timeout: Request timeout in seconds
+            graphql_http: Whether to enable GraphQL HTTP endpoint (default: True)
+            graphql_http_kwargs: Optional keyword arguments to pass to GraphQLHTTP
             allow_mutations: Whether to expose mutations as tools (default: True)
             forward_bearer_token: Whether to forward bearer tokens from MCP requests
                 to the remote GraphQL server (default: False).
@@ -144,7 +148,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         # Create a FastMCP server instance
         instance = GraphQLMCP(
-            schema=schema, graphql_http=graphql_http, allow_mutations=allow_mutations, *args, **kwargs
+            schema=schema, graphql_http=graphql_http, graphql_http_kwargs=graphql_http_kwargs, allow_mutations=allow_mutations, *args, **kwargs
         )
 
         # Create a remote client for executing queries
@@ -157,9 +161,10 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         return instance
 
-    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
+    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, graphql_http_kwargs: Optional[Dict[str, Any]] = None, allow_mutations: bool = True, *args, **kwargs):
         self.schema = schema
         self.graphql_http = graphql_http
+        self.graphql_http_kwargs = graphql_http_kwargs
         self.allow_mutations = allow_mutations
 
         super().__init__(*args, **kwargs)
@@ -172,13 +177,17 @@ class GraphQLMCP(FastMCP):  # type: ignore
         json_response: bool | None = None,
         stateless_http: bool | None = None,
         transport: Literal["http", "streamable-http", "sse"] = "http",
+        graphql_http: Optional[bool] = None,
+        graphql_http_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> StarletteWithLifespan:
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
 
-        if self.graphql_http:
+        if graphql_http or self.graphql_http:
             from graphql_http import GraphQLHTTP  # type: ignore
+
+            graphql_http_kwargs = {**(graphql_http_kwargs or {}), **(self.graphql_http_kwargs or {})}
 
             if JWTVerifier and isinstance(self.auth, JWTVerifier):
                 if hasattr(self, 'api'):
@@ -190,7 +199,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
                         auth_enabled=True,
                         auth_jwks_uri=self.auth.jwks_uri,
                         auth_issuer=self.auth.issuer,
-                        auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None
+                        auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None,
+                        **graphql_http_kwargs
                     )
                     graphql_app = graphql_server.app
                 else:
@@ -199,7 +209,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
                         auth_enabled=True,
                         auth_jwks_uri=self.auth.jwks_uri,
                         auth_issuer=self.auth.issuer,
-                        auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None
+                        auth_audience=self.auth.audience if isinstance(self.auth.audience, str) else None,
+                        **graphql_http_kwargs
                     ).app
             else:
                 if hasattr(self, 'api'):
@@ -209,12 +220,14 @@ class GraphQLMCP(FastMCP):  # type: ignore
                     graphql_server = GraphQLHTTP.from_api(
                         api=api,
                         auth_enabled=False,
+                        **graphql_http_kwargs
                     )
                     graphql_app = graphql_server.app
                 else:
                     graphql_app = GraphQLHTTP(
                         schema=self.schema,
                         auth_enabled=False,
+                        **graphql_http_kwargs
                     ).app
                 if self.auth:
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
@@ -531,7 +544,7 @@ def _get_graphql_type_name(graphql_type: Any) -> str:
     return graphql_type.name
 
 
-def _build_selection_set(graphql_type: Any, max_depth: int = 2, depth: int = 0) -> str:
+def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0) -> str:
     """
     Builds a selection set for a GraphQL type.
     Only includes scalar fields.
