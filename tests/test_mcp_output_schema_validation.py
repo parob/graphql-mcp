@@ -542,6 +542,58 @@ async def test_mcp_output_schema_comparison():
 
 
 @pytest.mark.asyncio
+async def test_mcp_output_schema_dict_json_types():
+    """
+    Verify that dict/JSON types produce proper output schemas.
+    """
+    try:
+        from graphql_api import GraphQLAPI
+    except ImportError:
+        pytest.skip("graphql-api not installed")
+
+    api = GraphQLAPI()
+
+    class ResponseWithJSON(BaseModel):
+        data: dict  # JSON field
+
+    @api.type(is_root_type=True)
+    class Root:
+        @api.field
+        def get_json_data(self) -> ResponseWithJSON:
+            """Returns response with JSON data."""
+            return ResponseWithJSON(data={"key": "value", "count": 42})
+
+    mcp_server = GraphQLMCP.from_api(api)
+
+    async with Client(mcp_server) as client:
+        tools = await client.list_tools()
+        tool = next(t for t in tools if t.name == "get_json_data")
+
+        schema = tool.outputSchema
+        print(f"\nJSON field outputSchema:\n{json.dumps(schema, indent=2)}")
+
+        assert schema is not None
+        assert schema["type"] == "object"
+
+        # Check the data field (JSON/dict type)
+        props = schema["properties"]
+        assert "data" in props
+
+        data_schema = props["data"]
+        print(f"\ndata field schema: {data_schema}")
+
+        # Should have type: object (not empty schema)
+        if "anyOf" in data_schema:
+            # Find the object type in anyOf
+            obj_schemas = [s for s in data_schema["anyOf"] if s.get("type") == "object"]
+            assert len(obj_schemas) > 0, "Should have object type in anyOf"
+            print("✅ dict/JSON field has proper object type schema!")
+        else:
+            assert data_schema.get("type") == "object", "dict should map to object type"
+            print("✅ dict/JSON field has proper object type schema!")
+
+
+@pytest.mark.asyncio
 async def test_mcp_output_schema_all_types_combined():
     """
     Comprehensive test with all types combined in one output.

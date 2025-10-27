@@ -315,7 +315,9 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
         if graphql_type is GraphQLDate:
             return date
         if graphql_type is GraphQLJSON:
-            return Any
+            # Map to dict instead of Any so Pydantic generates {"type": "object"} schema
+            # This provides better type information for MCP clients
+            return dict
         if graphql_type is GraphQLBytes:
             return bytes
 
@@ -524,6 +526,16 @@ def _convert_enum_names_to_values_in_output(data, graphql_return_type):
                         field_def = named_type.fields[field_name]
                         converted_value = _convert_enum_names_to_values_in_output(
                             field_value, field_def.type)
+
+                        # If this field is a JSON scalar and value is a string, parse it
+                        field_named_type = get_named_type(field_def.type)
+                        if HAS_GRAPHQL_API and field_named_type is GraphQLJSON:
+                            if isinstance(converted_value, str):
+                                try:
+                                    converted_value = json.loads(converted_value)
+                                except (json.JSONDecodeError, TypeError):
+                                    pass  # Keep as string if parsing fails
+
                         result[field_name] = converted_value
                     else:
                         result[field_name] = field_value
@@ -1058,6 +1070,17 @@ def _create_tool_function(
             # Convert enum names back to values for MCP validation
             processed_data = _convert_enum_names_to_values_in_output(
                 raw_data, field.type)
+
+            # If the return type is dict (JSON scalar) and we got a string, parse it
+            # Check inline since return_type is calculated outside the wrapper
+            expected_type = _map_graphql_type_to_python_type(field.type)
+            if expected_type == dict and isinstance(processed_data, str):
+                try:
+                    processed_data = json.loads(processed_data)
+                except (json.JSONDecodeError, TypeError):
+                    # If parsing fails, return as-is
+                    pass
+
             return processed_data
 
         return None
