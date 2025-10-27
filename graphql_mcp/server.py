@@ -161,7 +161,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
 
         return instance
 
-    def __init__(self, schema: GraphQLSchema, graphql_http: bool = True, graphql_http_kwargs: Optional[Dict[str, Any]] = None, allow_mutations: bool = True, *args, **kwargs):
+    def __init__(
+        self, schema: GraphQLSchema, graphql_http: bool = True,
+        graphql_http_kwargs: Optional[Dict[str, Any]] = None,
+        allow_mutations: bool = True, *args, **kwargs
+    ):
         self.schema = schema
         self.graphql_http = graphql_http
         self.graphql_http_kwargs = graphql_http_kwargs

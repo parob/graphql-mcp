@@ -463,8 +463,6 @@ def test_default_query_from_custom_path():
 
 def test_default_query_with_mcp_integration():
     """Test that default query works with MCP integration."""
-    import tempfile
-
     if not HAS_DEPENDENCIES:
         pytest.skip("graphql-api or graphql_http not installed")
 

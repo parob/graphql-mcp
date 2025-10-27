@@ -1,0 +1,27 @@
+{
+  "include": [
+    "graphql_mcp",
+    "tests"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/node_modules",
+    "**/.venv"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportOptionalSubscript": false,
+  "reportOptionalMemberAccess": false,
+  "reportPossiblyUnboundVariable": false,
+  "reportFunctionMemberAccess": false,
+  "reportInvalidTypeForm": false,
+  "reportReturnType": false,
+  "reportArgumentType": false,
+  "reportGeneralTypeIssues": false,
+  "reportOperatorIssue": false,
+  "reportAttributeAccessIssue": false,
+  "reportIndexIssue": false,
+  "pythonVersion": "3.11"
+}
