@@ -239,15 +239,6 @@ wheels = [
 ]
 
 [[package]]
-name = "context-helper"
-version = "1.0.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "werkzeug" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/92/7c/c5d918bb40d5572115eb5d7803ca5d90830f210a6d9b4272c2d5fb6944f5/context-helper-1.0.2.tar.gz", hash = "sha256:d54ed15f23b4de50a1f84846753bb0637d5e39da9d36e8e5203816e7f6944c6a", size = 1801 }
-
-[[package]]
 name = "coverage"
 version = "7.10.6"
 source = { registry = "https://pypi.org/simple" }
@@ -531,20 +522,22 @@ wheels = [
 
 [[package]]
 name = "graphql-http"
-version = "2.0.0"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "context-helper" },
     { name = "graphql-api" },
     { name = "graphql-core" },
     { name = "graphql-schema-diff" },
+    { name = "httpx" },
     { name = "packaging" },
     { name = "pyjwt", extra = ["crypto"] },
-    { name = "werkzeug" },
+    { name = "python-multipart" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/51/c00e5aa667f2b382a77f78a4775c4dd228ebe0b72de990a280ee60a50899/graphql_http-2.0.0.tar.gz", hash = "sha256:c86e87e176847e4cd098f007bcfd95b075cbb49911ff6bd375f260490627454e", size = 58195 }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/e9/de0dae1b7c245019699822ef6ec6e95f95f7584165d111061096be47865b/graphql_http-2.1.0.tar.gz", hash = "sha256:b8964a721d99f6296c426c6161bc5eaf295bb05cdbd712a5c9915e7c447f786e", size = 146258 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/8e/fba8fc3a8a2fe03e0cdfcb3c8ed15f300e7e6921cab286c42d5b5165299c/graphql_http-2.0.0-py3-none-any.whl", hash = "sha256:678af3e8e29006d27466a78f4512c47449860788d7538ba6f5ae7d7b7d283bfd", size = 60413 },
+    { url = "https://files.pythonhosted.org/packages/f3/1a/a77e7a8eddbe9820e7a81cf3cdd2d075155d198bd5b1ed5d0233f65bd564/graphql_http-2.1.0-py3-none-any.whl", hash = "sha256:d649f86a5dda2d5b8a90177c50327785ff31ef15dcf1909d06b316983101e0cc", size = 49737 },
 ]
 
 [[package]]
@@ -566,6 +559,7 @@ dev = [
     { name = "faker" },
     { name = "flake8" },
     { name = "flake8-pyproject" },
+    { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -589,6 +583,7 @@ dev = [
     { name = "faker" },
     { name = "flake8" },
     { name = "flake8-pyproject" },
+    { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -932,6 +927,15 @@ wheels = [
 ]
 
 [[package]]
+name = "nodeenv"
+version = "1.9.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/16/fc88b08840de0e0a72a2f9d8c6bae36be573e475a6326ae854bcc549fc45/nodeenv-1.9.1.tar.gz", hash = "sha256:6ec12890a2dab7946721edbfbcd91f3319c6ccc9aec47be7c7e6b7011ee6645f", size = 47437 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/1d/1b658dbd2b9fa9c4c9f32accbfc0205d532c8c6194dc0f2a4c0428e7128a/nodeenv-1.9.1-py2.py3-none-any.whl", hash = "sha256:ba11c9782d29c27c70ffbdda2d7415098754709be8a7056d79a737cd901155c9", size = 22314 },
+]
+
+[[package]]
 name = "openai"
 version = "1.104.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1225,6 +1229,19 @@ name = "pyperclip"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/30/23/2f0a3efc4d6a32f3b63cdff36cd398d9701d26cda58e3ab97ac79fb5e60d/pyperclip-1.9.0.tar.gz", hash = "sha256:b7de0142ddc81bfc5c7507eea19da920b92252b548b96186caf94a5e2527d310", size = 20961 }
+
+[[package]]
+name = "pyright"
+version = "1.1.407"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nodeenv" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a6/1b/0aa08ee42948b61745ac5b5b5ccaec4669e8884b53d31c8ec20b2fcd6b6f/pyright-1.1.407.tar.gz", hash = "sha256:099674dba5c10489832d4a4b2d302636152a9a42d317986c38474c76fe562262", size = 4122872 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/93/b69052907d032b00c40cb656d21438ec00b3a471733de137a3f65a49a0a0/pyright-1.1.407-py3-none-any.whl", hash = "sha256:6dd419f54fcc13f03b52285796d65e639786373f433e243f8b94cf93a7444d21", size = 5997008 },
+]
 
 [[package]]
 name = "pytest"
