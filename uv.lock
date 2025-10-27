@@ -239,15 +239,6 @@ wheels = [
 ]
 
 [[package]]
-name = "context-helper"
-version = "1.0.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "werkzeug" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/92/7c/c5d918bb40d5572115eb5d7803ca5d90830f210a6d9b4272c2d5fb6944f5/context-helper-1.0.2.tar.gz", hash = "sha256:d54ed15f23b4de50a1f84846753bb0637d5e39da9d36e8e5203816e7f6944c6a", size = 1801 }
-
-[[package]]
 name = "coverage"
 version = "7.10.6"
 source = { registry = "https://pypi.org/simple" }
@@ -531,20 +522,22 @@ wheels = [
 
 [[package]]
 name = "graphql-http"
-version = "2.0.0"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "context-helper" },
     { name = "graphql-api" },
     { name = "graphql-core" },
     { name = "graphql-schema-diff" },
+    { name = "httpx" },
     { name = "packaging" },
     { name = "pyjwt", extra = ["crypto"] },
-    { name = "werkzeug" },
+    { name = "python-multipart" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/51/c00e5aa667f2b382a77f78a4775c4dd228ebe0b72de990a280ee60a50899/graphql_http-2.0.0.tar.gz", hash = "sha256:c86e87e176847e4cd098f007bcfd95b075cbb49911ff6bd375f260490627454e", size = 58195 }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/e9/de0dae1b7c245019699822ef6ec6e95f95f7584165d111061096be47865b/graphql_http-2.1.0.tar.gz", hash = "sha256:b8964a721d99f6296c426c6161bc5eaf295bb05cdbd712a5c9915e7c447f786e", size = 146258 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/8e/fba8fc3a8a2fe03e0cdfcb3c8ed15f300e7e6921cab286c42d5b5165299c/graphql_http-2.0.0-py3-none-any.whl", hash = "sha256:678af3e8e29006d27466a78f4512c47449860788d7538ba6f5ae7d7b7d283bfd", size = 60413 },
+    { url = "https://files.pythonhosted.org/packages/f3/1a/a77e7a8eddbe9820e7a81cf3cdd2d075155d198bd5b1ed5d0233f65bd564/graphql_http-2.1.0-py3-none-any.whl", hash = "sha256:d649f86a5dda2d5b8a90177c50327785ff31ef15dcf1909d06b316983101e0cc", size = 49737 },
 ]
 
 [[package]]
@@ -578,7 +571,7 @@ requires-dist = [
     { name = "fastmcp" },
     { name = "graphql-api" },
     { name = "graphql-core" },
-    { name = "graphql-http" },
+    { name = "graphql-http", specifier = ">=2.1.0" },
 ]
 
 [package.metadata.requires-dev]

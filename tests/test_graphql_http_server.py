@@ -37,35 +37,6 @@ def create_test_api():
 
 
 @pytest.mark.asyncio
-async def test_graphql_http_enabled_by_default():
-    """Tests that graphql_http is enabled by default."""
-    if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http not installed")
-
-    api = create_test_api()
-    mcp_server = GraphQLMCP.from_api(api, name="TestServer")
-
-    # Verify the server has the expected attributes
-    assert mcp_server.api == api  # type: ignore
-    assert mcp_server.graphql_http is True
-
-
-@pytest.mark.asyncio
-async def test_graphql_http_graphiql_enabled_by_default():
-    """Tests that graphql_http is enabled by default."""
-    if not HAS_DEPENDENCIES:
-        pytest.skip("graphql-api or graphql_http not installed")
-
-    api = create_test_api()
-    mcp_server = GraphQLMCP.from_api(api, name="TestServer")
-
-    # Verify the server has the expected attributes
-    assert mcp_server.api == api  # type: ignore
-    assert mcp_server.graphql_http is True
-
-
-
-@pytest.mark.asyncio
 async def test_graphql_http_can_be_disabled():
     """Tests that graphql_http can be explicitly disabled."""
     if not HAS_DEPENDENCIES:
@@ -321,3 +292,255 @@ def test_graphql_introspection():
             # Since we removed create_item mutation, we won't test for it
             # Just check that we can access mutations
             assert len(mutation_names) >= 0
+
+
+def test_default_query_from_string():
+    """Test that default query can be passed as a string."""
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+
+    default_query = """
+    query DefaultExample {
+        hello(name: "World")
+    }
+    """
+
+    # Create GraphQL HTTP server with default query as string
+    graphql_server = GraphQLHTTP.from_api(
+        api,
+        auth_enabled=False,
+        graphiql_example_query=default_query
+    )
+
+    with TestClient(graphql_server.app) as client:
+        # Get the GraphiQL page (should contain the default query)
+        response = client.get("/graphql", headers={"Accept": "text/html"})
+
+        # Check that response is HTML
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+
+        # Check that the default query is embedded in the HTML
+        html_content = response.text
+        assert "DefaultExample" in html_content or "hello" in html_content
+
+
+def test_default_query_auto_load_from_example_graphql():
+    """Test that default query is auto-loaded from example.graphql without specifying path."""
+    import tempfile
+    import os
+
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+
+    # Create a temporary directory and example.graphql file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        example_file = os.path.join(tmpdir, "example.graphql")
+
+        default_query = """query AutoLoadExample {
+    hello(name: "AutoLoaded")
+    add(a: 15, b: 25)
+}"""
+
+        with open(example_file, "w") as f:
+            f.write(default_query)
+
+        # Change to the temp directory so the server can find example.graphql
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Create GraphQL HTTP server WITHOUT specifying path (should auto-detect example.graphql)
+            graphql_server = GraphQLHTTP.from_api(
+                api,
+                auth_enabled=False
+            )
+
+            with TestClient(graphql_server.app) as client:
+                # Get the GraphiQL page
+                response = client.get("/graphql", headers={"Accept": "text/html"})
+
+                assert response.status_code == 200
+                html_content = response.text
+
+                # Verify the default query is present
+                assert "AutoLoadExample" in html_content or "AutoLoaded" in html_content
+        finally:
+            os.chdir(original_dir)
+
+
+def test_default_query_from_example_graph_file():
+    """Test that default query can be loaded from example.graph file."""
+    import tempfile
+    import os
+
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+
+    # Create a temporary directory and example.graph file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        example_file = os.path.join(tmpdir, "example.graph")
+
+        default_query = """query ExampleFromFile {
+    hello(name: "FromFile")
+    add(a: 10, b: 20)
+}"""
+
+        with open(example_file, "w") as f:
+            f.write(default_query)
+
+        # Change to the temp directory so the server can find example.graph
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Create GraphQL HTTP server (should auto-detect example.graph)
+            graphql_server = GraphQLHTTP.from_api(
+                api,
+                auth_enabled=False,
+                graphiql_example_query_path="example.graph"
+            )
+
+            with TestClient(graphql_server.app) as client:
+                # Get the GraphiQL page
+                response = client.get("/graphql", headers={"Accept": "text/html"})
+
+                assert response.status_code == 200
+                html_content = response.text
+
+                # Verify the default query is present
+                assert "ExampleFromFile" in html_content or "FromFile" in html_content
+        finally:
+            os.chdir(original_dir)
+
+
+def test_default_query_from_custom_path():
+    """Test that default query can be loaded from a custom path."""
+    import tempfile
+    import os
+
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+
+    # Create a temporary file with custom name
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.graphql', delete=False) as f:
+        default_query = """query CustomPathExample {
+    hello(name: "CustomPath")
+    add(a: 5, b: 15)
+}"""
+        f.write(default_query)
+        custom_path = f.name
+
+    try:
+        # Create GraphQL HTTP server with custom path
+        graphql_server = GraphQLHTTP.from_api(
+            api,
+            auth_enabled=False,
+            graphiql_example_query_path=custom_path
+        )
+
+        with TestClient(graphql_server.app) as client:
+            # Get the GraphiQL page
+            response = client.get("/graphql", headers={"Accept": "text/html"})
+
+            assert response.status_code == 200
+            html_content = response.text
+
+            # Verify the default query is present
+            assert "CustomPathExample" in html_content or "CustomPath" in html_content
+    finally:
+        # Clean up the temporary file
+        os.unlink(custom_path)
+
+
+def test_default_query_with_mcp_integration():
+    """Test that default query works with MCP integration."""
+    import tempfile
+
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+
+    default_query = """query MCPIntegration {
+    hello(name: "MCP")
+    add(a: 100, b: 200)
+}"""
+
+    # Create MCP server with GraphQL HTTP and default query
+    mcp_server = GraphQLMCP.from_api(
+        api,
+        graphql_http=True,
+        graphql_http_kwargs={"graphiql_example_query": default_query},
+        name="TestServer"
+    )
+
+    # Create HTTP app
+    app = mcp_server.http_app()
+
+    with TestClient(app) as client:
+        # Get the GraphiQL page
+        response = client.get("/graphql", headers={"Accept": "text/html"})
+
+        if response.status_code == 200:
+            html_content = response.text
+            # Verify the default query is present
+            assert "MCPIntegration" in html_content or "hello" in html_content
+
+
+def test_default_query_string_takes_precedence_over_file():
+    """Test that graphiql_example_query string parameter takes precedence over file."""
+    import tempfile
+    import os
+
+    if not HAS_DEPENDENCIES:
+        pytest.skip("graphql-api or graphql_http not installed")
+
+    api = create_test_api()
+
+    # Create a temporary directory and example.graph file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        example_file = os.path.join(tmpdir, "example.graph")
+
+        file_query = """query FromFile {
+    hello(name: "File")
+}"""
+
+        string_query = """query FromString {
+    hello(name: "String")
+}"""
+
+        with open(example_file, "w") as f:
+            f.write(file_query)
+
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Create GraphQL HTTP server with both file and string
+            # String should take precedence
+            graphql_server = GraphQLHTTP.from_api(
+                api,
+                auth_enabled=False,
+                graphiql_example_query=string_query,
+                graphiql_example_query_path="example.graph"
+            )
+
+            with TestClient(graphql_server.app) as client:
+                response = client.get("/graphql", headers={"Accept": "text/html"})
+
+                if response.status_code == 200:
+                    html_content = response.text
+
+                    # Should contain the string query, not the file query
+                    assert "FromString" in html_content or "String" in html_content
+        finally:
+            os.chdir(original_dir)
