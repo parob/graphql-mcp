@@ -20,7 +20,7 @@ dependencies = [
     "graphql-core",
     "fastmcp",
     "graphql-api",
-    "graphql-http>=2.1.1",
+    "graphql-http>=2.1.5",
     "aiohttp",
 ]
 
