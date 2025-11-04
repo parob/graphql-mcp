@@ -72,7 +72,7 @@ GraphQL MCP analyzes your GraphQL schema and automatically:
 
 ### With graphql-api
 
-Build new GraphQL APIs with Python's decorator-based approach and automatically expose them as MCP tools:
+Build new GraphQL APIs and automatically expose them as MCP tools using [graphql-api](https://graphql-api.parob.com/):
 
 ```python
 from graphql_api import GraphQLAPI, field
@@ -88,6 +88,8 @@ class BookAPI:
 api = GraphQLAPI(root_type=BookAPI)
 server = GraphQLMCP.from_api(api, name="BookStore")
 ```
+
+> **Learn more**: See [graphql-api documentation](https://graphql-api.parob.com/) for building GraphQL APIs.
 
 ### With Remote GraphQL APIs
 
@@ -112,7 +114,7 @@ github_server = GraphQLMCP.from_remote_url(
 
 ### With Other GraphQL Libraries
 
-Works with any Python GraphQL library that produces a `graphql-core` schema:
+Works with any Python GraphQL library that produces a `graphql-core` schema (Strawberry, Ariadne, etc.):
 
 ```python
 import strawberry
@@ -127,6 +129,8 @@ class Query:
 schema = strawberry.Schema(query=Query)
 server = GraphQLMCP(schema=schema._schema, name="Strawberry API")
 ```
+
+> **Recommendation**: We recommend [graphql-api](https://graphql-api.parob.com/) for the best experience with GraphQL MCP.
 
 ## MCP Inspector
 

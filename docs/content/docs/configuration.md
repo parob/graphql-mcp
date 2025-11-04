@@ -11,7 +11,7 @@ GraphQL MCP provides flexible configuration options for customizing your MCP ser
 
 ### From graphql-api
 
-The recommended way to create an MCP server:
+The recommended way to create an MCP server using [graphql-api](https://graphql-api.parob.com/):
 
 ```python
 from graphql_api import GraphQLAPI
@@ -26,6 +26,8 @@ server = GraphQLMCP.from_api(
     auth=None
 )
 ```
+
+> **Note**: For detailed information on building GraphQL APIs, see the [graphql-api documentation](https://graphql-api.parob.com/).
 
 ### From Remote URL
 
@@ -86,7 +88,7 @@ server = GraphQLMCP(schema=schema, name="Books API")
 **Type:** `bool`
 **Default:** `False`
 
-Whether to enable the GraphQL HTTP endpoint alongside MCP.
+Whether to enable the GraphQL HTTP endpoint alongside MCP. When enabled, your server provides both MCP and GraphQL HTTP interfaces.
 
 ```python
 server = GraphQLMCP.from_api(api, graphql_http=True)
@@ -96,6 +98,8 @@ When enabled:
 - GraphQL queries can be sent to `/graphql`
 - GraphiQL interface is available in the browser
 - MCP Inspector is automatically injected
+
+> **Learn more**: See [graphql-http documentation](https://graphql-http.parob.com/) for details on GraphQL HTTP serving.
 
 #### allow_mutations
 **Type:** `bool`
@@ -112,7 +116,7 @@ server = GraphQLMCP.from_api(api, allow_mutations=False)
 **Type:** `Optional[JWTVerifier]`
 **Default:** `None`
 
-Authentication configuration for protected endpoints.
+JWT authentication configuration for protected endpoints.
 
 ```python
 from graphql_mcp.auth import JWTVerifier
@@ -125,6 +129,8 @@ jwt_verifier = JWTVerifier(
 
 server = GraphQLMCP.from_api(api, auth=jwt_verifier)
 ```
+
+> **Learn more**: See [graphql-http authentication docs](https://graphql-http.parob.com/docs/authentication/) for comprehensive authentication guides.
 
 ## HTTP Application Configuration
 

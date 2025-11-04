@@ -76,138 +76,32 @@ That's it! Your GraphQL API is now available as MCP tools.
 - **[Examples](https://graphql-mcp.parob.com/docs/examples/)** - Real-world usage examples
 - **[API Reference](https://graphql-mcp.parob.com/docs/api-reference/)** - Complete API documentation
 
-## Usage with graphql-api
+## Integration
 
-The recommended way to use GraphQL MCP is with the [graphql-api](https://github.com/parob/graphql-api) library, which provides a simple, decorator-based approach to building GraphQL APIs:
+GraphQL MCP works with:
 
-```python
-from graphql_api import GraphQLAPI, field
-from graphql_mcp.server import GraphQLMCP
-
-class BookAPI:
-    books = [
-        {"id": "1", "title": "The Hobbit", "author": "J.R.R. Tolkien"},
-        {"id": "2", "title": "1984", "author": "George Orwell"}
-    ]
-
-    @field
-    def book(self, id: str) -> dict:
-        """Get a book by ID."""
-        return next((book for book in self.books if book["id"] == id), None)
-
-    @field
-    def books(self) -> list[dict]:
-        """Get all books."""
-        return self.books
-
-    @field
-    def add_book(self, title: str, author: str) -> dict:
-        """Add a new book."""
-        book = {"id": str(len(self.books) + 1), "title": title, "author": author}
-        self.books.append(book)
-        return book
-
-api = GraphQLAPI(root_type=BookAPI)
-server = GraphQLMCP.from_api(api, name="BookStore")
-```
-
-## Remote GraphQL APIs
-
-You can also connect to existing GraphQL APIs:
-
-```python
-from graphql_mcp.server import GraphQLMCP
-
-# Connect to a public GraphQL API
-server = GraphQLMCP.from_remote_url(
-    url="https://countries.trevorblades.com/",
-    name="Countries API"
-)
-
-# With authentication
-authenticated_server = GraphQLMCP.from_remote_url(
-    url="https://api.github.com/graphql",
-    bearer_token="your_github_token",
-    name="GitHub API"
-)
-```
-
-## Other GraphQL Libraries
-
-GraphQL MCP works with any GraphQL library that produces a `graphql-core` schema:
-
-```python
-import strawberry
-from graphql_mcp.server import GraphQLMCP
-
-@strawberry.type
-class Query:
-    @strawberry.field
-    def hello(self, name: str = "World") -> str:
-        return f"Hello, {name}!"
-
-schema = strawberry.Schema(query=Query)
-server = GraphQLMCP(schema=schema._schema, name="Strawberry API")
-```
-
-## Configuration
-
-```python
-server = GraphQLMCP.from_api(
-    api,
-    name="My API",
-    graphql_http=True,          # Enable GraphQL HTTP endpoint
-    allow_mutations=True,       # Allow mutation tools
-    auth=jwt_verifier,         # Optional JWT authentication
-)
-
-# Serve with custom configuration
-app = server.http_app(
-    transport="streamable-http",  # or "http" or "sse"
-    stateless_http=True,         # Don't maintain client state
-)
-```
+- **[graphql-api](https://graphql-api.parob.com/)** - Recommended for building GraphQL APIs
+- **[graphql-http](https://graphql-http.parob.com/)** - For HTTP serving alongside MCP
+- **Any GraphQL library** that produces a `graphql-core` schema
 
 ## How It Works
 
-1. **Schema Analysis**: GraphQL MCP analyzes your GraphQL schema
-2. **Tool Generation**: Each query and mutation becomes an MCP tool
-3. **Type Mapping**: GraphQL types are mapped to Python types
-4. **Execution**: Tools execute GraphQL operations when called
-5. **HTTP Serving**: Both MCP and GraphQL endpoints are served
+GraphQL MCP automatically:
+- Analyzes your GraphQL schema
+- Generates MCP tools from queries and mutations
+- Maps GraphQL types to Python types
+- Converts naming to `snake_case` (e.g., `addBook` → `add_book`)
+- Preserves documentation and type information
 
-The generated tools use `snake_case` naming (e.g., `addBook` becomes `add_book`) and preserve all type information and documentation from your GraphQL schema.
+See the [documentation](https://graphql-mcp.parob.com/) for detailed guides on remote APIs, authentication, and configuration.
 
 ## MCP Inspector
 
-GraphQL-MCP includes a built-in MCP Inspector that provides a web-based interface for testing and debugging your MCP tools. The inspector is automatically injected into GraphiQL interfaces when serving your GraphQL endpoints.
+Built-in web interface for testing and debugging MCP tools:
 
 <img src="docs/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
 
-### Features
-
-- **Tool Discovery**: Browse all available MCP tools generated from your GraphQL schema
-- **Interactive Testing**: Execute tools with custom parameters and see real-time results
-- **Authentication Support**: Test with Bearer tokens, API keys, or custom headers
-- **Call History**: Track and review previous tool executions
-- **Schema Inspection**: View detailed parameter and output schemas for each tool
-- **Real-time Status**: Monitor connection status and tool availability
-
-### Accessing the Inspector
-
-When you enable GraphQL HTTP endpoints, the MCP Inspector is automatically available:
-
-```python
-server = GraphQLMCP.from_api(
-    api,
-    name="My API",
-    graphql_http=True,  # This enables the GraphQL endpoint with MCP Inspector
-)
-
-app = server.http_app()
-```
-
-Navigate to your server in a web browser to access the inspector interface.
+Enable with `graphql_http=True` to access the inspector in your browser. See the [MCP Inspector documentation](https://graphql-mcp.parob.com/docs/mcp-inspector/) for details.
 
 ## License
 

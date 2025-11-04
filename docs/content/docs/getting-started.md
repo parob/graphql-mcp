@@ -9,7 +9,7 @@ GraphQL MCP makes it easy to expose GraphQL APIs as MCP (Model Context Protocol)
 
 ## Installation
 
-Install GraphQL MCP using pip:
+Install GraphQL MCP with graphql-api:
 
 ```bash
 pip install graphql-mcp graphql-api
@@ -21,16 +21,23 @@ Or using UV (recommended):
 uv add graphql-mcp graphql-api
 ```
 
+## Prerequisites
+
+GraphQL MCP works with GraphQL schemas. If you're new to building GraphQL APIs in Python:
+
+- **Building GraphQL APIs**: Learn [graphql-api](https://graphql-api.parob.com/) for a decorator-based approach
+- **Serving over HTTP**: See [graphql-http](https://graphql-http.parob.com/) for production HTTP serving
+
 ## Your First MCP Server
 
-Let's create a simple MCP server from a GraphQL API:
+Let's create a simple MCP server from a GraphQL API using [graphql-api](https://graphql-api.parob.com/):
 
 ```python
 import uvicorn
 from graphql_api import GraphQLAPI, field
 from graphql_mcp.server import GraphQLMCP
 
-# 1. Define your GraphQL API
+# 1. Define your GraphQL API (see graphql-api docs for details)
 class HelloAPI:
     @field
     def hello(self, name: str = "World") -> str:
@@ -42,19 +49,16 @@ class HelloAPI:
         """Say goodbye to someone."""
         return f"Goodbye, {name}!"
 
-# 2. Create a GraphQL API instance
+# 2. Create GraphQL API and MCP server
 api = GraphQLAPI(root_type=HelloAPI)
-
-# 3. Create an MCP server from the API
 server = GraphQLMCP.from_api(api, name="Greetings")
 
-# 4. Create the HTTP application
+# 3. Create and run the HTTP application
 mcp_app = server.http_app(
     transport="streamable-http",
     stateless_http=True
 )
 
-# 5. Run the server
 if __name__ == "__main__":
     uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
 ```
@@ -131,40 +135,40 @@ Now that you have a basic server running, you can:
 
 ### Adding Authentication
 
+GraphQL MCP supports JWT authentication. For details on authentication configuration, see the [graphql-http authentication documentation](https://graphql-http.parob.com/docs/authentication/).
+
 ```python
 from graphql_mcp.auth import JWTVerifier
 
-# Create JWT verifier
 jwt_verifier = JWTVerifier(
     jwks_uri="https://your-auth0-domain/.well-known/jwks.json",
     issuer="https://your-auth0-domain/",
     audience="your-api-audience"
 )
 
-# Pass to server
-server = GraphQLMCP.from_api(
-    api,
-    auth=jwt_verifier
-)
+server = GraphQLMCP.from_api(api, auth=jwt_verifier)
 ```
 
 ### Enabling Both GraphQL and MCP
 
+To serve both MCP tools and a GraphQL HTTP endpoint with GraphiQL:
+
 ```python
 server = GraphQLMCP.from_api(
     api,
-    graphql_http=True,  # Enable GraphQL HTTP endpoint
+    graphql_http=True,  # Enables GraphQL endpoint
     name="My API"
 )
 ```
 
+Learn more about [GraphQL HTTP serving](https://graphql-http.parob.com/).
+
 ### Controlling Mutations
 
 ```python
-# Disable mutation tools (only expose queries)
 server = GraphQLMCP.from_api(
     api,
-    allow_mutations=False
+    allow_mutations=False  # Only expose queries as tools
 )
 ```
 

@@ -9,7 +9,7 @@ Real-world examples of using GraphQL MCP.
 
 ## Complete Server Example
 
-A full-featured MCP server with authentication:
+A full-featured MCP server with authentication. For more details on building GraphQL APIs, see [graphql-api documentation](https://graphql-api.parob.com/).
 
 ```python
 import os
@@ -18,7 +18,7 @@ from graphql_api import GraphQLAPI, field
 from graphql_mcp.server import GraphQLMCP
 from graphql_mcp.auth import JWTVerifier
 
-# Define your API
+# Define your API (see graphql-api docs for advanced patterns)
 class BookStoreAPI:
     books = [
         {"id": "1", "title": "The Hobbit", "author": "J.R.R. Tolkien"},
@@ -155,7 +155,7 @@ app = Starlette(routes=[
 
 ## With Strawberry GraphQL
 
-Use GraphQL MCP with Strawberry:
+GraphQL MCP works with any library that produces a `graphql-core` schema. Here's an example with [Strawberry](https://strawberry.rocks/):
 
 ```python
 import strawberry
@@ -163,36 +163,17 @@ import uvicorn
 from graphql_mcp.server import GraphQLMCP
 
 @strawberry.type
-class Book:
-    title: str
-    author: str
-
-@strawberry.type
 class Query:
     @strawberry.field
-    def books(self) -> list[Book]:
-        return [
-            Book(title="The Hobbit", author="J.R.R. Tolkien"),
-            Book(title="1984", author="George Orwell")
-        ]
+    def hello(self, name: str = "World") -> str:
+        return f"Hello, {name}!"
 
-    @strawberry.field
-    def book(self, title: str) -> Book | None:
-        books = self.books()
-        return next((b for b in books if b.title == title), None)
-
-@strawberry.type
-class Mutation:
-    @strawberry.mutation
-    def add_book(self, title: str, author: str) -> Book:
-        return Book(title=title, author=author)
-
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(query=Query)
 
 # Create MCP server from Strawberry schema
 server = GraphQLMCP(
     schema=schema._schema,  # Access the graphql-core schema
-    name="Strawberry Books"
+    name="Strawberry API"
 )
 
 app = server.http_app()
@@ -200,6 +181,8 @@ app = server.http_app()
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)
 ```
+
+> **Note**: While GraphQL MCP supports any GraphQL library, we recommend [graphql-api](https://graphql-api.parob.com/) for the best integration and features.
 
 ## Testing Example
 
