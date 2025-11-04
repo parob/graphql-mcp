@@ -1,5 +1,13 @@
 # GraphQL-MCP
 
+[![PyPI version](https://badge.fury.io/py/graphql-mcp.svg)](https://badge.fury.io/py/graphql-mcp)
+[![Python versions](https://img.shields.io/pypi/pyversions/graphql-mcp.svg)](https://pypi.org/project/graphql-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**[📚 Documentation](https://graphql-mcp.parob.com/)** | **[📦 PyPI](https://pypi.org/project/graphql-mcp/)** | **[🔧 GitHub](https://github.com/parob/graphql-mcp)**
+
+---
+
 A library for automatically generating [FastMCP](https://pypi.org/project/fastmcp/) tools from GraphQL APIs using [graphql-api](https://pypi.org/project/graphql-api/).
 
 This allows you to expose your GraphQL API as MCP tools that can be used by AI agents and other systems.
@@ -54,6 +62,19 @@ That's it! Your GraphQL API is now available as MCP tools.
 - **Remote GraphQL**: Connect to existing GraphQL APIs
 - **Production Ready**: Built on FastMCP and Starlette
 - **Built-in MCP Inspector**: Web-based GraphiQL interface for testing and debugging
+
+## Documentation
+
+**Visit the [official documentation](https://graphql-mcp.parob.com/)** for comprehensive guides, examples, and API reference.
+
+### Key Topics
+
+- **[Getting Started](https://graphql-mcp.parob.com/docs/getting-started/)** - Quick introduction and basic usage
+- **[Configuration](https://graphql-mcp.parob.com/docs/configuration/)** - Configure your MCP server
+- **[Remote GraphQL](https://graphql-mcp.parob.com/docs/remote-graphql/)** - Connect to existing GraphQL APIs
+- **[MCP Inspector](https://graphql-mcp.parob.com/docs/mcp-inspector/)** - Test and debug your tools
+- **[Examples](https://graphql-mcp.parob.com/docs/examples/)** - Real-world usage examples
+- **[API Reference](https://graphql-mcp.parob.com/docs/api-reference/)** - Complete API documentation
 
 ## Usage with graphql-api
 
@@ -187,7 +208,6 @@ app = server.http_app()
 ```
 
 Navigate to your server in a web browser to access the inspector interface.
-
 
 ## License
 
