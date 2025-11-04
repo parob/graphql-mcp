@@ -81,6 +81,7 @@ That's it! Your GraphQL API is now available as MCP tools.
 GraphQL MCP works with:
 
 - **[graphql-api](https://graphql-api.parob.com/)** - Recommended for building GraphQL APIs
+- **[graphql-db](https://graphql-db.parob.com/)** - For database-backed GraphQL APIs
 - **[graphql-http](https://graphql-http.parob.com/)** - For HTTP serving alongside MCP
 - **Any GraphQL library** that produces a `graphql-core` schema
 

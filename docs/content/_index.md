@@ -91,6 +91,23 @@ server = GraphQLMCP.from_api(api, name="BookStore")
 
 > **Learn more**: See [graphql-api documentation](https://graphql-api.parob.com/) for building GraphQL APIs.
 
+### With Database-Backed APIs
+
+For database integration, use [graphql-db](https://graphql-db.parob.com/):
+
+```python
+from graphql_db.orm_base import DatabaseManager, ModelBase
+from graphql_mcp.server import GraphQLMCP
+
+# Database models automatically become GraphQL types
+db_manager = DatabaseManager(url="sqlite:///myapp.db")
+# ... define models and API ...
+
+server = GraphQLMCP.from_api(api, name="Database API")
+```
+
+> **Learn more**: See [graphql-db documentation](https://graphql-db.parob.com/) for database integration.
+
 ### With Remote GraphQL APIs
 
 Connect to existing GraphQL endpoints and expose them as MCP tools:
