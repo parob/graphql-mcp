@@ -8,60 +8,142 @@
 
 ---
 
-A library for automatically generating [FastMCP](https://pypi.org/project/fastmcp/) tools from GraphQL APIs using [graphql-api](https://pypi.org/project/graphql-api/).
+**Instantly expose any GraphQL API as MCP tools for AI agents and LLMs.**
 
-This allows you to expose your GraphQL API as MCP tools that can be used by AI agents and other systems.
+GraphQL MCP works with **any** Python GraphQL library—Strawberry, Ariadne, Graphene, graphql-core, or [graphql-api](https://graphql-api.parob.com/). If you already have a GraphQL API, you can expose it as MCP tools in minutes.
+
+## Features
+
+- ✅ **Universal Compatibility** - Works with any GraphQL library that produces a `graphql-core` schema
+- 🚀 **Automatic Tool Generation** - GraphQL queries and mutations become MCP tools instantly
+- 🔌 **Remote GraphQL Support** - Connect to any existing GraphQL endpoint
+- 🎯 **Type-Safe** - Preserves GraphQL types and documentation
+- 🔧 **Built-in Inspector** - Web interface for testing MCP tools
+- 📡 **Multiple Transports** - HTTP, SSE, and streamable-HTTP support
+
+## Installation
+
+```bash
+pip install graphql-mcp
+```
 
 ## Quick Start
 
-Install graphql-mcp with graphql-api:
+### With Strawberry (Popular)
 
-```bash
-pip install graphql-mcp graphql-api
-```
-
-Create a simple GraphQL API and expose it as MCP tools:
+Already using [Strawberry](https://strawberry.rocks/)? Expose it as MCP tools:
 
 ```python
-import asyncio
+import strawberry
+from graphql_mcp.server import GraphQLMCP
 import uvicorn
 
+@strawberry.type
+class Query:
+    @strawberry.field
+    def hello(self, name: str = "World") -> str:
+        return f"Hello, {name}!"
+
+schema = strawberry.Schema(query=Query)
+
+# Expose as MCP tools
+server = GraphQLMCP(schema=schema._schema, name="My API")
+app = server.http_app()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8002)
+```
+
+That's it! Your Strawberry GraphQL API is now available as MCP tools.
+
+### With Ariadne
+
+Using [Ariadne](https://ariadnegraphql.org/)? Same simple integration:
+
+```python
+from ariadne import make_executable_schema, QueryType
+from graphql_mcp.server import GraphQLMCP
+
+type_defs = """
+    type Query {
+        hello(name: String = "World"): String!
+    }
+"""
+
+query = QueryType()
+
+@query.field("hello")
+def resolve_hello(_, info, name="World"):
+    return f"Hello, {name}!"
+
+schema = make_executable_schema(type_defs, query)
+
+# Expose as MCP tools
+server = GraphQLMCP(schema=schema, name="My API")
+app = server.http_app()
+```
+
+### With Graphene
+
+[Graphene](https://graphene-python.org/) user? Works seamlessly:
+
+```python
+import graphene
+from graphql_mcp.server import GraphQLMCP
+
+class Query(graphene.ObjectType):
+    hello = graphene.String(name=graphene.String(default_value="World"))
+
+    def resolve_hello(self, info, name):
+        return f"Hello, {name}!"
+
+schema = graphene.Schema(query=Query)
+
+# Expose as MCP tools
+server = GraphQLMCP(schema=schema.graphql_schema, name="My API")
+app = server.http_app()
+```
+
+### With graphql-api (Recommended)
+
+For new projects, we recommend [graphql-api](https://graphql-api.parob.com/) for its decorator-based approach:
+
+```python
 from graphql_api import GraphQLAPI, field
 from graphql_mcp.server import GraphQLMCP
 
-
-class HelloWorldAPI:
-
+class API:
     @field
     def hello(self, name: str = "World") -> str:
         return f"Hello, {name}!"
 
-
-api = GraphQLAPI(root_type=HelloWorldAPI)
-
+api = GraphQLAPI(root_type=API)
 server = GraphQLMCP.from_api(api)
-
-mcp_app = server.http_app(
-    transport="streamable-http",
-    stateless_http=True
-)
-
-
-if __name__ == "__main__":
-    uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
+app = server.http_app()
 ```
 
-That's it! Your GraphQL API is now available as MCP tools.
+## Remote GraphQL APIs
 
-## Features
+**Already have a GraphQL API running?** Connect to it directly:
 
-- **Automatic Tool Generation**: Converts GraphQL queries and mutations into MCP tools
-- **Type-Safe**: Maps GraphQL types to Python types with full type hints
-- **Built-in HTTP Server**: Serves both MCP and GraphQL endpoints
-- **Authentication**: Supports JWT and bearer token authentication
-- **Remote GraphQL**: Connect to existing GraphQL APIs
-- **Production Ready**: Built on FastMCP and Starlette
-- **Built-in MCP Inspector**: Web-based GraphiQL interface for testing and debugging
+```python
+from graphql_mcp.server import GraphQLMCP
+
+# Connect to any GraphQL endpoint
+server = GraphQLMCP.from_remote_url(
+    url="https://api.github.com/graphql",
+    bearer_token="your_token",
+    name="GitHub API"
+)
+
+app = server.http_app()
+```
+
+Works with:
+- GitHub GraphQL API
+- Shopify GraphQL API
+- Hasura
+- Any public or private GraphQL endpoint
 
 ## Documentation
 
@@ -76,25 +158,14 @@ That's it! Your GraphQL API is now available as MCP tools.
 - **[Examples](https://graphql-mcp.parob.com/docs/examples/)** - Real-world usage examples
 - **[API Reference](https://graphql-mcp.parob.com/docs/api-reference/)** - Complete API documentation
 
-## Integration
-
-GraphQL MCP works with:
-
-- **[graphql-api](https://graphql-api.parob.com/)** - Recommended for building GraphQL APIs
-- **[graphql-db](https://graphql-db.parob.com/)** - For database-backed GraphQL APIs
-- **[graphql-http](https://graphql-http.parob.com/)** - For HTTP serving alongside MCP
-- **Any GraphQL library** that produces a `graphql-core` schema
-
 ## How It Works
 
 GraphQL MCP automatically:
 - Analyzes your GraphQL schema
 - Generates MCP tools from queries and mutations
-- Maps GraphQL types to Python types
+- Maps GraphQL types to MCP tool schemas
 - Converts naming to `snake_case` (e.g., `addBook` → `add_book`)
-- Preserves documentation and type information
-
-See the [documentation](https://graphql-mcp.parob.com/) for detailed guides on remote APIs, authentication, and configuration.
+- Preserves all documentation and type information
 
 ## MCP Inspector
 
@@ -103,6 +174,43 @@ Built-in web interface for testing and debugging MCP tools:
 <img src="docs/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
 
 Enable with `graphql_http=True` to access the inspector in your browser. See the [MCP Inspector documentation](https://graphql-mcp.parob.com/docs/mcp-inspector/) for details.
+
+## Compatibility
+
+GraphQL MCP works with any Python GraphQL library that produces a `graphql-core` schema:
+
+- ✅ **[Strawberry](https://strawberry.rocks/)** - Modern, type-hint based GraphQL
+- ✅ **[Ariadne](https://ariadnegraphql.org/)** - Schema-first GraphQL
+- ✅ **[Graphene](https://graphene-python.org/)** - Code-first GraphQL
+- ✅ **[graphql-api](https://graphql-api.parob.com/)** - Decorator-based GraphQL (recommended)
+- ✅ **[graphql-core](https://github.com/graphql-python/graphql-core)** - Reference implementation
+- ✅ **Any GraphQL library** using graphql-core schemas
+
+## Ecosystem Integration
+
+- **[graphql-api](https://graphql-api.parob.com/)** - Recommended for building new GraphQL APIs
+- **[graphql-db](https://graphql-db.parob.com/)** - For database-backed GraphQL APIs
+- **[graphql-http](https://graphql-http.parob.com/)** - For HTTP serving alongside MCP
+
+## Configuration
+
+```python
+# Full configuration example
+server = GraphQLMCP(
+    schema=your_schema,
+    name="My API",
+    graphql_http=True,          # Enable GraphQL HTTP endpoint
+    allow_mutations=True,       # Allow mutation tools
+)
+
+# Serve with custom configuration
+app = server.http_app(
+    transport="streamable-http",  # or "http" or "sse"
+    stateless_http=True,         # Don't maintain client state
+)
+```
+
+See the [documentation](https://graphql-mcp.parob.com/) for advanced configuration, authentication, and deployment guides.
 
 ## License
 

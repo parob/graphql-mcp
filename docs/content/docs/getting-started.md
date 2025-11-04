@@ -7,37 +7,111 @@ weight: 1
 
 GraphQL MCP makes it easy to expose GraphQL APIs as MCP (Model Context Protocol) tools that can be used by AI agents and other systems.
 
+**Works with ANY GraphQL library**: Strawberry, Ariadne, Graphene, graphql-api, or any library using graphql-core.
+
 ## Installation
 
-Install GraphQL MCP with graphql-api:
+Install GraphQL MCP:
 
 ```bash
-pip install graphql-mcp graphql-api
+pip install graphql-mcp
 ```
 
 Or using UV (recommended):
 
 ```bash
-uv add graphql-mcp graphql-api
+uv add graphql-mcp
 ```
 
 ## Prerequisites
 
-GraphQL MCP works with GraphQL schemas. If you're new to building GraphQL APIs in Python:
+GraphQL MCP works with any GraphQL schema from popular libraries:
 
-- **Building GraphQL APIs**: Learn [graphql-api](https://graphql-api.parob.com/) for a decorator-based approach
-- **Serving over HTTP**: See [graphql-http](https://graphql-http.parob.com/) for production HTTP serving
+- **[Strawberry](https://strawberry.rocks/)** - Modern, type-hint based GraphQL
+- **[Ariadne](https://ariadnegraphql.org/)** - Schema-first GraphQL
+- **[Graphene](https://graphene-python.org/)** - Code-first GraphQL
+- **[graphql-api](https://graphql-api.parob.com/)** - Decorator-based GraphQL (recommended for new projects)
+- **Any library** that produces a `graphql-core` schema
 
 ## Your First MCP Server
 
-Let's create a simple MCP server from a GraphQL API using [graphql-api](https://graphql-api.parob.com/):
+Choose your preferred GraphQL library:
+
+### With Strawberry
 
 ```python
+import strawberry
 import uvicorn
-from graphql_api import GraphQLAPI, field
 from graphql_mcp.server import GraphQLMCP
 
-# 1. Define your GraphQL API (see graphql-api docs for details)
+# 1. Define your GraphQL schema with Strawberry
+@strawberry.type
+class Query:
+    @strawberry.field
+    def hello(self, name: str = "World") -> str:
+        """Say hello to someone."""
+        return f"Hello, {name}!"
+
+    @strawberry.field
+    def goodbye(self, name: str = "World") -> str:
+        """Say goodbye to someone."""
+        return f"Goodbye, {name}!"
+
+# 2. Create schema and MCP server
+schema = strawberry.Schema(query=Query)
+server = GraphQLMCP(schema=schema._schema, name="Greetings")
+
+# 3. Create and run the HTTP application
+app = server.http_app()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8002)
+```
+
+### With Ariadne
+
+```python
+from ariadne import make_executable_schema, QueryType
+import uvicorn
+from graphql_mcp.server import GraphQLMCP
+
+# 1. Define your GraphQL schema with Ariadne
+type_defs = """
+    type Query {
+        hello(name: String = "World"): String!
+        goodbye(name: String = "World"): String!
+    }
+"""
+
+query = QueryType()
+
+@query.field("hello")
+def resolve_hello(_, info, name="World"):
+    return f"Hello, {name}!"
+
+@query.field("goodbye")
+def resolve_goodbye(_, info, name="World"):
+    return f"Goodbye, {name}!"
+
+# 2. Create schema and MCP server
+schema = make_executable_schema(type_defs, query)
+server = GraphQLMCP(schema=schema, name="Greetings")
+
+# 3. Create and run the HTTP application
+app = server.http_app()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8002)
+```
+
+### With graphql-api (Recommended for New Projects)
+
+```python
+from graphql_api import GraphQLAPI, field
+import uvicorn
+from graphql_mcp.server import GraphQLMCP
+
+# 1. Define your GraphQL API with graphql-api
 class HelloAPI:
     @field
     def hello(self, name: str = "World") -> str:
@@ -54,13 +128,10 @@ api = GraphQLAPI(root_type=HelloAPI)
 server = GraphQLMCP.from_api(api, name="Greetings")
 
 # 3. Create and run the HTTP application
-mcp_app = server.http_app(
-    transport="streamable-http",
-    stateless_http=True
-)
+app = server.http_app()
 
 if __name__ == "__main__":
-    uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8002)
 ```
 
 Save this as `server.py` and run it:

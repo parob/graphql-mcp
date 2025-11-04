@@ -22,21 +22,35 @@ The MCP Inspector is a GraphiQL-integrated interface that lets you:
 
 ## Enabling the Inspector
 
-Enable the inspector by setting `graphql_http=True` when creating your server:
+Enable the inspector by setting `graphql_http=True` when creating your server. Works with any GraphQL library:
 
 ```python
-from graphql_api import GraphQLAPI
 from graphql_mcp.server import GraphQLMCP
 
-api = GraphQLAPI(root_type=MyAPI)
-
-server = GraphQLMCP.from_api(
-    api,
+# With any GraphQL schema (Strawberry, Ariadne, Graphene, etc.)
+server = GraphQLMCP(
+    schema=your_graphql_schema,
     name="My API",
     graphql_http=True  # This enables both GraphQL and MCP Inspector
 )
 
 app = server.http_app()
+```
+
+**Example with Strawberry:**
+
+```python
+import strawberry
+from graphql_mcp.server import GraphQLMCP
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    def hello(self, name: str = "World") -> str:
+        return f"Hello, {name}!"
+
+schema = strawberry.Schema(query=Query)
+server = GraphQLMCP(schema=schema._schema, graphql_http=True)
 ```
 
 ## Accessing the Inspector
@@ -145,7 +159,7 @@ Here's a typical testing workflow with the inspector:
 
 1. **Start Server** with inspector enabled
    ```python
-   server = GraphQLMCP.from_api(api, graphql_http=True)
+   server = GraphQLMCP(schema=your_schema, graphql_http=True)
    app = server.http_app()
    ```
 
@@ -190,8 +204,8 @@ You can use both simultaneously to test your API from both perspectives.
 For production deployments, disable the GraphQL HTTP endpoint:
 
 ```python
-server = GraphQLMCP.from_api(
-    api,
+server = GraphQLMCP(
+    schema=your_schema,
     graphql_http=False  # No GraphiQL or inspector in production
 )
 ```
@@ -202,8 +216,8 @@ This removes both GraphiQL and the MCP Inspector, leaving only the MCP endpoints
 
 ### Tool Not Appearing
 
-- Check that the field has a `@field` decorator
-- Ensure the field has a docstring
+- Check that the field is properly defined in your GraphQL schema
+- Ensure the field has a description/docstring in the schema
 - Verify mutations are enabled (`allow_mutations=True`)
 
 ### Authentication Errors

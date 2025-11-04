@@ -3,7 +3,7 @@ title: "GraphQL MCP for Python"
 type: docs
 ---
 
-> **A framework for automatically generating FastMCP tools from GraphQL APIs.**
+> **Instantly expose any GraphQL API as MCP tools for AI agents and LLMs.**
 
 # GraphQL MCP for Python
 
@@ -13,7 +13,9 @@ type: docs
 
 ## What is GraphQL MCP?
 
-GraphQL MCP bridges the gap between GraphQL APIs and the Model Context Protocol (MCP), enabling AI agents to seamlessly interact with your GraphQL services. By automatically converting GraphQL queries and mutations into MCP tools, GraphQL MCP makes it effortless to expose your existing GraphQL infrastructure to AI systems.
+GraphQL MCP bridges the gap between GraphQL APIs and the Model Context Protocol (MCP), enabling AI agents to seamlessly interact with your GraphQL services.
+
+**Works with ANY Python GraphQL library**: Strawberry, Ariadne, Graphene, graphql-api, or any library using graphql-core. If you already have a GraphQL API, you can expose it as MCP tools in minutes.
 
 ## Why GraphQL MCP?
 
@@ -28,35 +30,36 @@ GraphQL MCP bridges the gap between GraphQL APIs and the Model Context Protocol 
 
 ## Quick Start
 
-Get up and running in minutes:
+Install GraphQL MCP:
 
 ```bash
-pip install graphql-mcp graphql-api
+pip install graphql-mcp
 ```
 
+**Already have a GraphQL API?** Expose it as MCP tools:
+
 ```python
-from graphql_api import GraphQLAPI, field
+import strawberry  # or any GraphQL library
 from graphql_mcp.server import GraphQLMCP
 import uvicorn
 
-class HelloWorldAPI:
-    @field
+@strawberry.type
+class Query:
+    @strawberry.field
     def hello(self, name: str = "World") -> str:
-        """A classic greeting."""
         return f"Hello, {name}!"
 
-api = GraphQLAPI(root_type=HelloWorldAPI)
-server = GraphQLMCP.from_api(api)
+schema = strawberry.Schema(query=Query)
 
-# Serve as MCP over HTTP
-mcp_app = server.http_app(
-    transport="streamable-http",
-    stateless_http=True
-)
+# Expose as MCP tools - works with ANY graphql-core schema
+server = GraphQLMCP(schema=schema._schema, name="My API")
+app = server.http_app()
 
 if __name__ == "__main__":
-    uvicorn.run(mcp_app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8002)
 ```
+
+Works with Strawberry, Ariadne, Graphene, [graphql-api](https://graphql-api.parob.com/), or any library that produces a `graphql-core` schema.
 
 ## How It Works
 
@@ -70,9 +73,52 @@ GraphQL MCP analyzes your GraphQL schema and automatically:
 
 ## Use Cases
 
-### With graphql-api
+### With Strawberry
 
-Build new GraphQL APIs and automatically expose them as MCP tools using [graphql-api](https://graphql-api.parob.com/):
+Using [Strawberry](https://strawberry.rocks/) for your GraphQL API? Instant MCP integration:
+
+```python
+import strawberry
+from graphql_mcp.server import GraphQLMCP
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    def search_books(self, query: str) -> list[str]:
+        """Search for books by title or author."""
+        return ["The Hobbit", "1984"]
+
+schema = strawberry.Schema(query=Query)
+server = GraphQLMCP(schema=schema._schema, name="BookStore")
+```
+
+### With Ariadne
+
+[Ariadne](https://ariadnegraphql.org/) user? Same simple approach:
+
+```python
+from ariadne import make_executable_schema, QueryType
+from graphql_mcp.server import GraphQLMCP
+
+type_defs = """
+    type Query {
+        searchBooks(query: String!): [String!]!
+    }
+"""
+
+query = QueryType()
+
+@query.field("searchBooks")
+def resolve_search_books(_, info, query):
+    return ["The Hobbit", "1984"]
+
+schema = make_executable_schema(type_defs, query)
+server = GraphQLMCP(schema=schema, name="BookStore")
+```
+
+### With graphql-api (Recommended for New Projects)
+
+For new projects, [graphql-api](https://graphql-api.parob.com/) offers a clean decorator-based approach:
 
 ```python
 from graphql_api import GraphQLAPI, field
@@ -80,33 +126,13 @@ from graphql_mcp.server import GraphQLMCP
 
 class BookAPI:
     @field
-    def search_books(self, query: str) -> list[dict]:
+    def search_books(self, query: str) -> list[str]:
         """Search for books by title or author."""
-        # Your search logic here
-        return []
+        return ["The Hobbit", "1984"]
 
 api = GraphQLAPI(root_type=BookAPI)
 server = GraphQLMCP.from_api(api, name="BookStore")
 ```
-
-> **Learn more**: See [graphql-api documentation](https://graphql-api.parob.com/) for building GraphQL APIs.
-
-### With Database-Backed APIs
-
-For database integration, use [graphql-db](https://graphql-db.parob.com/):
-
-```python
-from graphql_db.orm_base import DatabaseManager, ModelBase
-from graphql_mcp.server import GraphQLMCP
-
-# Database models automatically become GraphQL types
-db_manager = DatabaseManager(url="sqlite:///myapp.db")
-# ... define models and API ...
-
-server = GraphQLMCP.from_api(api, name="Database API")
-```
-
-> **Learn more**: See [graphql-db documentation](https://graphql-db.parob.com/) for database integration.
 
 ### With Remote GraphQL APIs
 
@@ -129,25 +155,34 @@ github_server = GraphQLMCP.from_remote_url(
 )
 ```
 
-### With Other GraphQL Libraries
+### With Graphene
 
-Works with any Python GraphQL library that produces a `graphql-core` schema (Strawberry, Ariadne, etc.):
+[Graphene](https://graphene-python.org/) works seamlessly:
 
 ```python
-import strawberry
+import graphene
 from graphql_mcp.server import GraphQLMCP
 
-@strawberry.type
-class Query:
-    @strawberry.field
-    def greeting(self, name: str) -> str:
-        return f"Hello, {name}!"
+class Query(graphene.ObjectType):
+    search_books = graphene.List(graphene.String, query=graphene.String(required=True))
 
-schema = strawberry.Schema(query=Query)
-server = GraphQLMCP(schema=schema._schema, name="Strawberry API")
+    def resolve_search_books(self, info, query):
+        return ["The Hobbit", "1984"]
+
+schema = graphene.Schema(query=Query)
+server = GraphQLMCP(schema=schema.graphql_schema, name="BookStore")
 ```
 
-> **Recommendation**: We recommend [graphql-api](https://graphql-api.parob.com/) for the best experience with GraphQL MCP.
+### With Any GraphQL Library
+
+GraphQL MCP works with **any** Python GraphQL library that produces a `graphql-core` schema. Simply pass the schema to GraphQLMCP:
+
+```python
+from graphql_mcp.server import GraphQLMCP
+
+# Your schema from any library
+server = GraphQLMCP(schema=your_graphql_schema, name="My API")
+```
 
 ## MCP Inspector
 

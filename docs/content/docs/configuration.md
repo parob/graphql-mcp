@@ -9,17 +9,19 @@ GraphQL MCP provides flexible configuration options for customizing your MCP ser
 
 ## Server Creation
 
-### From graphql-api
+### From Schema (Universal)
 
-The recommended way to create an MCP server using [graphql-api](https://graphql-api.parob.com/):
+Works with **any** GraphQL library that produces a `graphql-core` schema (Strawberry, Ariadne, Graphene, graphql-api, etc.):
 
 ```python
-from graphql_api import GraphQLAPI
+from graphql import GraphQLSchema
 from graphql_mcp.server import GraphQLMCP
 
-api = GraphQLAPI(root_type=MyAPI)
-server = GraphQLMCP.from_api(
-    api,
+# Your schema from Strawberry, Ariadne, Graphene, or any library
+schema = GraphQLSchema(...)
+
+server = GraphQLMCP(
+    schema=schema,
     name="My API",
     graphql_http=True,
     allow_mutations=True,
@@ -27,7 +29,24 @@ server = GraphQLMCP.from_api(
 )
 ```
 
-> **Note**: For detailed information on building GraphQL APIs, see the [graphql-api documentation](https://graphql-api.parob.com/).
+**Examples with popular libraries:**
+
+```python
+# Strawberry
+import strawberry
+schema = strawberry.Schema(query=Query)
+server = GraphQLMCP(schema=schema._schema, name="My API")
+
+# Ariadne
+from ariadne import make_executable_schema
+schema = make_executable_schema(type_defs, resolvers)
+server = GraphQLMCP(schema=schema, name="My API")
+
+# Graphene
+import graphene
+schema = graphene.Schema(query=Query)
+server = GraphQLMCP(schema=schema.graphql_schema, name="My API")
+```
 
 ### From Remote URL
 
@@ -43,22 +62,25 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
-### From Schema
+### From graphql-api (Recommended for New Projects)
 
-Use any `graphql-core` schema directly:
+If you're building a new GraphQL API, [graphql-api](https://graphql-api.parob.com/) provides a clean decorator-based approach:
 
 ```python
-from graphql import GraphQLSchema
+from graphql_api import GraphQLAPI
 from graphql_mcp.server import GraphQLMCP
 
-# Your schema from any library (Strawberry, Ariadne, etc.)
-schema = GraphQLSchema(...)
-
-server = GraphQLMCP(
-    schema=schema,
-    name="My Schema"
+api = GraphQLAPI(root_type=MyAPI)
+server = GraphQLMCP.from_api(
+    api,
+    name="My API",
+    graphql_http=True,
+    allow_mutations=True,
+    auth=None
 )
 ```
+
+> **Learn more**: See the [graphql-api documentation](https://graphql-api.parob.com/) for building GraphQL APIs with decorators.
 
 ## Configuration Options
 
