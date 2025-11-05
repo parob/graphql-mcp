@@ -99,6 +99,20 @@ wheels = [
 ]
 
 [[package]]
+name = "ariadne"
+version = "0.26.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/e5/86f530bb26105520ada238f734abfea2257b754ff08055eb7d542c657e74/ariadne-0.26.2.tar.gz", hash = "sha256:607617f82760c039b2137b7c1200b475ea90ccf4ca42c0994926c0d8fdede908", size = 81919 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/d2/fc23a8678c5d528d3f7202a749a7b7f1c0b7315b853143f3b3cf438d78a6/ariadne-0.26.2-py3-none-any.whl", hash = "sha256:8d272c73a751d30a1c9c367318a317483588a51c335351d7342f23f109816a92", size = 116792 },
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -495,6 +509,21 @@ wheels = [
 ]
 
 [[package]]
+name = "graphene"
+version = "3.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+    { name = "graphql-relay" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cc/f6/bf62ff950c317ed03e77f3f6ddd7e34aaa98fe89d79ebd660c55343d8054/graphene-3.4.3.tar.gz", hash = "sha256:2a3786948ce75fe7e078443d37f609cbe5bb36ad8d6b828740ad3b95ed1a0aaa", size = 44739 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/66/e0/61d8e98007182e6b2aca7cf65904721fb2e4bce0192272ab9cb6f69d8812/graphene-3.4.3-py2.py3-none-any.whl", hash = "sha256:820db6289754c181007a150db1f7fff544b94142b556d12e3ebc777a7bf36c71", size = 114894 },
+]
+
+[[package]]
 name = "graphql-api"
 version = "1.4.18"
 source = { registry = "https://pypi.org/simple" }
@@ -513,16 +542,16 @@ wheels = [
 
 [[package]]
 name = "graphql-core"
-version = "3.2.6"
+version = "3.2.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c4/16/7574029da84834349b60ed71614d66ca3afe46e9bf9c7b9562102acb7d4f/graphql_core-3.2.6.tar.gz", hash = "sha256:c08eec22f9e40f0bd61d805907e3b3b1b9a320bc606e23dc145eebca07c8fbab", size = 505353 }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/b5/ebc6fe3852e2d2fdaf682dddfc366934f3d2c9ef9b6d1b0e6ca348d936ba/graphql_core-3.2.5.tar.gz", hash = "sha256:e671b90ed653c808715645e3998b7ab67d382d55467b7e2978549111bbabf8d5", size = 504664 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/4f/7297663840621022bc73c22d7d9d80dbc78b4db6297f764b545cd5dd462d/graphql_core-3.2.6-py3-none-any.whl", hash = "sha256:78b016718c161a6fb20a7d97bbf107f331cd1afe53e45566c59f776ed7f0b45f", size = 203416 },
+    { url = "https://files.pythonhosted.org/packages/e3/dc/078bd6b304de790618ebb95e2aedaadb78f4527ac43a9ad8815f006636b6/graphql_core-3.2.5-py3-none-any.whl", hash = "sha256:2f150d5096448aa4f8ab26268567bbfeef823769893b39c1a2e1409590939c8a", size = 203189 },
 ]
 
 [[package]]
 name = "graphql-http"
-version = "2.1.0"
+version = "2.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "graphql-api" },
@@ -535,9 +564,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/e9/de0dae1b7c245019699822ef6ec6e95f95f7584165d111061096be47865b/graphql_http-2.1.0.tar.gz", hash = "sha256:b8964a721d99f6296c426c6161bc5eaf295bb05cdbd712a5c9915e7c447f786e", size = 146258 }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/55/909e83e5dc20f88ec88afa218e378d49ec32200dd67be361c42c2f04c1a2/graphql_http-2.1.5.tar.gz", hash = "sha256:a49c35175eefa484a024ff9ca989047652777f9d177ad7b0350be4bd0fd06a34", size = 147179 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/1a/a77e7a8eddbe9820e7a81cf3cdd2d075155d198bd5b1ed5d0233f65bd564/graphql_http-2.1.0-py3-none-any.whl", hash = "sha256:d649f86a5dda2d5b8a90177c50327785ff31ef15dcf1909d06b316983101e0cc", size = 49737 },
+    { url = "https://files.pythonhosted.org/packages/30/5e/f352d69cc04b840e4dd2e176ecf4083c2506757c447b1ba3cef16b8e70ed/graphql_http-2.1.5-py3-none-any.whl", hash = "sha256:e831ed91138e545d3a9a5bd9cdc326ea35efbd271f60c8fb8f8e6fba95bd34d4", size = 50577 },
 ]
 
 [[package]]
@@ -553,12 +582,14 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ariadne" },
     { name = "autoflake" },
     { name = "autopep8" },
     { name = "coverage" },
     { name = "faker" },
     { name = "flake8" },
     { name = "flake8-pyproject" },
+    { name = "graphene" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -572,22 +603,36 @@ requires-dist = [
     { name = "fastmcp" },
     { name = "graphql-api" },
     { name = "graphql-core" },
-    { name = "graphql-http" },
+    { name = "graphql-http", specifier = ">=2.1.5" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ariadne" },
     { name = "autoflake", specifier = ">=2.3.1" },
     { name = "autopep8", specifier = ">=2.3.2" },
     { name = "coverage" },
     { name = "faker" },
     { name = "flake8" },
     { name = "flake8-pyproject" },
+    { name = "graphene" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "strawberry-graphql" },
+]
+
+[[package]]
+name = "graphql-relay"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d1/13/98fbf8d67552f102488ffc16c6f559ce71ea15f6294728d33928ab5ff14d/graphql-relay-3.2.0.tar.gz", hash = "sha256:1ff1c51298356e481a0be009ccdff249832ce53f30559c1338f22a0e0d17250c", size = 50027 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/16/a4cf06adbc711bd364a73ce043b0b08d8fa5aae3df11b6ee4248bcdad2e0/graphql_relay-3.2.0-py3-none-any.whl", hash = "sha256:c9b22bd28b170ba1fe674c74384a8ff30a76c8e26f88ac3aa1584dd3179953e5", size = 16940 },
 ]
 
 [[package]]
