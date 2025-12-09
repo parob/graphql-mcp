@@ -517,6 +517,15 @@ def _convert_enum_names_to_values_in_output(data, graphql_return_type):
                     return enum_value_obj.value
             return data
 
+        # Handle JSON scalar type - parse JSON strings back to Python objects
+        elif HAS_GRAPHQL_API and named_type is GraphQLJSON:
+            if isinstance(data, str):
+                try:
+                    return json.loads(data)
+                except (json.JSONDecodeError, TypeError):
+                    pass  # Keep as string if parsing fails
+            return data
+
         elif isinstance(named_type, GraphQLObjectType):
             # Handle object types - recursively process fields
             if isinstance(data, dict):
