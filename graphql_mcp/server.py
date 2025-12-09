@@ -259,7 +259,7 @@ try:
         @classmethod
         def from_api(cls, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
             mcp = GraphQLMCP(
-                schema=api.build_schema()[0],
+                schema=api.schema(),
                 graphql_http=graphql_http,
                 allow_mutations=allow_mutations,
                 *args,
@@ -1469,20 +1469,8 @@ def _create_remote_tool_function(
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
-    # Add Context parameter for bearer token extraction
-    parameters.append(
-        inspect.Parameter(
-            "ctx",
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=None,
-            annotation=Optional[Context]
-        )
-    )
-    annotations["ctx"] = Optional[Context]
-
-    async def wrapper(**kwargs):
-        # Extract context and bearer token (only if configured to forward)
-        ctx = kwargs.pop("ctx", None)
+    async def wrapper(ctx: Optional[Context] = None, **kwargs):
+        # Extract bearer token from context (only if configured to forward)
         bearer_token = _extract_bearer_token_from_context(
             ctx) if forward_bearer_token else None
 
@@ -1614,17 +1602,6 @@ def _create_recursive_remote_tool_function(
             arg_defs.append(
                 f"${var_name}: {_get_graphql_type_name(arg_def.type)}")
 
-    # Add Context parameter for bearer token extraction
-    parameters.append(
-        inspect.Parameter(
-            "ctx",
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=None,
-            annotation=Optional[Context]
-        )
-    )
-    annotations["ctx"] = Optional[Context]
-
     # Build nested call string dynamically based on provided variables
     def _build_call_filtered(index: int, provided: set[str]) -> str:
         field_name, field_def = path[index]
@@ -1649,9 +1626,8 @@ def _create_recursive_remote_tool_function(
         return f"{call} {{ {_build_call_filtered(index + 1, provided)} }}"
 
     # Tool wrapper
-    async def wrapper(**kwargs):
-        # Extract context and bearer token (only if configured to forward)
-        ctx = kwargs.pop("ctx", None)
+    async def wrapper(ctx: Optional[Context] = None, **kwargs):
+        # Extract bearer token from context (only if configured to forward)
         bearer_token = _extract_bearer_token_from_context(
             ctx) if forward_bearer_token else None
 

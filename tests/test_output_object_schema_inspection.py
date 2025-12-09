@@ -61,7 +61,7 @@ async def test_output_scalar_types_schema_inspection():
                 id_field="abc123"
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -139,7 +139,7 @@ async def test_output_graphql_api_types_schema_inspection():
                 json_field={"key": "value"}
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -204,7 +204,7 @@ async def test_output_enum_types_schema_inspection():
                 priority=Priority.HIGH
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -253,7 +253,7 @@ async def test_output_list_types_schema_inspection():
                 prices=[10.5, 20.75, 30.0]
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -311,7 +311,7 @@ async def test_output_nested_objects_schema_inspection():
                 )
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -365,7 +365,7 @@ async def test_output_optional_fields_schema_inspection():
             else:
                 return OptionalOutput(required_field="required")
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -426,7 +426,7 @@ async def test_output_list_of_objects_schema_inspection():
                 total_count=2
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -494,7 +494,7 @@ async def test_output_complex_nested_structure():
                 ]
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

@@ -82,7 +82,7 @@ async def test_enum_value_to_name_mapping_in_lists():
                 processed_roles=processed_roles
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -141,7 +141,7 @@ async def test_enum_values_work():
         def send_responses(self, responses: List[Response]) -> ResponseStatus:
             return ResponseStatus(success=True, count=len(responses))
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -192,7 +192,7 @@ async def test_fully_capitalized_enums_work():
         def create_tasks(self, tasks: List[Task]) -> TaskStatus:
             return TaskStatus(success=True, count=len(tasks))
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

@@ -107,7 +107,7 @@ async def test_end_to_end_list_input_objects_original_scenario():
                 processed_messages=processed_messages
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

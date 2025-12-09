@@ -80,7 +80,7 @@ async def test_input_schema_shows_only_values():
         def create_task(self, task: ComplexTask) -> SimpleResponse:
             return SimpleResponse(message="Created", status=Status.SUCCESS)
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -126,7 +126,7 @@ async def test_simple_enum_input_output_conversion():
                 status=Status.SUCCESS
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -166,7 +166,7 @@ async def test_list_enum_input_output_conversion():
             task.status = Status.SUCCESS
             return task
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -213,7 +213,7 @@ async def test_enum_name_input_rejection():
         def process_message(self, priority: Priority) -> SimpleResponse:
             return SimpleResponse(message="OK", status=Status.SUCCESS)
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -246,7 +246,7 @@ async def test_mixed_enum_list_rejection():
         def create_task(self, task: ComplexTask) -> SimpleResponse:
             return SimpleResponse(message="Created", status=Status.SUCCESS)
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -289,7 +289,7 @@ async def test_direct_enum_return_value():
             """Return list of enum values directly."""
             return [Priority.URGENT, Priority.HIGH, Priority.LOW]
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -344,7 +344,7 @@ async def test_regression_original_validation_error():
                 for msg in messages
             ]
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

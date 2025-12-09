@@ -32,7 +32,7 @@ async def test_graphql_generated_tool_sends_enum_name_for_variables():
                     key = PreferenceKey(key)
             return key.value
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

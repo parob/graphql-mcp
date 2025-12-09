@@ -86,7 +86,7 @@ async def test_list_enum_field_normalization():
                 processed_messages=processed_messages
             )
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -164,7 +164,7 @@ async def test_mixed_enum_field_types():
         def create_tasks(self, tasks: List[Task]) -> TaskResult:
             return TaskResult(success=True, processed_count=len(tasks))
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

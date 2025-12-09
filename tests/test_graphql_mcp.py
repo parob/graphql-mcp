@@ -43,7 +43,7 @@ async def test_from_graphql_schema():
             """Adds two numbers."""
             return a + b
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     # Ensure the schema actually mapped the argument to a GraphQL Enum
     try:
@@ -115,7 +115,7 @@ async def test_from_graphql_schema_nested():
         def author(self) -> Author:
             return Author()
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     mcp_server = add_tools_from_schema(schema)
 
@@ -150,7 +150,7 @@ async def test_from_graphql_schema_nested_mutation():
         def book(self) -> Book:
             return Book()
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     mcp_server = add_tools_from_schema(schema)
 
@@ -244,7 +244,7 @@ async def test_from_graphql_schema_advanced():
             items_db[id]["status"] = Status(status)
             return Item(**items_db[id])
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -299,7 +299,7 @@ async def test_from_graphql_schema_with_existing_server():
         def new_tool(self) -> str:
             return "new"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     # 1. Create a server with a pre-existing tool
     mcp_server = FastMCP()
@@ -345,7 +345,7 @@ async def test_from_schema_class_method():
         def hello(self) -> str:
             return "world"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     mcp_server = GraphQLMCP(schema=schema, name="TestServer")
     assert isinstance(mcp_server, FastMCP)
@@ -501,7 +501,7 @@ async def test_from_graphql_schema_with_pydantic_input():
             assert input["price"] == 99.99
             return Item()
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     mcp_server = add_tools_from_schema(schema)
 
@@ -537,7 +537,7 @@ async def test_from_graphql_schema_with_pydantic_output():
             """Gets an item."""
             return ItemOutput(name="A Pydantic Item", price=42.0, is_offer=True)
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     mcp_server = add_tools_from_schema(schema)
 
@@ -586,7 +586,7 @@ async def test_deep_nested_mutation():
         def user(self) -> User:
             return User()
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -623,7 +623,7 @@ async def test_deep_nested_query_with_args():
         def calc1(self) -> CalculatorLevel1:
             return CalculatorLevel1()
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -653,7 +653,7 @@ async def test_from_graphql_schema_async_field():
             await asyncio.sleep(0.01)
             return f"Hello, {name}"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
 
     mcp_server = add_tools_from_schema(schema)
 

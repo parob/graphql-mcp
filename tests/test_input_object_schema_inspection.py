@@ -60,7 +60,7 @@ async def test_input_object_type_schema_inspection():
             """Creates a user with both user and address input objects."""
             return f"User: {user_input.name} at {address_input.city}"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -173,7 +173,7 @@ async def test_json_scalar_type_schema_inspection():
             """Creates multiple items with multiple JSON inputs."""
             return "Items created"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -238,7 +238,7 @@ async def test_mixed_input_types_schema_inspection():
             """Creates a user with mixed input types."""
             return "User created with metadata"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -313,7 +313,7 @@ async def test_functional_behavior_with_schema_inspection():
             assert isinstance(metadata, dict)
             return f"JSONScalar: {metadata.get('key')} = {metadata.get('value')}"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -359,7 +359,7 @@ async def test_optional_input_object_schema_inspection():
                 return f"User: {user_input.name}"
             return "No user created"
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
@@ -434,7 +434,7 @@ async def test_list_of_input_objects_schema_inspection():
                 print(f"First task: {tasks[0]}")
             return BatchResult(success=True, processed_count=len(tasks) if tasks else 0)
 
-    schema, _ = api.build_schema()
+    schema = api.schema()
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:

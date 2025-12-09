@@ -133,7 +133,7 @@ def test_graphql_api_enum_behavior():
     assert result_enum.data == {'checkTag': True}
 
     # Schema should contain TagEnum
-    schema, _ = api.build_schema()
+    schema = api.schema()
     assert 'TagEnum' in schema.type_map
 
     # Field argument type should be NonNull(TagEnum)
