@@ -7,9 +7,9 @@ from typing import Annotated
 def _check_graphql_api_directive_support():
     """Check if graphql-api has argument directive support (1.6.0+)."""
     try:
-        from graphql_api import GraphQLAPI, field
-        from graphql_api.directives import SchemaDirective
-        from graphql_api.mapper import extract_annotated_directives
+        from graphql_api import GraphQLAPI, field  # noqa: F401
+        from graphql_api.directives import SchemaDirective  # noqa: F401
+        from graphql_api.mapper import extract_annotated_directives  # noqa: F401
         return True
     except ImportError:
         return False

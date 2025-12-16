@@ -272,7 +272,6 @@ try:
                 schema=api.schema(),
                 graphql_http=graphql_http,
                 allow_mutations=allow_mutations,
-                api=api,  # Pass api to constructor for @mcp_hidden support
                 *args,
                 **kwargs
             )
@@ -611,6 +610,7 @@ def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0) 
         return "{ __typename }"
 
     return f"{{ {', '.join(selections)} }}"
+
 
 def _is_arg_hidden(arg_def: GraphQLArgument) -> bool:
     """
