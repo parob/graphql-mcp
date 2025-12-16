@@ -1,4 +1,4 @@
-"""Tests for MCP-hidden arguments feature."""
+"""Tests for MCP-hidden arguments feature using @mcpHidden directive."""
 import pytest
 import inspect
 from typing import Annotated
@@ -143,25 +143,6 @@ class TestMcpHiddenDirective:
 class TestMcpHiddenValidation:
     """Tests for validation of hidden arguments."""
 
-    def test_hidden_arg_without_default_raises_error_via_config(self):
-        """Hidden argument without default should raise ValueError (via config)."""
-        from graphql import build_schema
-        from graphql_mcp import GraphQLMCP
-
-        # Create a schema with a required argument (no default)
-        schema = build_schema("""
-            type Query {
-                search(query: String!, requiredArg: String!): String
-            }
-        """)
-
-        # Try to hide the required argument - should raise error
-        with pytest.raises(ValueError, match="must have defaults"):
-            GraphQLMCP(
-                schema=schema,
-                hidden_args={"search": ["requiredArg"]}
-            )
-
     def test_hidden_arg_without_default_raises_error_via_directive(self):
         """Hidden argument without default should raise ValueError (via directive)."""
         if not _check_graphql_api_directive_support():
@@ -187,27 +168,47 @@ class TestMcpHiddenValidation:
         with pytest.raises(ValueError, match="must have defaults"):
             GraphQLMCP.from_api(api)
 
-
-class TestHiddenArgsConfig:
-    """Tests for hidden_args config parameter."""
-
-    def test_hidden_args_config_hides_arguments(self):
-        """hidden_args config should hide arguments from MCP tools."""
+    def test_hidden_arg_without_default_raises_error_via_sdl(self):
+        """Hidden argument without default via SDL should raise ValueError."""
         from graphql import build_schema
         from graphql_mcp import GraphQLMCP
 
-        # Create a schema with arguments
+        # Schema with hidden arg that has no default
         schema = build_schema("""
+            directive @mcpHidden on ARGUMENT_DEFINITION
+
             type Query {
-                search(query: String!, internalFlag: Boolean = false, debugMode: Boolean = false): String
+                badQuery(query: String!, hiddenRequired: String! @mcpHidden): String
             }
         """)
 
-        # Create MCP with hidden_args config (uses camelCase matching GraphQL)
-        mcp = GraphQLMCP(
-            schema=schema,
-            hidden_args={"search": ["internalFlag", "debugMode"]}
-        )
+        with pytest.raises(ValueError, match="must have defaults"):
+            GraphQLMCP(schema=schema)
+
+
+class TestHiddenArgsSDLDirective:
+    """Tests for @mcpHidden directive via SDL (works with any library)."""
+
+    def test_sdl_directive_hides_arguments(self):
+        """@mcpHidden directive in SDL should hide arguments from MCP tools."""
+        from graphql import build_schema
+        from graphql_mcp import GraphQLMCP
+
+        # Define schema with @mcpHidden directive in SDL
+        # This works with any library that builds from SDL
+        schema = build_schema("""
+            directive @mcpHidden on ARGUMENT_DEFINITION
+
+            type Query {
+                search(
+                    query: String!
+                    internalFlag: Boolean = false @mcpHidden
+                    debugMode: Boolean = false @mcpHidden
+                ): String
+            }
+        """)
+
+        mcp = GraphQLMCP(schema=schema)
 
         # Get the search tool
         search_tool = None
@@ -226,25 +227,24 @@ class TestHiddenArgsConfig:
         # 'query' should be visible
         assert 'query' in param_names, "query should be visible"
 
-        # Hidden args should NOT be present
-        assert 'internalFlag' not in param_names, "internalFlag should be hidden"
-        assert 'debugMode' not in param_names, "debugMode should be hidden"
+        # Hidden args should NOT be present (directive is in ast_node.directives)
+        assert 'internalFlag' not in param_names, "internalFlag should be hidden via SDL directive"
+        assert 'debugMode' not in param_names, "debugMode should be hidden via SDL directive"
 
-    def test_hidden_args_graphql_schema_unchanged(self):
+    def test_sdl_graphql_schema_unchanged(self):
         """GraphQL schema should still have all arguments even when hidden from MCP."""
         from graphql import build_schema
         from graphql_mcp import GraphQLMCP
 
         schema = build_schema("""
+            directive @mcpHidden on ARGUMENT_DEFINITION
+
             type Query {
-                search(query: String!, internalFlag: Boolean = false): String
+                search(query: String!, internalFlag: Boolean = false @mcpHidden): String
             }
         """)
 
-        mcp = GraphQLMCP(
-            schema=schema,
-            hidden_args={"search": ["internalFlag"]}
-        )
+        mcp = GraphQLMCP(schema=schema)
 
         # GraphQL schema should still have the hidden arg
         assert 'internalFlag' in mcp.schema.query_type.fields['search'].args
@@ -262,30 +262,16 @@ class TestHelperFunctions:
         assert _to_snake_case("simple") == "simple"
         assert _to_snake_case("ABC") == "a_b_c"
 
-    def test_get_hidden_args_without_config(self):
-        """_get_hidden_args_for_field should return empty set without config."""
-        from graphql_mcp.server import _get_hidden_args_for_field
-        from fastmcp import FastMCP
-
-        # Plain FastMCP doesn't have .hidden_args attribute
-        server = FastMCP()
-        hidden = _get_hidden_args_for_field(server, "someField", False)
-        assert hidden == set()
-
-    def test_is_arg_hidden_with_config(self):
-        """Test _is_arg_hidden uses config set."""
+    def test_is_arg_hidden_plain_arg(self):
+        """Test _is_arg_hidden returns False for plain arguments."""
         from graphql import GraphQLArgument, GraphQLString
         from graphql_mcp.server import _is_arg_hidden
 
         # Create a plain argument (no directive)
         arg = GraphQLArgument(GraphQLString)
 
-        # Without config, should not be hidden
-        assert _is_arg_hidden('someArg', arg, set()) is False
-
-        # With config, should be hidden
-        assert _is_arg_hidden('someArg', arg, {'someArg'}) is True
-        assert _is_arg_hidden('otherArg', arg, {'someArg'}) is False
+        # Should not be hidden
+        assert _is_arg_hidden(arg) is False
 
     def test_is_arg_hidden_with_directive(self):
         """Test _is_arg_hidden detects directive on argument."""
@@ -317,8 +303,29 @@ class TestHelperFunctions:
         hidden_arg = test_field.args['hidden']
 
         # Test detection
-        assert _is_arg_hidden('visible', visible_arg, set()) is False
-        assert _is_arg_hidden('hidden', hidden_arg, set()) is True
+        assert _is_arg_hidden(visible_arg) is False
+        assert _is_arg_hidden(hidden_arg) is True
+
+    def test_is_arg_hidden_with_sdl_directive(self):
+        """Test _is_arg_hidden detects SDL directive on argument."""
+        from graphql import build_schema
+        from graphql_mcp.server import _is_arg_hidden
+
+        schema = build_schema("""
+            directive @mcpHidden on ARGUMENT_DEFINITION
+
+            type Query {
+                search(visible: String!, hidden: String = "" @mcpHidden): String
+            }
+        """)
+
+        search_field = schema.query_type.fields['search']
+        visible_arg = search_field.args['visible']
+        hidden_arg = search_field.args['hidden']
+
+        # Test detection
+        assert _is_arg_hidden(visible_arg) is False
+        assert _is_arg_hidden(hidden_arg) is True
 
 
 class TestMcpHiddenDirectiveExport:

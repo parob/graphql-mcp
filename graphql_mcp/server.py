@@ -165,8 +165,6 @@ class GraphQLMCP(FastMCP):  # type: ignore
         self, schema: GraphQLSchema, graphql_http: bool = True,
         graphql_http_kwargs: Optional[Dict[str, Any]] = None,
         allow_mutations: bool = True,
-        hidden_args: Optional[Dict[str, list]] = None,
-        api: Optional[Any] = None,  # For @mcp_hidden decorator support with graphql-api
         *args, **kwargs
     ):
         """
@@ -177,18 +175,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
             graphql_http: Whether to enable GraphQL HTTP endpoint
             graphql_http_kwargs: Additional kwargs for GraphQL HTTP
             allow_mutations: Whether to expose mutations as tools
-            hidden_args: Dict mapping field names to lists of argument names to hide from MCP.
-                         Field names should be in camelCase (as in GraphQL schema).
-                         Argument names should be in camelCase (as in GraphQL schema).
-                         Example: {"search": ["internalFlag", "debugMode"]}
-            api: GraphQLAPI object (for @mcp_hidden decorator support)
         """
         self.schema = schema
         self.graphql_http = graphql_http
         self.graphql_http_kwargs = graphql_http_kwargs
         self.allow_mutations = allow_mutations
-        self.hidden_args = hidden_args or {}
-        self.api = api
 
         super().__init__(*args, **kwargs)
         add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
@@ -621,67 +612,28 @@ def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0) 
 
     return f"{{ {', '.join(selections)} }}"
 
-
-def _get_hidden_args_for_field(
-    mcp_server: "GraphQLMCP",
-    field_name: str,
-    is_mutation: bool
-) -> set:
+def _is_arg_hidden(arg_def: GraphQLArgument) -> bool:
     """
-    Get argument names marked as hidden from MCP for a field via config.
+    Check if an argument should be hidden from MCP via @mcpHidden directive.
 
-    This only checks the explicit hidden_args config on the GraphQLMCP instance.
-    The @mcpHidden directive on arguments is checked separately in _is_arg_hidden().
+    Checks two sources:
+    1. @mcpHidden directive via graphql-api's _applied_directives attribute
+    2. @mcpHidden directive via standard graphql-core ast_node.directives (SDL)
 
     Args:
-        mcp_server: The GraphQLMCP instance
-        field_name: The GraphQL field name (in camelCase)
-        is_mutation: Whether this is a mutation field (unused, kept for API compatibility)
-
-    Returns:
-        Set of argument names (in camelCase, matching GraphQL schema) that should be hidden
-    """
-    hidden_args: set = set()
-
-    # Check explicit hidden_args config (works with any schema source)
-    explicit_config = getattr(mcp_server, 'hidden_args', {})
-    if field_name in explicit_config:
-        # Config uses camelCase arg names (matching GraphQL schema)
-        hidden_args.update(explicit_config[field_name])
-
-    return hidden_args
-
-
-def _is_arg_hidden(arg_name: str, arg_def: GraphQLArgument, hidden_args: set) -> bool:
-    """
-    Check if an argument should be hidden from MCP.
-
-    Checks three sources:
-    1. The hidden_args set (from config parameter on GraphQLMCP)
-    2. @mcpHidden directive via graphql-api's _applied_directives attribute
-    3. @mcpHidden directive via standard graphql-core ast_node.directives
-
-    Args:
-        arg_name: The argument name (in camelCase)
         arg_def: The GraphQL argument definition
-        hidden_args: Set of hidden arg names from config
 
     Returns:
-        True if the argument should be hidden from MCP
+        True if the argument has @mcpHidden directive
     """
-    # Check explicit hidden_args config
-    if arg_name in hidden_args:
-        return True
-
-    # Check for @mcpHidden directive on the argument
-    # Method 1: graphql-api stores applied directives in _applied_directives attribute
+    # 1. Check for @mcpHidden directive via graphql-api's _applied_directives
     applied_directives = getattr(arg_def, '_applied_directives', [])
     for applied in applied_directives:
         directive = getattr(applied, 'directive', None)
         if directive and getattr(directive, 'name', None) == 'mcpHidden':
             return True
 
-    # Method 2: standard graphql-core stores directives in ast_node.directives
+    # 2. Check for @mcpHidden directive via standard graphql-core ast_node.directives
     ast_node = getattr(arg_def, 'ast_node', None)
     if ast_node:
         directives = getattr(ast_node, 'directives', None) or []
@@ -729,19 +681,14 @@ def _add_tools_from_fields(
 ):
     """Internal helper to add tools from a dictionary of fields."""
     for field_name, field in fields.items():
-        # Get hidden args from config/decorator for this field
-        hidden_args = _get_hidden_args_for_field(server, field_name, is_mutation)
-
         # Check all arguments for hidden status and validate defaults
         for arg_name, arg_def in field.args.items():
-            # _is_arg_hidden expects camelCase arg names (matching GraphQL schema)
-            if _is_arg_hidden(arg_name, arg_def, hidden_args):
+            if _is_arg_hidden(arg_def):
                 _validate_hidden_arg_has_default(field_name, arg_name, arg_def)
 
         snake_case_name = _to_snake_case(field_name)
         tool_func = _create_tool_function(
-            field_name, field, schema, is_mutation=is_mutation,
-            hidden_args=hidden_args
+            field_name, field, schema, is_mutation=is_mutation
         )
         tool_decorator = server.tool(name=snake_case_name)
         tool_decorator(tool_func)
@@ -860,7 +807,6 @@ def _create_tool_function(
     field: GraphQLField,
     schema: GraphQLSchema,
     is_mutation: bool = False,
-    hidden_args: Optional[set] = None,
 ) -> Callable:
     """
     Creates a function for LOCAL GraphQL schema execution.
@@ -874,18 +820,14 @@ def _create_tool_function(
         field: GraphQL field definition
         schema: GraphQL schema
         is_mutation: Whether this is a mutation
-        hidden_args: Set of argument names (camelCase, matching GraphQL) to hide from MCP
     """
-    hidden_args = hidden_args or set()
-
     parameters = []
     arg_defs = []
     annotations = {}
     for arg_name, arg_def in field.args.items():
         # Skip hidden arguments - they won't be exposed to MCP
-        # Checks: hidden_args config, @mcp_hidden decorator, and GraphQLArgument.extensions['mcpHidden']
-        # Note: hidden_args contains camelCase names (matching GraphQL schema)
-        if _is_arg_hidden(arg_name, arg_def, hidden_args):
+        # Check for @mcpHidden directive on the argument
+        if _is_arg_hidden(arg_def):
             continue
 
         arg_def: GraphQLArgument
@@ -1355,7 +1297,6 @@ def _create_recursive_tool_function(
     path: list[tuple[str, GraphQLField]],
     operation_type: str,
     schema: GraphQLSchema,
-    hidden_args_per_field: Optional[dict[str, set]] = None,
 ) -> Tuple[str, Callable]:
     """Builds a FastMCP tool that resolves an arbitrarily deep field chain.
 
@@ -1363,24 +1304,16 @@ def _create_recursive_tool_function(
         path: List of (field_name, field_def) tuples representing the nested path
         operation_type: "query" or "mutation"
         schema: GraphQL schema
-        hidden_args_per_field: Dict mapping field names to sets of hidden arg names (snake_case)
     """
-    hidden_args_per_field = hidden_args_per_field or {}
-
     # Collect parameters & GraphQL variable definitions
     parameters: list[inspect.Parameter] = []
     annotations: dict[str, Any] = {}
     arg_defs: list[str] = []
 
     for idx, (field_name, field_def) in enumerate(path):
-        # Get hidden args for this field in the path
-        field_hidden_args = hidden_args_per_field.get(field_name, set())
-
         for arg_name, arg_def in field_def.args.items():
-            # Skip hidden arguments
-            # Checks: hidden_args config, @mcp_hidden decorator, and GraphQLArgument.extensions['mcpHidden']
-            # Note: hidden_args contains camelCase names (matching GraphQL schema)
-            if _is_arg_hidden(arg_name, arg_def, field_hidden_args):
+            # Skip hidden arguments - check for @mcpHidden directive
+            if _is_arg_hidden(arg_def):
                 continue
 
             # Use plain arg name for the leaf field to match expectations; prefix for others.
@@ -1407,17 +1340,13 @@ def _create_recursive_tool_function(
     # Build nested call string
     def _build_call(index: int) -> str:
         field_name, field_def = path[index]
-        # Get hidden args for this field
-        field_hidden_args = hidden_args_per_field.get(field_name, set())
 
         # Build argument string for this field (excluding hidden args)
         if field_def.args:
             arg_str_parts = []
             for arg_name, arg_def in field_def.args.items():
-                # Skip hidden arguments
-                # Checks: hidden_args config, @mcp_hidden decorator, and GraphQLArgument.extensions['mcpHidden']
-                # Note: hidden_args contains camelCase names (matching GraphQL schema)
-                if _is_arg_hidden(arg_name, arg_def, field_hidden_args):
+                # Skip hidden arguments - check for @mcpHidden directive
+                if _is_arg_hidden(arg_def):
                     continue
 
                 var_name = arg_name if index == len(
@@ -1605,20 +1534,15 @@ def _add_tools_from_fields_remote(
 ):
     """Add tools from fields that execute against a remote GraphQL server."""
     for field_name, field in fields.items():
-        # Get hidden args from config/decorator for this field
-        # Note: For remote schemas, this will usually be empty since there's no Python source
-        hidden_args = _get_hidden_args_for_field(server, field_name, is_mutation)
-
         # Check all arguments for hidden status and validate defaults
         for arg_name, arg_def in field.args.items():
-            # _is_arg_hidden expects camelCase arg names (matching GraphQL schema)
-            if _is_arg_hidden(arg_name, arg_def, hidden_args):
+            if _is_arg_hidden(arg_def):
                 _validate_hidden_arg_has_default(field_name, arg_name, arg_def)
 
         snake_case_name = _to_snake_case(field_name)
         tool_func = _create_remote_tool_function(
             field_name, field, schema, remote_client, is_mutation=is_mutation,
-            forward_bearer_token=forward_bearer_token, hidden_args=hidden_args
+            forward_bearer_token=forward_bearer_token
         )
         tool_decorator = server.tool(name=snake_case_name)
         tool_decorator(tool_func)
@@ -1631,7 +1555,6 @@ def _create_remote_tool_function(
     remote_client: RemoteGraphQLClient,
     is_mutation: bool = False,
     forward_bearer_token: bool = False,
-    hidden_args: Optional[set] = None,
 ) -> Callable:
     """
     Creates a function for REMOTE GraphQL server execution.
@@ -1642,19 +1565,14 @@ def _create_remote_tool_function(
 
     :param forward_bearer_token: Whether to extract bearer token from MCP request
                                context and forward it to the remote server.
-    :param hidden_args: Set of argument names (camelCase, matching GraphQL) to hide from MCP
     """
-    hidden_args = hidden_args or set()
-
     parameters = []
     arg_defs = []
     annotations = {}
 
     for arg_name, arg_def in field.args.items():
-        # Skip hidden arguments - they won't be exposed to MCP
-        # Checks: hidden_args config, @mcp_hidden decorator, and GraphQLArgument.extensions['mcpHidden']
-        # Note: hidden_args contains camelCase names (matching GraphQL schema)
-        if _is_arg_hidden(arg_name, arg_def, hidden_args):
+        # Skip hidden arguments - check for @mcpHidden directive
+        if _is_arg_hidden(arg_def):
             continue
 
         arg_def: GraphQLArgument
@@ -1777,7 +1695,6 @@ def _create_recursive_remote_tool_function(
     schema: GraphQLSchema,
     remote_client: RemoteGraphQLClient,
     forward_bearer_token: bool = False,
-    hidden_args_per_field: Optional[dict[str, set]] = None,
 ) -> Tuple[str, Callable]:
     """Builds a FastMCP tool that resolves a nested field chain against a remote server.
 
@@ -1787,24 +1704,16 @@ def _create_recursive_remote_tool_function(
         schema: GraphQL schema
         remote_client: Client for remote GraphQL server
         forward_bearer_token: Whether to forward bearer tokens
-        hidden_args_per_field: Dict mapping field names to sets of hidden arg names (snake_case)
     """
-    hidden_args_per_field = hidden_args_per_field or {}
-
     # Collect parameters & GraphQL variable definitions
     parameters: list[inspect.Parameter] = []
     annotations: dict[str, Any] = {}
     arg_defs: list[str] = []
 
     for idx, (field_name, field_def) in enumerate(path):
-        # Get hidden args for this field in the path
-        field_hidden_args = hidden_args_per_field.get(field_name, set())
-
         for arg_name, arg_def in field_def.args.items():
-            # Skip hidden arguments
-            # Checks: hidden_args config, @mcp_hidden decorator, and GraphQLArgument.extensions['mcpHidden']
-            # Note: hidden_args contains camelCase names (matching GraphQL schema)
-            if _is_arg_hidden(arg_name, arg_def, field_hidden_args):
+            # Skip hidden arguments - check for @mcpHidden directive
+            if _is_arg_hidden(arg_def):
                 continue
 
             var_name = arg_name if idx == len(
@@ -1830,16 +1739,12 @@ def _create_recursive_remote_tool_function(
     # Build nested call string dynamically based on provided variables
     def _build_call_filtered(index: int, provided: set[str]) -> str:
         field_name, field_def = path[index]
-        # Get hidden args for this field
-        field_hidden_args = hidden_args_per_field.get(field_name, set())
 
         if field_def.args:
             arg_str_parts: list[str] = []
             for arg_name, arg_def in field_def.args.items():
-                # Skip hidden arguments
-                # Checks: hidden_args config, @mcp_hidden decorator, and GraphQLArgument.extensions['mcpHidden']
-                # Note: hidden_args contains camelCase names (matching GraphQL schema)
-                if _is_arg_hidden(arg_name, arg_def, field_hidden_args):
+                # Skip hidden arguments - check for @mcpHidden directive
+                if _is_arg_hidden(arg_def):
                     continue
 
                 var_name = arg_name if index == len(
