@@ -275,6 +275,7 @@ try:
                 *args,
                 **kwargs
             )
+            mcp.api = api  # Store the api for later use in http_app
             return mcp
 
 
