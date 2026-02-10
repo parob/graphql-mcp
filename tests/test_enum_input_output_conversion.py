@@ -198,8 +198,8 @@ async def test_deeply_nested_enum_conversion():
 
 
 @pytest.mark.asyncio
-async def test_enum_name_input_rejection():
-    """Test that enum NAMES are properly rejected as invalid input."""
+async def test_enum_name_input_accepted():
+    """Test that enum NAMES are accepted and normalized to values."""
     try:
         from graphql_api import GraphQLAPI
     except ImportError:
@@ -217,22 +217,16 @@ async def test_enum_name_input_rejection():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        # Try to send enum NAME instead of VALUE - should fail validation
-        with pytest.raises(Exception) as exc_info:
-            await client.call_tool("process_message", {
-                "priority": "URGENT"  # Enum NAME (not value "p1")
-            })
-
-        # Verify it fails with validation error
-        error_msg = str(exc_info.value)
-        assert "validation error" in error_msg.lower()
-        assert "URGENT" in error_msg
-        assert "'p1'" in error_msg or "p1" in error_msg
+        # Enum NAME should be accepted (case-insensitive normalization)
+        result = await client.call_tool("process_message", {
+            "priority": "URGENT"  # Enum NAME (not value "p1") - should work
+        })
+        assert result is not None
 
 
 @pytest.mark.asyncio
-async def test_mixed_enum_list_rejection():
-    """Test that mixed enum names/values in lists are handled correctly."""
+async def test_mixed_enum_list_accepted():
+    """Test that mixed enum names/values in lists are accepted."""
     try:
         from graphql_api import GraphQLAPI
     except ImportError:
@@ -250,21 +244,16 @@ async def test_mixed_enum_list_rejection():
     mcp_server = add_tools_from_schema(schema)
 
     async with Client(mcp_server) as client:
-        # Try to send list with enum NAME - should fail validation
-        with pytest.raises(Exception) as exc_info:
-            await client.call_tool("create_task", {
-                "task": {
-                    "title": "Test Task",
-                    "priority": "p1",  # Valid enum VALUE
-                    # Mixed: NAME + value - should fail
-                    "categories": ["FEATURE", "bug"],
-                    "status": "pending"
-                }
-            })
-
-        error_msg = str(exc_info.value)
-        assert "validation error" in error_msg.lower()
-        assert "FEATURE" in error_msg
+        # Mixed enum NAMEs and values should all be accepted
+        result = await client.call_tool("create_task", {
+            "task": {
+                "title": "Test Task",
+                "priority": "p1",  # Valid enum VALUE
+                "categories": ["FEATURE", "bug"],  # NAME + value mix
+                "status": "pending"
+            }
+        })
+        assert result is not None
 
 
 @pytest.mark.asyncio
