@@ -363,20 +363,40 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
         else:
             # For string enums, show ONLY enum values in schema (Pydantic-consistent)
             # This matches Pydantic's model_dump(mode="json") behavior
+            # Use BeforeValidator for case-insensitive matching so LLMs can pass
+            # enum names ("ASSISTANT") or values ("assistant") interchangeably
+            from typing import Annotated
+            from pydantic import BeforeValidator
+
             schema_values = []
+            # Build lookup: lowercase(name) → value, lowercase(value) → value
+            enum_lookup = {}
 
             for name, enum_value_obj in graphql_type.values.items():
                 if enum_value_obj.value is not None:
-                    # Only add enum values (e.g., "#ff0000", "p1") to the schema
-                    schema_values.append(str(enum_value_obj.value))
+                    val = str(enum_value_obj.value)
+                    schema_values.append(val)
+                    enum_lookup[val.lower()] = val
+                    enum_lookup[name.lower()] = val
                 else:
                     # Fallback to name if value is None
                     schema_values.append(name)
+                    enum_lookup[name.lower()] = name
 
             # Remove duplicates while preserving order
             schema_values = list(dict.fromkeys(schema_values))
 
-            return Literal[tuple(schema_values)]  # type: ignore
+            literal_type = Literal[tuple(schema_values)]  # type: ignore
+
+            # Closure to capture enum_lookup
+            def _make_enum_normalizer(lookup):
+                def _normalize(v):
+                    if isinstance(v, str):
+                        return lookup.get(v.lower(), v)
+                    return v
+                return _normalize
+
+            return Annotated[literal_type, BeforeValidator(_make_enum_normalizer(enum_lookup))]  # type: ignore
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
