@@ -778,6 +778,15 @@ DEBUG: GraphQL Request Processing:
                     raise Exception(
                         f"Failed to execute query: {response.status} - {text}")
 
+                try:
+                    content_type = response.content_type
+                    if isinstance(content_type, str) and 'json' not in content_type and 'graphql' not in content_type:
+                        text = await response.text()
+                        raise Exception(
+                            f"Remote endpoint returned non-JSON response (content-type: {content_type})")
+                except (AttributeError, TypeError):
+                    pass
+
                 result = await response.json()
 
                 if "errors" in result:

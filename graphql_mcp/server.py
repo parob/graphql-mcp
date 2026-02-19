@@ -1767,7 +1767,7 @@ def _create_remote_tool_function(
         arg_str = ", ".join(
             f"{name}: ${name}" for name, value in processed_kwargs.items() if value is not Undefined
         )
-        selection_set = _build_selection_set(field.type)
+        selection_set = _build_selection_set(field.type, max_depth=2)
         query_str = f"{operation_type} ({', '.join(arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
         if not arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
@@ -1792,12 +1792,9 @@ def _create_remote_tool_function(
                     "Authentication failed for the remote GraphQL endpoint.")
             raise ToolError(f"Remote GraphQL execution failed: {message}")
 
-    # Add return type annotation
-    return_type = _map_graphql_type_to_python_type(field.type)
-    annotations['return'] = return_type
-
-    # Create signature
-    signature = inspect.Signature(parameters, return_annotation=return_type)
+    # Create signature (no return annotation — remote queries fetch a subset of fields,
+    # so the full GraphQL type cannot be used as an output schema for validation)
+    signature = inspect.Signature(parameters)
     wrapper.__signature__ = signature
     wrapper.__doc__ = field.description
     wrapper.__name__ = _to_snake_case(field_name)
@@ -1876,7 +1873,7 @@ def _create_recursive_remote_tool_function(
             call = field_name
 
         if index == len(path) - 1:
-            selection_set = _build_selection_set(field_def.type)
+            selection_set = _build_selection_set(field_def.type, max_depth=2)
             return f"{call} {selection_set}"
 
         return f"{call} {{ {_build_call_filtered(index + 1, provided)} }}"
@@ -1983,11 +1980,8 @@ def _create_recursive_remote_tool_function(
     tool_name = _to_snake_case("_".join(name for name, _ in path))
 
     # Add return type annotation
-    return_type = _map_graphql_type_to_python_type(path[-1][1].type)
-    annotations['return'] = return_type
-
-    # Create signature
-    signature = inspect.Signature(parameters, return_annotation=return_type)
+    # Create signature (no return annotation — remote queries fetch a subset of fields)
+    signature = inspect.Signature(parameters)
     wrapper.__signature__ = signature
     wrapper.__doc__ = path[-1][1].description
     wrapper.__name__ = tool_name

@@ -675,7 +675,7 @@
                             alignItems: 'center'
                         }
                     }, [
-                        // URL input (360px)
+                        // URL input (fills available space, shrinks first)
                         React.createElement('input', {
                             key: 'url-input',
                             type: 'text',
@@ -683,19 +683,28 @@
                             onChange: (e) => setMcpUrl(e.target.value),
                             placeholder: '/mcp',
                             style: {
-                                width: '360px',
+                                flex: '1 1 200px',
+                                minWidth: '120px',
                                 padding: '6px 8px',
                                 fontSize: '13px',
                                 border: '1px solid #ddd',
                                 borderRadius: '6px',
                                 fontFamily: 'system-ui, monospace',
                                 outline: 'none',
-                                transition: 'border-color 0.2s',
-                                ':focus': {
-                                    borderColor: '#1976d2'
-                                }
+                                transition: 'border-color 0.2s'
                             }
                         }),
+
+                        // Button group (stays together when wrapping)
+                        React.createElement('div', {
+                            key: 'button-group',
+                            style: {
+                                display: 'flex',
+                                gap: '8px',
+                                alignItems: 'center',
+                                flexShrink: 0
+                            }
+                        }, [
 
                         // Status display (compact)
                         React.createElement('div', {
@@ -837,318 +846,200 @@
                                 }
                             }, authType === 'bearer' ? 'Bearer Token' : authType === 'apikey' ? 'API Key' : authType === 'custom' ? 'Custom Headers' : authType.toUpperCase()) : null
                         ])
-                    ]),
+                    ]) ]),
 
-                    // Authentication section (modern dropdown)
+                    // Authentication modal overlay
                     showAuth ? React.createElement('div', {
-                        key: 'auth-section',
-                        style: {
-                            marginBottom: '12px',
-                            border: '1px solid #ddd',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            backgroundColor: '#fff'
-                        }
-                    }, [
-
-                        // Auth form (modern styling)
-                        React.createElement('div', {
-                            key: 'auth-form',
-                            style: {
-                                padding: '16px',
-                                fontSize: '13px',
-                                fontFamily: 'system-ui, -apple-system, sans-serif !important'
+                        key: 'auth-overlay',
+                        onMouseDown: (e) => {
+                            if (e.target === e.currentTarget) {
+                                applyAuthentication();
+                                setShowAuth(false);
                             }
+                        },
+                        style: {
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(59, 75, 104, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 100
+                        }
+                    }, React.createElement('div', {
+                        key: 'auth-modal',
+                        className: 'graphiql-dialog',
+                        onMouseDown: (e) => e.stopPropagation(),
+                        style: { pointerEvents: 'auto', width: '380px', maxWidth: '90vw' }
+                    }, [
+                        // Dialog header
+                        React.createElement('div', {
+                            key: 'modal-header',
+                            className: 'graphiql-dialog-header'
                         }, [
-                            // Authentication title
-                            React.createElement('h4', {
+                            React.createElement('h2', {
                                 key: 'auth-title',
-                                style: {
-                                    margin: '0 0 16px 0',
-                                    fontSize: '16px',
-                                    fontWeight: '500',
-                                    color: '#374151',
-                                    fontFamily: 'system-ui, -apple-system, sans-serif !important'
-                                }
+                                className: 'graphiql-dialog-title'
                             }, 'Authentication'),
-                            // Auth type selector (modern)
-                            React.createElement('div', {
-                                key: 'auth-type',
-                                style: { marginBottom: '12px' }
-                            }, [
-                                React.createElement('select', {
-                                    key: 'auth-type-select',
-                                    value: authType,
-                                    onChange: (e) => {
-                                        const newAuthType = e.target.value;
-                                        setAuthType(newAuthType);
-                                    },
-                                    style: {
-                                        width: '100%',
-                                        padding: '8px 10px',
-                                        fontSize: '12px',
-                                        border: '1px solid #ddd',
-                                        borderRadius: '6px',
-                                        backgroundColor: '#fff',
-                                        outline: 'none',
-                                        fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                        fontWeight: '500'
-                                    }
-                                }, [
-                                    React.createElement('option', { key: 'none', value: 'none' }, 'None'),
-                                    React.createElement('option', { key: 'bearer', value: 'bearer' }, 'Bearer Token'),
-                                    React.createElement('option', { key: 'apikey', value: 'apikey' }, 'API Key'),
-                                    React.createElement('option', { key: 'custom', value: 'custom' }, 'Custom Headers')
-                                ])
+                            React.createElement('button', {
+                                key: 'close-btn',
+                                type: 'button',
+                                'aria-label': 'Close dialog',
+                                onClick: () => {
+                                    applyAuthentication();
+                                    setShowAuth(false);
+                                },
+                                style: {
+                                    position: 'absolute', top: '21px', right: '21px',
+                                    background: '#ffffff', border: '2px solid #e0e0e0', cursor: 'pointer',
+                                    width: '38px', height: '38px', borderRadius: '6px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: '#5c6370', fontSize: '24px', lineHeight: 0, fontWeight: '300', paddingBottom: '2px'
+                                },
+                                onMouseEnter: (e) => e.currentTarget.style.background = '#f5f5f5',
+                                onMouseLeave: (e) => e.currentTarget.style.background = '#ffffff'
+                            }, '\u00d7')
+                        ]),
+                        // Auth type section
+                        React.createElement('div', { key: 'auth-type-section', className: 'graphiql-dialog-section' }, [
+                            React.createElement('div', { key: 'info' }, [
+                                React.createElement('div', { key: 'title', className: 'graphiql-dialog-section-title' }, 'Type'),
+                                React.createElement('div', { key: 'caption', className: 'graphiql-dialog-section-caption' }, 'Select authentication method for the MCP endpoint.')
                             ]),
-
-                            // Bearer token input
-                            authType === 'bearer' ? React.createElement('div', {
-                                key: 'bearer-input',
-                                style: { marginBottom: '12px' }
-                            }, [
-                                React.createElement('label', {
-                                    key: 'bearer-label',
-                                    style: {
-                                        display: 'block',
-                                        marginBottom: '6px',
-                                        fontWeight: '500',
-                                        color: '#374151',
-                                        fontSize: '13px',
-                                        fontFamily: 'system-ui, -apple-system, sans-serif !important'
-                                    }
-                                }, 'Token'),
-                                React.createElement('input', {
-                                    key: 'bearer-field',
-                                    type: 'text',
-                                    value: bearerToken,
-                                    onChange: (e) => setBearerToken(e.target.value),
-                                    placeholder: 'Enter bearer token',
-                                    style: {
-                                        width: '100%',
-                                        padding: '8px 10px',
-                                        fontSize: '12px',
-                                        border: '1px solid #ddd',
-                                        borderRadius: '6px',
-                                        backgroundColor: '#fff',
-                                        outline: 'none',
-                                        fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                        fontWeight: '500'
-                                    }
-                                })
-                            ]) : null,
-
-                            // API key inputs
-                            authType === 'apikey' ? React.createElement('div', {
-                                key: 'apikey-inputs'
-                            }, [
-                                React.createElement('div', {
-                                    key: 'apikey-header',
-                                    style: { marginBottom: '8px' }
-                                }, [
-                                    React.createElement('label', {
-                                        key: 'apikey-header-label',
-                                        style: {
-                                            display: 'block',
-                                            marginBottom: '4px',
-                                            fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                            fontWeight: '500',
-                                            fontSize: '13px'
-                                        }
-                                    }, 'Header Name:'),
-                                    React.createElement('input', {
-                                        key: 'apikey-header-field',
-                                        type: 'text',
-                                        value: apiKeyHeader,
-                                        onChange: (e) => setApiKeyHeader(e.target.value),
-                                        placeholder: 'X-API-Key',
-                                        style: {
-                                            width: '100%',
-                                            padding: '8px 10px',
-                                            fontSize: '12px',
-                                            border: '1px solid #ddd',
-                                            borderRadius: '6px',
-                                            backgroundColor: '#fff',
-                                            outline: 'none',
-                                            fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                            fontWeight: '500'
-                                        }
-                                    })
-                                ]),
-                                React.createElement('div', {
-                                    key: 'apikey-value',
-                                    style: { marginBottom: '8px' }
-                                }, [
-                                    React.createElement('label', {
-                                        key: 'apikey-value-label',
-                                        style: {
-                                            display: 'block',
-                                            marginBottom: '4px',
-                                            fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                            fontWeight: '500',
-                                            fontSize: '13px'
-                                        }
-                                    }, 'API Key:'),
-                                    React.createElement('input', {
-                                        key: 'apikey-value-field',
-                                        type: 'text',
-                                        value: apiKey,
-                                        onChange: (e) => setApiKey(e.target.value),
-                                        placeholder: 'Enter API key',
-                                        style: {
-                                            width: '100%',
-                                            padding: '8px 10px',
-                                            fontSize: '12px',
-                                            border: '1px solid #ddd',
-                                            borderRadius: '6px',
-                                            backgroundColor: '#fff',
-                                            outline: 'none',
-                                            fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                            fontWeight: '500'
-                                        }
-                                    })
-                                ])
-                            ]) : null,
-
-                            // Custom headers input
-                            authType === 'custom' ? React.createElement('div', {
-                                key: 'custom-input',
-                                style: { marginBottom: '8px' }
-                            }, [
-                                React.createElement('label', {
-                                    key: 'custom-label',
-                                    style: {
-                                        display: 'block',
-                                        marginBottom: '4px',
-                                        fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                        fontWeight: '500',
-                                        fontSize: '13px'
-                                    }
-                                }, 'Custom Headers (JSON):'),
-                                React.createElement('textarea', {
-                                    key: 'custom-field',
-                                    value: customHeaders,
-                                    onChange: (e) => setCustomHeaders(e.target.value),
-                                    placeholder: '{"X-Custom-Header": "value"}',
-                                    rows: 3,
-                                    style: {
-                                        width: '100%',
-                                        padding: '8px 10px',
-                                        fontSize: '12px',
-                                        border: '1px solid #ddd',
-                                        borderRadius: '6px',
-                                        backgroundColor: '#fff',
-                                        outline: 'none',
-                                        fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                        fontWeight: '500'
-                                    }
-                                })
-                            ]) : null,
-
-                            // Apply button (only show for non-none auth)
-                            authType !== 'none' ? React.createElement('button', {
+                            React.createElement('div', { key: 'buttons', className: 'graphiql-button-group' },
+                                [['none', 'None'], ['bearer', 'Bearer'], ['apikey', 'API Key'], ['custom', 'Custom']].map(([val, label]) =>
+                                    React.createElement('button', {
+                                        key: val, type: 'button',
+                                        className: authType === val ? 'graphiql-button active' : 'graphiql-button',
+                                        onClick: () => setAuthType(val)
+                                    }, label)
+                                )
+                            )
+                        ]),
+                        // Bearer token input
+                        authType === 'bearer' ? React.createElement('div', { key: 'bearer-section', className: 'graphiql-dialog-section' }, [
+                            React.createElement('div', { key: 'info' }, [
+                                React.createElement('div', { key: 'title', className: 'graphiql-dialog-section-title' }, 'Token'),
+                                React.createElement('div', { key: 'caption', className: 'graphiql-dialog-section-caption' }, 'Bearer token sent in the Authorization header.')
+                            ]),
+                            React.createElement('input', {
+                                key: 'bearer-field', type: 'text', value: bearerToken,
+                                onChange: (e) => setBearerToken(e.target.value),
+                                placeholder: 'Enter bearer token',
+                                className: 'graphiql-dialog-section-input',
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none' }
+                            })
+                        ]) : null,
+                        // API key inputs
+                        authType === 'apikey' ? React.createElement('div', { key: 'apikey-section', className: 'graphiql-dialog-section' }, [
+                            React.createElement('div', { key: 'info' }, [
+                                React.createElement('div', { key: 'title', className: 'graphiql-dialog-section-title' }, 'API Key'),
+                                React.createElement('div', { key: 'caption', className: 'graphiql-dialog-section-caption' }, 'Sent as a custom header with each request.')
+                            ]),
+                            React.createElement('input', {
+                                key: 'apikey-header-field', type: 'text', value: apiKeyHeader,
+                                onChange: (e) => setApiKeyHeader(e.target.value),
+                                placeholder: 'Header name (e.g. X-API-Key)',
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none', marginBottom: '8px' }
+                            }),
+                            React.createElement('input', {
+                                key: 'apikey-value-field', type: 'text', value: apiKey,
+                                onChange: (e) => setApiKey(e.target.value),
+                                placeholder: 'API key value',
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none' }
+                            })
+                        ]) : null,
+                        // Custom headers input
+                        authType === 'custom' ? React.createElement('div', { key: 'custom-section', className: 'graphiql-dialog-section' }, [
+                            React.createElement('div', { key: 'info' }, [
+                                React.createElement('div', { key: 'title', className: 'graphiql-dialog-section-title' }, 'Custom Headers'),
+                                React.createElement('div', { key: 'caption', className: 'graphiql-dialog-section-caption' }, 'JSON object of headers to send with each request.')
+                            ]),
+                            React.createElement('textarea', {
+                                key: 'custom-field', value: customHeaders,
+                                onChange: (e) => setCustomHeaders(e.target.value),
+                                placeholder: '{"X-Custom-Header": "value"}',
+                                rows: 3,
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none', fontFamily: 'monospace', resize: 'vertical' }
+                            })
+                        ]) : null,
+                        // Apply button section
+                        authType !== 'none' ? React.createElement('div', { key: 'apply-section', className: 'graphiql-dialog-section' },
+                            React.createElement('button', {
                                 key: 'apply-auth',
                                 disabled: applyingAuth,
+                                className: 'graphiql-button active',
                                 onClick: async () => {
                                     try {
                                         setApplyingAuth(true);
                                         const startTime = Date.now();
-
-                                        // Use authentication function
-                                        const result = await applyAuthentication('🔒 Applying authentication...');
-
-                                        // Show success message briefly if successful
+                                        const result = await applyAuthentication();
                                         if (result.success) {
-                                            setStatus('✓ Authentication applied successfully!');
+                                            setStatus('\u2713 Authentication applied successfully!');
                                             setTimeout(() => {
                                                 const authIndicator = authType !== 'none' ? ' with authentication' : '';
-                                                setStatus(`✓ Connected${authIndicator} (${result.toolCount} tools)`);
+                                                setStatus(`\u2713 Connected${authIndicator} (${result.toolCount} tools)`);
                                             }, 2000);
+                                            setShowAuth(false);
                                         }
-
-                                        // Ensure minimum 0.4s press time for visual feedback
                                         const elapsedTime = Date.now() - startTime;
-                                        const remainingTime = Math.max(0, 400 - elapsedTime);
-                                        setTimeout(() => {
-                                            setApplyingAuth(false);
-                                        }, remainingTime);
+                                        setTimeout(() => { setApplyingAuth(false); }, Math.max(0, 400 - elapsedTime));
                                     } catch (error) {
                                         console.error('Failed to apply authentication:', error);
-
-                                        // Ensure minimum 0.4s press time for error case too
-                                        const elapsedTime = Date.now() - startTime;
-                                        const remainingTime = Math.max(0, 400 - elapsedTime);
-                                        setTimeout(() => {
-                                            setApplyingAuth(false);
-                                        }, remainingTime);
+                                        setTimeout(() => { setApplyingAuth(false); }, 400);
                                     }
                                 },
-                                style: {
-                                    padding: '8px 16px',
-                                    fontSize: '13px',
-                                    fontWeight: '500',
-                                    fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                    backgroundColor: applyingAuth ? '#4fc3f7' : '#1976d2',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: applyingAuth ? 'not-allowed' : 'pointer',
-                                    opacity: applyingAuth ? 0.9 : 1,
-                                    transform: applyingAuth ? 'scale(0.98)' : 'scale(1)',
-                                    boxShadow: applyingAuth ? '0 1px 3px rgba(0,0,0,0.2)' : '0 2px 6px rgba(0,0,0,0.15)',
-                                    transition: 'all 0.2s ease',
-                                    marginTop: '8px'
-                                }
-                            }, applyingAuth ? 'Authenticating...' : 'Authenticate') : null
-                        ])
-                    ]) : null,
+                                style: { width: '100%', cursor: applyingAuth ? 'not-allowed' : 'pointer' }
+                            }, applyingAuth ? 'Authenticating...' : 'Authenticate')
+                        ) : null
+                    ])) : null,
 
                     // Tab bar
                     React.createElement('div', {
                         key: 'tab-bar',
-                        style: {
-                            display: 'flex',
-                            borderBottom: '2px solid #e0e0e0',
-                            flexShrink: 0,
-                            marginTop: '4px'
-                        }
+                        style: { flexShrink: 0, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '0' }
                     }, [
-                        React.createElement('button', {
-                            key: 'tab-tools',
-                            onClick: () => setActiveTab('tools'),
+                        React.createElement('div', {
+                            key: 'tabs',
+                            className: 'graphiql-button-group'
+                        }, [
+                            React.createElement('button', {
+                                key: 'tab-tools',
+                                className: activeTab === 'tools' ? 'graphiql-button active' : 'graphiql-button',
+                                onClick: () => setActiveTab('tools')
+                            }, `Tools (${tools.length})`),
+                            React.createElement('button', {
+                                key: 'tab-history',
+                                className: activeTab === 'history' ? 'graphiql-button active' : 'graphiql-button',
+                                onClick: () => setActiveTab('history')
+                            }, callHistory.length > 0 ? `History (${callHistory.length})` : 'History')
+                        ]),
+                        // Clear history button (right-aligned in tab bar)
+                        activeTab === 'history' && callHistory.length > 0 ? React.createElement('button', {
+                            key: 'clear-history-btn',
+                            disabled: clearingHistory,
+                            onClick: async () => {
+                                setClearingHistory(true);
+                                setCallHistory([]);
+                                setTimeout(() => { setClearingHistory(false); }, 1000);
+                            },
                             style: {
-                                flex: 1,
-                                padding: '10px 16px',
-                                fontSize: '13px',
-                                fontWeight: '600',
-                                fontFamily: 'system-ui, -apple-system, sans-serif',
+                                marginLeft: 'auto',
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                backgroundColor: clearingHistory ? '#e9ecef' : '#f8f9fa',
+                                color: clearingHistory ? '#666' : '#495057',
                                 border: 'none',
-                                borderBottom: activeTab === 'tools' ? '2px solid #1976d2' : '2px solid transparent',
-                                marginBottom: '-2px',
-                                background: 'transparent',
-                                color: activeTab === 'tools' ? '#1976d2' : '#666',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }
-                        }, `Tools (${tools.length})`),
-                        React.createElement('button', {
-                            key: 'tab-history',
-                            onClick: () => setActiveTab('history'),
-                            style: {
-                                flex: 1,
-                                padding: '10px 16px',
-                                fontSize: '13px',
-                                fontWeight: '600',
+                                borderRadius: '4px',
+                                cursor: clearingHistory ? 'not-allowed' : 'pointer',
                                 fontFamily: 'system-ui, -apple-system, sans-serif',
-                                border: 'none',
-                                borderBottom: activeTab === 'history' ? '2px solid #1976d2' : '2px solid transparent',
-                                marginBottom: '-2px',
-                                background: 'transparent',
-                                color: activeTab === 'history' ? '#1976d2' : '#666',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease'
                             }
-                        }, callHistory.length > 0 ? `History (${callHistory.length})` : 'History')
+                        }, clearingHistory ? 'Cleared!' : 'Clear') : null
                     ]),
 
                     // Scrollable content section
@@ -1394,43 +1285,6 @@
                         key: 'history-section',
                         style: {}
                     }, callHistory.length > 0 ? [
-                        // Clear button header
-                        React.createElement('div', {
-                            key: 'history-header',
-                            style: {
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                alignItems: 'center',
-                                marginBottom: '12px'
-                            }
-                        }, [
-                            React.createElement('button', {
-                                key: 'clear-history-btn',
-                                disabled: clearingHistory || callHistory.length === 0,
-                                onClick: async () => {
-                                    setClearingHistory(true);
-                                    setCallHistory([]);
-
-                                    // Keep the button in "cleared" state for 1 second
-                                    setTimeout(() => {
-                                        setClearingHistory(false);
-                                    }, 1000);
-                                },
-                                style: {
-                                    padding: '6px 10px',
-                                    fontSize: '12px',
-                                    backgroundColor: clearingHistory ? '#e9ecef' : '#f8f9fa',
-                                    color: clearingHistory ? '#666' : '#495057',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: (clearingHistory || callHistory.length === 0) ? 'not-allowed' : 'pointer',
-                                    opacity: (clearingHistory || callHistory.length === 0) ? 0.8 : 1,
-                                    fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                    fontWeight: '500',
-                                    transition: 'all 0.2s ease'
-                                }
-                            }, clearingHistory ? 'Cleared!' : 'Clear')
-                        ]),
                         React.createElement('div', {
                             key: 'history-list',
                             style: {
