@@ -997,10 +997,10 @@
                         ) : null
                     ])) : null,
 
-                    // Tab bar
+                    // Tab bar (relative container so Clear can float over it)
                     React.createElement('div', {
                         key: 'tab-bar',
-                        style: { flexShrink: 0, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '0' }
+                        style: { flexShrink: 0, marginBottom: '12px', position: 'relative' }
                     }, [
                         React.createElement('div', {
                             key: 'tabs',
@@ -1017,9 +1017,10 @@
                                 onClick: () => setActiveTab('history')
                             }, callHistory.length > 0 ? `History (${callHistory.length})` : 'History')
                         ]),
-                        // Clear history button (right-aligned in tab bar)
+                        // Clear history button (floating over tab bar, right side)
                         activeTab === 'history' && callHistory.length > 0 ? React.createElement('button', {
                             key: 'clear-history-btn',
+                            className: 'graphiql-button',
                             disabled: clearingHistory,
                             onClick: async () => {
                                 setClearingHistory(true);
@@ -1027,17 +1028,12 @@
                                 setTimeout(() => { setClearingHistory(false); }, 1000);
                             },
                             style: {
-                                marginLeft: 'auto',
-                                padding: '4px 8px',
-                                fontSize: '11px',
-                                backgroundColor: clearingHistory ? '#e9ecef' : '#f8f9fa',
-                                color: clearingHistory ? '#666' : '#495057',
-                                border: 'none',
-                                borderRadius: '4px',
+                                position: 'absolute',
+                                right: 0,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
                                 cursor: clearingHistory ? 'not-allowed' : 'pointer',
-                                fontFamily: 'system-ui, -apple-system, sans-serif',
-                                fontWeight: '500',
-                                transition: 'all 0.2s ease'
+                                opacity: clearingHistory ? 0.6 : 1
                             }
                         }, clearingHistory ? 'Cleared!' : 'Clear') : null
                     ]),
