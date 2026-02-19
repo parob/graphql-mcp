@@ -34,7 +34,6 @@ export default defineConfig({
             { text: 'Python Libraries', link: '/python-libraries' },
             { text: 'Existing APIs', link: '/existing-apis' },
             { text: 'Customization', link: '/customization' },
-            { text: 'Deployment', link: '/deployment' },
             { text: 'Testing', link: '/testing' },
           ]
         },

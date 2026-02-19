@@ -88,8 +88,6 @@ Disable both GraphiQL and the MCP Inspector for production:
 server = GraphQLMCP(schema=your_schema, graphql_http=False)
 ```
 
-See [Deployment](/deployment) for full production configuration.
-
 ## Testing with MCP Clients
 
 You can also test programmatically with any MCP client:

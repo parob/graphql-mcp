@@ -185,5 +185,4 @@ CORS only applies to browser requests. Server-to-server connections (like GraphQ
 
 - **[Customization](/customization)** — Auth, mcp_hidden, middleware
 - **[Testing](/testing)** — Test connections with the MCP Inspector
-- **[Deployment](/deployment)** — Docker, Kubernetes, serverless
 - **[API Reference](/api-reference)** — Full `from_remote_url` parameter reference

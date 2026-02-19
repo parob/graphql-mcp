@@ -228,6 +228,5 @@ def test_tool_generation(mcp_server):
 
 ## Next Steps
 
-- **[Deployment](/deployment)** — Docker, Kubernetes, serverless
 - **[Customization](/customization)** — Auth, mcp_hidden, middleware
 - **[API Reference](/api-reference)** — Full parameter reference

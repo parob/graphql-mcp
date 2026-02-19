@@ -157,5 +157,4 @@ app = Starlette(
 
 - **[Python Libraries](/python-libraries)** — Schema design patterns for MCP
 - **[Existing APIs](/existing-apis)** — Token forwarding, SSL, timeout configuration
-- **[Deployment](/deployment)** — Production settings, Docker, Kubernetes
 - **[API Reference](/api-reference)** — Full parameter reference

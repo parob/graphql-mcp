@@ -220,4 +220,3 @@ See [How It Works](/how-it-works#selection-sets) for details on selection set ge
 - **[How It Works](/how-it-works)** — Tool generation mechanics, type mapping, selection sets
 - **[Customization](/customization)** — mcp_hidden, auth, middleware
 - **[Existing GraphQL APIs](/existing-apis)** — Connect to APIs built in any language
-- **[Deployment](/deployment)** — Docker, Kubernetes, serverless

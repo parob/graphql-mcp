@@ -63,9 +63,7 @@ Types, descriptions, enums, and optionality are all preserved automatically.
 </div>
 </div>
 
-## Set up in 3 lines
-
-<div class="media-frame">
+## From a Python schema
 
 ```python
 from graphql_mcp import GraphQLMCP
@@ -75,14 +73,14 @@ server = GraphQLMCP.from_api(api, name="My API")
 app = server.http_app()
 ```
 
-Or connect to any existing GraphQL API, in any language:
+## From any existing GraphQL API
 
 ```python
+from graphql_mcp import GraphQLMCP
+
 server = GraphQLMCP.from_remote_url("https://api.example.com/graphql")
 app = server.http_app()
 ```
-
-</div>
 
 ## Works with
 
