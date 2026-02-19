@@ -13,6 +13,9 @@ build/
 dist/
 *.egg-info/
 
+# Node
+node_modules/
+
 # Testing
 tests/logs/
 tests/htmlcov/

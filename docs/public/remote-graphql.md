@@ -1,6 +1,5 @@
 ---
 title: "Remote GraphQL"
-weight: 3
 ---
 
 # Remote GraphQL APIs
@@ -346,6 +345,6 @@ CORS only applies to browser requests. Server-to-server connections (like GraphQ
 
 ## Next Steps
 
-- **[Configuration](configuration/)** - Learn about all configuration options
-- **[MCP Inspector](mcp-inspector/)** - Test your remote connections
-- **[Examples](examples/)** - See complete examples
+- **[Configuration](/configuration)** - Learn about all configuration options
+- **[MCP Inspector](/mcp-inspector)** - Test your remote connections
+- **[Examples](/examples)** - See complete examples

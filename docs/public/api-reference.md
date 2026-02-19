@@ -1,6 +1,5 @@
 ---
 title: "API Reference"
-weight: 6
 ---
 
 # API Reference
@@ -168,7 +167,7 @@ def http_app(
 
 **Returns:** `StarletteWithLifespan` ASGI application
 
-> **Lifespan management:** When mounting the returned app inside another Starlette application, you must enter its lifespan context. See [Lifespan Management](../configuration/#lifespan-management).
+> **Lifespan management:** When mounting the returned app inside another Starlette application, you must enter its lifespan context. See [Lifespan Management](/configuration#lifespan-management).
 
 **Example:**
 
@@ -183,7 +182,7 @@ app = server.http_app(
 
 Directive for hiding GraphQL arguments from MCP tools. The argument remains in the GraphQL schema but is not exposed as an MCP tool parameter.
 
-See [mcp_hidden Directive](../configuration/#mcp_hidden-directive) for full documentation and examples.
+See [mcp_hidden Directive](/configuration#mcp_hidden-directive) for full documentation and examples.
 
 ```python
 from graphql_mcp import mcp_hidden
@@ -333,6 +332,6 @@ server = GraphQLMCP.from_remote_url(
 
 ## Next Steps
 
-- **[Examples](../examples/)** — See the API in action
-- **[Configuration](../configuration/)** — Learn about all options
+- **[Examples](/examples)** — See the API in action
+- **[Configuration](/configuration)** — Learn about all options
 - **[GitHub Repository](https://github.com/parob/graphql-mcp)** — View source code

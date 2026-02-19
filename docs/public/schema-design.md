@@ -1,6 +1,5 @@
 ---
 title: "Schema Design"
-weight: 2.5
 ---
 
 # Schema Design for MCP
@@ -155,6 +154,6 @@ class API:
 
 ## Next Steps
 
-- **[How It Works](../how-it-works/)** — Detailed mechanics of tool generation
-- **[Configuration](../configuration/)** — Server configuration options
-- **[Examples](../examples/)** — Complete working examples
+- **[How It Works](/how-it-works)** — Detailed mechanics of tool generation
+- **[Configuration](/configuration)** — Server configuration options
+- **[Examples](/examples)** — Complete working examples

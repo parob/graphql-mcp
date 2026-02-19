@@ -1,6 +1,5 @@
 ---
 title: "How It Works"
-weight: 2
 ---
 
 # How It Works
@@ -111,7 +110,7 @@ For a `User` type with fields `id`, `name`, `email`, `address { street, city }`,
 { id, name, email, address { street, city } }
 ```
 
-If you need more control over which fields are returned, consider flattening your return types. See [Schema Design](../schema-design/) for patterns.
+If you need more control over which fields are returned, consider flattening your return types. See [Schema Design](/schema-design) for patterns.
 
 ## Type Mapping
 
@@ -218,10 +217,10 @@ When using `GraphQLMCP.from_remote_url(url)`:
 - The remote schema is introspected once at startup to determine types
 - **Null-to-empty-array transformation:** `null` values for array fields are automatically converted to `[]` to satisfy MCP output schema validation
 - **Undefined variable cleanup:** variables not provided by the MCP client are removed from the query to avoid remote server validation errors
-- Bearer tokens are **not** automatically forwarded — use `forward_bearer_token=True` if needed (see [Configuration](../configuration/#forward_bearer_token))
+- Bearer tokens are **not** automatically forwarded — use `forward_bearer_token=True` if needed (see [Configuration](/configuration#forward_bearer_token))
 
 ## Next Steps
 
-- **[Schema Design](../schema-design/)** — How to structure your schema for optimal MCP tools
-- **[Configuration](../configuration/)** — Server configuration options
-- **[API Reference](../api-reference/)** — Complete API documentation
+- **[Schema Design](/schema-design)** — How to structure your schema for optimal MCP tools
+- **[Configuration](/configuration)** — Server configuration options
+- **[API Reference](/api-reference)** — Complete API documentation

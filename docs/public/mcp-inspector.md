@@ -1,13 +1,12 @@
 ---
 title: "MCP Inspector"
-weight: 4
 ---
 
 # MCP Inspector
 
 GraphQL MCP includes a built-in web-based inspector for testing and debugging your MCP tools.
 
-![MCP Inspector Interface](../../mcp_inspector.png)
+![MCP Inspector Interface](/images/mcp_inspector.png)
 
 ## What is the MCP Inspector?
 
@@ -240,6 +239,6 @@ This removes both GraphiQL and the MCP Inspector, leaving only the MCP endpoints
 
 ## Next Steps
 
-- **[Configuration](configuration/)** - Configure inspector behavior
-- **[Examples](examples/)** - See inspector in real workflows
-- **[API Reference](api-reference/)** - Learn about MCP tool APIs
+- **[Configuration](/configuration)** - Configure inspector behavior
+- **[Examples](/examples)** - See inspector in real workflows
+- **[API Reference](/api-reference)** - Learn about MCP tool APIs

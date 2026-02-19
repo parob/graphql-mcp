@@ -1,6 +1,5 @@
 ---
 title: "Examples"
-weight: 5
 ---
 
 # Examples
@@ -425,6 +424,6 @@ handler = Mangum(app)
 
 ## Next Steps
 
-- **[Configuration](configuration/)** - Customize these examples
-- **[API Reference](api-reference/)** - Learn about all available options
-- **[MCP Inspector](mcp-inspector/)** - Test your implementations
+- **[Configuration](/configuration)** - Customize these examples
+- **[API Reference](/api-reference)** - Learn about all available options
+- **[MCP Inspector](/mcp-inspector)** - Test your implementations

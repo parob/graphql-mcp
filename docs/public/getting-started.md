@@ -1,6 +1,5 @@
 ---
 title: "Getting Started"
-weight: 1
 ---
 
 # Getting Started with GraphQL MCP
@@ -199,12 +198,12 @@ asyncio.run(test_mcp())
 
 Now that you have a basic server running, you can:
 
-- **[How It Works](../how-it-works/)** - Understand how tools are generated from your schema
-- **[Schema Design](../schema-design/)** - Design your schema for optimal MCP tools
-- **[Learn about configuration options](configuration/)** - Customize your server
-- **[Connect to remote GraphQL APIs](remote-graphql/)** - Expose existing APIs
-- **[Explore the MCP Inspector](mcp-inspector/)** - Debug and test your tools
-- **[Check out examples](examples/)** - See real-world usage patterns
+- **[How It Works](/how-it-works)** - Understand how tools are generated from your schema
+- **[Schema Design](/schema-design)** - Design your schema for optimal MCP tools
+- **[Learn about configuration options](/configuration)** - Customize your server
+- **[Connect to remote GraphQL APIs](/remote-graphql)** - Expose existing APIs
+- **[Explore the MCP Inspector](/mcp-inspector)** - Debug and test your tools
+- **[Check out examples](/examples)** - See real-world usage patterns
 
 ## Common Patterns
 

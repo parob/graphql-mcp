@@ -1,0 +1,450 @@
+:root {
+  --vp-c-brand-1: hsl(217 91% 60%);
+  --vp-c-brand-2: hsl(217 91% 50%);
+  --vp-c-brand-3: hsl(217 91% 42%);
+  --vp-c-bg: #ffffff;
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --vp-font-family-mono: "SFMono-Regular", "SF Mono", Menlo, monospace;
+}
+
+.dark {
+  --vp-c-bg: hsl(222 47% 6%);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 1.4rem;
+}
+
+.hero-card {
+  padding: 1rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  background: var(--vp-c-bg-soft);
+}
+
+.before-after {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.media-frame {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  padding: 0.6rem;
+  background: var(--vp-c-bg-soft);
+}
+
+.note-chip {
+  display: inline-block;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--vp-c-divider);
+  margin-right: 0.35rem;
+}
+
+/*
+ * Screenshot display sizing — all images are captured at 2× deviceScaleFactor.
+ * Each rule sets max-width to the logical (1×) size so images render at the
+ * correct density on retina displays.
+ */
+
+/* Default: dialogs & section crops (logical ~450–512px, capped to 350px) */
+.vp-doc img {
+  max-width: min(100%, 350px);
+}
+
+/* Sidebar crops — 230px logical */
+.vp-doc img[src*="sidebar"] {
+  max-width: min(100%, 230px);
+}
+
+/* Full-page screenshots — fill content column */
+.vp-doc img[src*="dashboard-overview"],
+.vp-doc img[src*="oauth-consent"],
+.vp-doc img[src*="landing-hero"] {
+  max-width: 100%;
+}
+
+/* Nav link buttons */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 1rem;
+}
+
+.nav-link-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s;
+  border: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-1);
+}
+
+.nav-link-btn:hover {
+  opacity: 0.85;
+}
+
+.nav-link-btn-primary {
+  background: var(--vp-c-brand-1);
+  color: white;
+  border-color: var(--vp-c-brand-1);
+}
+
+
+/* Architecture flow diagram — vertical with descriptions */
+.arch-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 1.5rem 0;
+}
+
+.arch-node {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.arch-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.arch-icon img {
+  max-width: 28px;
+  max-height: 28px;
+}
+
+.arch-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* House-shaped icon for Smart Devices */
+.arch-icon-house {
+  width: 48px;
+  height: 52px;
+  border-radius: 0;
+  background: none;
+  border: none;
+}
+
+.arch-icon-house svg {
+  width: 48px;
+  height: 52px;
+}
+
+/* Compound relay icon (HomeKit → Homecast) */
+.arch-icon-compound {
+  width: auto;
+  height: 44px;
+  padding: 0 6px;
+  gap: 4px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+}
+
+.arch-icon-compound img {
+  max-width: 24px;
+  max-height: 24px;
+}
+
+.arch-icon-compound .arch-icon-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--vp-c-brand-1);
+}
+
+.arch-icon-compound .arch-icon-inner svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Multi-icon access grid */
+.arch-icon-grid {
+  width: auto;
+  height: auto;
+  padding: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  max-width: 120px;
+}
+
+.arch-icon-grid svg {
+  width: 18px;
+  height: 18px;
+}
+
+.arch-icon-outline {
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+}
+
+.arch-icon-brand {
+  background: var(--vp-c-brand-1);
+  color: white;
+}
+
+.arch-icon-blue {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.arch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.1rem;
+}
+
+.arch-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  line-height: 1.3;
+}
+
+.arch-sub {
+  font-size: 0.7rem;
+  color: var(--vp-c-text-3);
+}
+
+.arch-desc {
+  font-size: 0.82rem;
+  color: var(--vp-c-text-2);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.arch-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 21px; /* center under 44px icon */
+  height: 28px;
+}
+
+.arch-connector::before {
+  content: "";
+  width: 1px;
+  flex: 1;
+  border-left: 1px dashed color-mix(in srgb, var(--vp-c-text-3) 40%, transparent);
+}
+
+.arch-connector::after {
+  content: "↓";
+  color: var(--vp-c-text-3);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.arch-arrow {
+  color: var(--vp-c-text-3);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Relay option cards */
+.relay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2rem;
+  margin: 1.5rem 0;
+}
+
+.relay-card {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 16px;
+  background: var(--vp-c-bg);
+  padding: 1.5rem;
+  border-top: 3px solid var(--vp-c-brand-1);
+}
+
+.relay-card-cloud {
+  border-top-color: #3b82f6;
+}
+
+.relay-card-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+}
+
+.relay-card-badge-primary {
+  background: color-mix(in srgb, var(--vp-c-brand-1) 12%, transparent);
+  color: var(--vp-c-brand-1);
+}
+
+.relay-card-badge-blue {
+  background: color-mix(in srgb, #3b82f6 12%, transparent);
+  color: #3b82f6;
+}
+
+.relay-card h4 {
+  margin: 0 0 0.15rem;
+  font-size: 1.15rem;
+}
+
+.relay-card .subtitle {
+  font-size: 0.82rem;
+  color: var(--vp-c-text-3);
+  margin: 0 0 1rem;
+}
+
+.relay-step {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.relay-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+}
+
+.relay-step-num-primary { background: var(--vp-c-brand-1); }
+.relay-step-num-blue { background: #3b82f6; }
+
+.relay-step-text strong {
+  font-size: 0.85rem;
+  display: block;
+}
+
+.relay-step-text span {
+  font-size: 0.75rem;
+  color: var(--vp-c-text-3);
+}
+
+.relay-best {
+  border-top: 1px solid var(--vp-c-divider);
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  font-size: 0.82rem;
+}
+
+.relay-best-label {
+  font-size: 0.72rem;
+  color: var(--vp-c-text-3);
+  margin-bottom: 0.4rem;
+}
+
+.relay-best li {
+  list-style: none;
+  padding-left: 0.8rem;
+  position: relative;
+  margin-bottom: 0.25rem;
+}
+
+.relay-best li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.relay-best-primary li::before { background: #22c55e; }
+.relay-best-blue li::before { background: #3b82f6; }
+
+/* Vertical flow inside relay cards */
+.relay-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  border-top: 1px solid var(--vp-c-divider);
+  margin-top: 1.2rem;
+  padding-top: 1.2rem;
+}
+
+.relay-flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.relay-flow-connector {
+  width: 1px;
+  height: 20px;
+  border-left: 1px dashed color-mix(in srgb, var(--vp-c-text-3) 40%, transparent);
+}
+
+.relay-flow-connector-label {
+  font-size: 0.65rem;
+  color: var(--vp-c-text-3);
+  padding: 2px 0;
+}
+
+.relay-flow-arrow {
+  color: var(--vp-c-text-3);
+  font-size: 0.7rem;
+}
+
+.relay-flow-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+}
+
+.relay-flow-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.relay-flow-sub {
+  font-size: 0.65rem;
+  color: var(--vp-c-text-3);
+}
+
+.relay-flow-box {
+  display: inline-flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  font-size: 1rem;
+}
