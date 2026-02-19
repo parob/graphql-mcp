@@ -3,10 +3,10 @@ name: Deploy docs to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['docs/**', '.github/workflows/pages.yml']
+    paths: ['docs/**', 'graphql_mcp/**', '.github/workflows/pages.yml']
   pull_request:
     branches: [main]
-    paths: ['docs/**', '.github/workflows/pages.yml']
+    paths: ['docs/**', 'graphql_mcp/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -31,6 +31,14 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: docs/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -e . docstring-parser
 
       - name: Install dependencies
         working-directory: docs

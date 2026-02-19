@@ -16,7 +16,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
-      { text: 'Guides', link: '/how-it-works' },
+      { text: 'Guides', link: '/local-apis' },
       { text: 'Reference', link: '/api-reference' },
     ],
     sidebar: {
@@ -31,10 +31,11 @@ export default defineConfig({
           text: 'Guides',
           items: [
             { text: 'How It Works', link: '/how-it-works' },
-            { text: 'Schema Design', link: '/schema-design' },
-            { text: 'Configuration', link: '/configuration' },
-            { text: 'Remote GraphQL', link: '/remote-graphql' },
-            { text: 'MCP Inspector', link: '/mcp-inspector' },
+            { text: 'Local APIs', link: '/local-apis' },
+            { text: 'Remote APIs', link: '/remote-apis' },
+            { text: 'Customization', link: '/customization' },
+            { text: 'Deployment', link: '/deployment' },
+            { text: 'Testing', link: '/testing' },
           ]
         },
         {

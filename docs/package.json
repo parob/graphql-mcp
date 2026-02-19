@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "docs:dev": "vitepress dev .",
-    "docs:build": "vitepress build .",
+    "docs:generate": "cd .. && python3 docs/generate_reference.py",
+    "docs:build": "npm run docs:generate && vitepress build .",
     "docs:preview": "vitepress preview ."
   },
   "devDependencies": {

@@ -4,95 +4,70 @@ title: "API Reference"
 
 # API Reference
 
-Complete API documentation for GraphQL MCP.
+Auto-generated from source. See the [guides](/getting-started) for usage examples.
 
-## GraphQLMCP
-
-Main class for creating MCP servers from GraphQL schemas. Extends [FastMCP](https://gofastmcp.com/).
-
-### Constructor
+## `GraphQLMCP`
 
 ```python
-GraphQLMCP(
+from graphql_mcp import GraphQLMCP
+```
+
+The main class for creating MCP servers from GraphQL schemas. Extends [FastMCP](https://gofastmcp.com/).
+
+### `GraphQLMCP.__init__`
+
+```python
+GraphQLMCP.__init__(
     schema: GraphQLSchema,
     graphql_http: bool = True,
     graphql_http_kwargs: Optional[Dict[str, Any]] = None,
     allow_mutations: bool = True,
-    *args, **kwargs  # Forwarded to FastMCP (name, auth, etc.)
+    *args,
+    **kwargs,
 )
 ```
 
-**Parameters:**
+Initialize GraphQLMCP server.
 
-- `schema` (GraphQLSchema): The GraphQL schema to generate tools from
-- `graphql_http` (bool): Enable GraphQL HTTP endpoint and inspector. Default: `True`
-- `graphql_http_kwargs` (Optional[Dict[str, Any]]): Additional keyword arguments passed to `GraphQLHTTP` when `graphql_http` is enabled
-- `allow_mutations` (bool): Generate tools for GraphQL mutations. Default: `True`
-- `*args, **kwargs`: Forwarded to FastMCP. Common kwargs include:
-  - `name` (str): Display name for the MCP server
-  - `auth` (OAuthProvider | JWTVerifier): Authentication configuration
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `schema` | `GraphQLSchema` | *required* | GraphQL schema to expose as MCP tools |
+| `graphql_http` | `bool` | `True` | Whether to enable GraphQL HTTP endpoint |
+| `graphql_http_kwargs` | `Optional[Dict[str, Any]]` | `None` | Additional kwargs for GraphQL HTTP |
+| `allow_mutations` | `bool` | `True` | Whether to expose mutations as tools |
+| `*args` | | |  |
+| `**kwargs` | | |  |
 
-**Example:**
 
-```python
-from graphql import GraphQLSchema
-from graphql_mcp.server import GraphQLMCP
-
-server = GraphQLMCP(
-    schema=my_schema,
-    name="My API",
-    graphql_http=True
-)
-```
-
-### Class Methods
-
-#### from_api
-
-Create server from a [graphql-api](https://graphql-api.parob.com/) instance. Requires `graphql-api` to be installed.
+### `GraphQLMCP.from_api`
 
 ```python
-@classmethod
-def from_api(
-    cls,
+GraphQLMCP.from_api(
     api: GraphQLAPI,
     graphql_http: bool = True,
     allow_mutations: bool = True,
-    *args, **kwargs  # Forwarded to FastMCP (name, auth, etc.)
-) -> GraphQLMCP
-```
-
-**Parameters:**
-
-- `api` (GraphQLAPI): The GraphQL API instance
-- `graphql_http` (bool): Enable GraphQL HTTP endpoint. Default: `True`
-- `allow_mutations` (bool): Generate mutation tools. Default: `True`
-- `*args, **kwargs`: Forwarded to FastMCP (e.g. `name`, `auth`)
-
-**Returns:** GraphQLMCP instance
-
-**Example:**
-
-```python
-from graphql_api import GraphQLAPI
-from graphql_mcp.server import GraphQLMCP
-
-api = GraphQLAPI(root_type=MyAPI)
-server = GraphQLMCP.from_api(
-    api,
-    name="My Service",
-    graphql_http=True
+    *args,
+    **kwargs,
 )
 ```
 
-#### from_remote_url
+Create a GraphQLMCP server from a graphql-api instance. Requires the ``graphql-api`` package to be installed.
 
-Create server from a remote GraphQL endpoint. Introspects the remote schema and generates MCP tools.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `api` | `GraphQLAPI` | *required* | The GraphQLAPI instance to expose as MCP tools. |
+| `graphql_http` | `bool` | `True` | Whether to enable the GraphQL HTTP endpoint (default: True). |
+| `allow_mutations` | `bool` | `True` | Whether to expose mutation fields as MCP tools (default: True). |
+| `*args` | | | Additional positional arguments forwarded to FastMCP. |
+| `**kwargs` | | | Additional keyword arguments forwarded to FastMCP (e.g. ``name``, ``auth``). |
+
+**Returns:** `GraphQLMCP` — A server instance with tools generated from the API schema.
+
+
+### `GraphQLMCP.from_remote_url`
 
 ```python
-@classmethod
-def from_remote_url(
-    cls,
+GraphQLMCP.from_remote_url(
     url: str,
     bearer_token: Optional[str] = None,
     headers: Optional[Dict[str, str]] = None,
@@ -102,236 +77,291 @@ def from_remote_url(
     allow_mutations: bool = True,
     forward_bearer_token: bool = False,
     verify_ssl: bool = True,
-    *args, **kwargs  # Forwarded to FastMCP (name, auth, etc.)
-) -> GraphQLMCP
-```
-
-**Parameters:**
-
-- `url` (str): GraphQL endpoint URL
-- `bearer_token` (Optional[str]): Static bearer token for authentication with the remote server
-- `headers` (Optional[Dict[str, str]]): Additional HTTP headers to include in requests
-- `timeout` (int): Request timeout in seconds. Default: `30`
-- `graphql_http` (bool): Enable GraphQL HTTP endpoint. Default: `True`
-- `graphql_http_kwargs` (Optional[Dict[str, Any]]): Additional keyword arguments for `GraphQLHTTP`
-- `allow_mutations` (bool): Generate mutation tools. Default: `True`
-- `forward_bearer_token` (bool): Forward incoming MCP request bearer tokens to the remote server. Default: `False`. **Security warning:** when enabled, client authentication tokens are shared with the remote server. Only enable if you trust the remote server completely. Use HTTPS.
-- `verify_ssl` (bool): Whether to verify SSL certificates. Default: `True`. Set to `False` only for development with self-signed certificates.
-- `*args, **kwargs`: Forwarded to FastMCP (e.g. `name`, `auth`)
-
-**Returns:** GraphQLMCP instance
-
-**Example:**
-
-```python
-server = GraphQLMCP.from_remote_url(
-    url="https://api.github.com/graphql",
-    bearer_token="ghp_token",
-    headers={"X-Custom": "value"},
-    timeout=60,
-    allow_mutations=False,
-    name="GitHub"
+    *args,
+    **kwargs,
 )
 ```
 
-### Instance Methods
+Create a GraphQLMCP from a remote GraphQL endpoint.
 
-#### http_app
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | `str` | *required* | The GraphQL endpoint URL |
+| `bearer_token` | `Optional[str]` | `None` | Optional Bearer token for authentication |
+| `headers` | `Optional[Dict[str, str]]` | `None` | Optional additional headers to include in requests |
+| `timeout` | `int` | `30` | Request timeout in seconds |
+| `graphql_http` | `bool` | `True` | Whether to enable GraphQL HTTP endpoint (default: True) |
+| `graphql_http_kwargs` | `Optional[Dict[str, Any]]` | `None` | Optional keyword arguments to pass to GraphQLHTTP |
+| `allow_mutations` | `bool` | `True` | Whether to expose mutations as tools (default: True) |
+| `forward_bearer_token` | `bool` | `False` | Whether to forward bearer tokens from MCP requests to the remote GraphQL server (default: False). Only enable if you trust the remote server. Use HTTPS. |
+| `verify_ssl` | `bool` | `True` | Whether to verify SSL certificates (default: True). Set to False only for development with self-signed certs. |
+| `*args` | | | Additional arguments to pass to FastMCP |
+| `**kwargs` | | | Additional keyword arguments to pass to FastMCP |
 
-Create an ASGI HTTP application for serving the MCP server.
+**Returns:** `GraphQLMCP` — A server instance with tools generated from the remote schema.
+
+
+### `GraphQLMCP.http_app`
 
 ```python
-def http_app(
-    self,
+GraphQLMCP.http_app(
     path: str | None = None,
-    middleware: list | None = None,
+    middleware: list[starlette.middleware.Middleware] | None = None,
     json_response: bool | None = None,
     stateless_http: bool | None = None,
-    transport: Literal["http", "streamable-http", "sse"] = "http",
+    transport: Literal['http', 'streamable-http', 'sse'] = 'http',
     graphql_http: Optional[bool] = None,
     graphql_http_kwargs: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ) -> StarletteWithLifespan
 ```
 
-**Parameters:**
+Create an ASGI HTTP application for serving the MCP server. Extends FastMCP's ``http_app()`` to optionally mount a GraphQL HTTP
+endpoint (with GraphiQL and the MCP Inspector) at ``/graphql``.
 
-- `path` (str | None): Base URL path for MCP endpoints
-- `middleware` (list | None): Additional ASGI middleware to add to the application
-- `json_response` (bool | None): Use JSON response format
-- `stateless_http` (bool | None): Disable session state management. Recommended for serverless and load-balanced deployments
-- `transport` (str): MCP transport type. Default: `"http"`. Options: `"http"`, `"streamable-http"`, `"sse"`
-- `graphql_http` (Optional[bool]): Override the instance's `graphql_http` setting
-- `graphql_http_kwargs` (Optional[Dict[str, Any]]): Override the instance's `graphql_http_kwargs`
-- `**kwargs`: Additional keyword arguments for FastMCP
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str | None` | `None` | Base URL path for MCP endpoints. |
+| `middleware` | `list[starlette.middleware.Middleware] | None` | `None` | Additional ASGI middleware to include. |
+| `json_response` | `bool | None` | `None` | Use JSON response format. |
+| `stateless_http` | `bool | None` | `None` | Disable session state. Set to True for serverless and load-balanced deployments. |
+| `transport` | `Literal['http', 'streamable-http', 'sse']` | `'http'` | MCP transport protocol (default: ``"http"``). |
+| `graphql_http` | `Optional[bool]` | `None` | Override this instance's ``graphql_http`` setting. |
+| `graphql_http_kwargs` | `Optional[Dict[str, Any]]` | `None` | Override this instance's ``graphql_http_kwargs``. |
+| `**kwargs` | | | Additional keyword arguments forwarded to FastMCP's ``http_app()``. |
 
-**Returns:** `StarletteWithLifespan` ASGI application
+**Returns:** `StarletteWithLifespan` — An ASGI application ready for ``uvicorn.run()``.
 
-> **Lifespan management:** When mounting the returned app inside another Starlette application, you must enter its lifespan context. See [Lifespan Management](/configuration#lifespan-management).
 
-**Example:**
-
-```python
-app = server.http_app(
-    transport="streamable-http",
-    stateless_http=True,
-)
-```
-
-## mcp_hidden
-
-Directive for hiding GraphQL arguments from MCP tools. The argument remains in the GraphQL schema but is not exposed as an MCP tool parameter.
-
-See [mcp_hidden Directive](/configuration#mcp_hidden-directive) for full documentation and examples.
+## `mcp_hidden`
 
 ```python
 from graphql_mcp import mcp_hidden
 ```
 
-## JWTVerifier
+A `SchemaDirective` that marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but is not exposed as an MCP tool parameter.
 
-JWT authentication verifier from [FastMCP](https://gofastmcp.com/).
+Requires `graphql-api` to be installed. When `graphql-api` is not available, `mcp_hidden` is `None`.
+
+See [Customization](/customization#mcp-hidden) for usage examples.
+
+## Low-Level API
+
+These functions are importable from `graphql_mcp.server` and `graphql_mcp.remote` but are not part of the primary public interface. Use them when you need fine-grained control over tool registration.
+
+### `add_tools_from_schema`
 
 ```python
-from fastmcp.server.auth.providers.jwt import JWTVerifier
+add_tools_from_schema(
+    schema: GraphQLSchema,
+    server: fastmcp.server.server.FastMCP | None = None,
+    allow_mutations: bool = True,
+) -> FastMCP
 ```
 
-### Constructor
+Populates a FastMCP server with tools for LOCAL GraphQL schema execution. This function creates tools that execute GraphQL operations directly against
+the provided schema. Bearer token authentication is handled automatically
+through the FastMCP Context object.
+
+If a server instance is not provided, a new one will be created.
+Processes mutations first, then queries, so that queries will overwrite
+any mutations with the same name.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `schema` | `GraphQLSchema` | *required* | The GraphQLSchema to map. |
+| `server` | `fastmcp.server.server.FastMCP | None` | `None` | An optional existing FastMCP server instance to add tools to. |
+| `allow_mutations` | `bool` | `True` | Whether to expose mutations as tools (default: True). |
+
+**Returns:** The populated FastMCP server instance.
+
+
+### `add_tools_from_schema_with_remote`
 
 ```python
-JWTVerifier(
-    jwks_uri: str = None,
-    public_key: str = None,
-    algorithm: str = "RS256",
-    issuer: str = None,
-    audience: str = None,
+add_tools_from_schema_with_remote(
+    schema: GraphQLSchema,
+    server: FastMCP,
+    remote_client: RemoteGraphQLClient,
+    allow_mutations: bool = True,
+    forward_bearer_token: bool = False,
+) -> FastMCP
+```
+
+Populates a FastMCP server with tools for REMOTE GraphQL server execution. This function creates tools that forward GraphQL operations to a remote server
+via the provided RemoteGraphQLClient. Unlike local schema execution, bearer
+tokens are not automatically available and must be explicitly forwarded if needed.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `schema` | `GraphQLSchema` | *required* | The GraphQLSchema from the remote server |
+| `server` | `FastMCP` | *required* | The FastMCP server instance to add tools to |
+| `remote_client` | `RemoteGraphQLClient` | *required* | The remote GraphQL client for executing queries |
+| `allow_mutations` | `bool` | `True` | Whether to expose mutations as tools (default: True) |
+| `forward_bearer_token` | `bool` | `False` | Whether to forward bearer tokens from MCP requests to the remote server (default: False). Only relevant for remote servers - local schemas get token context automatically through FastMCP. |
+
+**Returns:** The populated FastMCP server instance.
+
+
+### `add_query_tools_from_schema`
+
+```python
+add_query_tools_from_schema(
+    server: FastMCP,
+    schema: GraphQLSchema,
 )
 ```
 
-**Parameters:**
+Adds tools to a FastMCP server from the query fields of a GraphQL schema.
 
-- `jwks_uri` (str): JWKS endpoint URL (for RS256/asymmetric keys)
-- `public_key` (str): Public key or shared secret (for HS256/symmetric keys)
-- `algorithm` (str): Signing algorithm. Default: `"RS256"`
-- `issuer` (str): Expected token issuer
-- `audience` (str): Expected token audience
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `server` | `FastMCP` | *required* |  |
+| `schema` | `GraphQLSchema` | *required* |  |
 
-**Examples:**
 
-```python
-from fastmcp.server.auth.providers.jwt import JWTVerifier
-
-# Production: JWKS (asymmetric)
-verifier = JWTVerifier(
-    jwks_uri="https://auth.example.com/.well-known/jwks.json",
-    issuer="https://auth.example.com/",
-    audience="my-api"
-)
-
-# Development: shared secret (symmetric)
-verifier = JWTVerifier(
-    public_key="dev-secret",
-    algorithm="HS256",
-    issuer="local-dev",
-    audience="my-api"
-)
-
-# Pass to GraphQLMCP
-server = GraphQLMCP.from_api(api, auth=verifier)
-```
-
-## Type Mappings
-
-GraphQL MCP automatically maps GraphQL types to Python/MCP types:
-
-### Scalar Types
-
-| GraphQL Type | Python Type |
-|---|---|
-| String | `str` |
-| Int | `int` |
-| Float | `float` |
-| Boolean | `bool` |
-| ID | `str` |
-
-### Custom Scalars (graphql-api)
-
-These are available when using [graphql-api](https://graphql-api.parob.com/):
-
-| GraphQL Type | Python Type |
-|---|---|
-| UUID | `uuid.UUID` |
-| DateTime | `datetime` |
-| Date | `date` |
-| JSON | `dict` |
-| Bytes | `bytes` |
-
-### Composite Types
-
-| GraphQL Type | Python/MCP Type |
-|---|---|
-| `[Type]` | `list[Type]` |
-| `Type!` | Required (non-optional) |
-| Input Object | Pydantic model (dynamically generated) |
-| Object Type | Pydantic model (dynamically generated) |
-| Enum (string) | `Literal[values]` with case-insensitive validation |
-| Enum (integer) | `Union[Literal[int_values], Literal[string_names]]` |
-
-> **Enum handling:** Enum values are validated case-insensitively. Both enum names (e.g. `ASSISTANT`) and values (e.g. `assistant`) are accepted.
-
-> **Input/Output objects:** GraphQL input and output object types are automatically converted to Pydantic models with proper field types, descriptions, and required/optional markers.
-
-## Endpoints
-
-When using `http_app()`, the following endpoints are available:
-
-- `POST /mcp` — MCP protocol endpoint
-- `GET /graphql` — GraphiQL interface with MCP Inspector (when `graphql_http=True`)
-- `POST /graphql` — GraphQL HTTP endpoint (when `graphql_http=True`)
-
-### Tool Format
-
-Each GraphQL field becomes an MCP tool with snake_case naming:
-
-```json
-{
-  "name": "add_book",
-  "description": "Add a new book to the store.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "title": {"type": "string"},
-      "author": {"type": "string"}
-    },
-    "required": ["title", "author"]
-  }
-}
-```
-
-## Common Environment Variable Patterns
-
-GraphQL MCP does not read environment variables directly. These are common patterns for configuring your server:
+### `add_mutation_tools_from_schema`
 
 ```python
-import os
-
-server = GraphQLMCP.from_remote_url(
-    url=os.getenv("GRAPHQL_URL"),
-    bearer_token=os.getenv("GRAPHQL_TOKEN"),
-    name=os.getenv("SERVICE_NAME", "GraphQL API")
+add_mutation_tools_from_schema(
+    server: FastMCP,
+    schema: GraphQLSchema,
 )
 ```
 
-| Variable | Usage |
-|---|---|
-| `GRAPHQL_URL` | GraphQL endpoint URL |
-| `GRAPHQL_TOKEN` | Bearer token |
-| `PORT` | Server port |
-| `HOST` | Server host |
-| `LOG_LEVEL` | Logging level (for uvicorn) |
+Adds tools to a FastMCP server from the mutation fields of a GraphQL schema.
 
-## Next Steps
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `server` | `FastMCP` | *required* |  |
+| `schema` | `GraphQLSchema` | *required* |  |
 
-- **[Examples](/examples)** — See the API in action
-- **[Configuration](/configuration)** — Learn about all options
-- **[GitHub Repository](https://github.com/parob/graphql-mcp)** — View source code
+
+### `RemoteGraphQLClient`
+
+```python
+from graphql_mcp.remote import RemoteGraphQLClient
+```
+
+### `RemoteGraphQLClient.__init__`
+
+```python
+RemoteGraphQLClient.__init__(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 30,
+    bearer_token: Optional[str] = None,
+    token_refresh_callback: Optional[Callable[[], str]] = None,
+    verify_ssl: bool = True,
+    undefined_strategy: str = 'remove',
+    debug: bool = False,
+)
+```
+
+Initialize a remote GraphQL client with schema introspection for type-aware transformations.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | `str` | *required* | The GraphQL endpoint URL |
+| `headers` | `Optional[Dict[str, str]]` | `None` | Optional headers to include in requests |
+| `timeout` | `int` | `30` | Request timeout in seconds |
+| `bearer_token` | `Optional[str]` | `None` | Optional Bearer token for authentication |
+| `token_refresh_callback` | `Optional[Callable[[], str]]` | `None` | Optional callback to refresh the bearer token |
+| `verify_ssl` | `bool` | `True` | Whether to verify SSL certificates (default: True, set to False for development) |
+| `undefined_strategy` | `str` | `'remove'` | How to handle Undefined variables ("remove" or "null", default: "remove") |
+| `debug` | `bool` | `False` | Enable verbose debug logging (default: False) |
+
+
+### `RemoteGraphQLClient.execute`
+
+```python
+RemoteGraphQLClient.execute(
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    operation_name: Optional[str] = None,
+    retry_on_auth_error: bool = True,
+) -> Dict[str, Any]
+```
+
+Execute a GraphQL query against the remote server.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | `str` | *required* | The GraphQL query string |
+| `variables` | `Optional[Dict[str, Any]]` | `None` | Optional variables for the query |
+| `operation_name` | `Optional[str]` | `None` | Optional operation name |
+| `retry_on_auth_error` | `bool` | `True` | Whether to retry with refreshed token on 401/403 |
+
+**Returns:** The GraphQL response data.
+
+
+### `RemoteGraphQLClient.execute_with_token`
+
+```python
+RemoteGraphQLClient.execute_with_token(
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    operation_name: Optional[str] = None,
+    retry_on_auth_error: bool = True,
+    bearer_token_override: Optional[str] = None,
+) -> Dict[str, Any]
+```
+
+Execute a GraphQL query with an optional bearer token override.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | `str` | *required* | The GraphQL query string |
+| `variables` | `Optional[Dict[str, Any]]` | `None` | Optional variables for the query |
+| `operation_name` | `Optional[str]` | `None` | Optional operation name |
+| `retry_on_auth_error` | `bool` | `True` | Whether to retry with refreshed token on 401/403 |
+| `bearer_token_override` | `Optional[str]` | `None` | Optional bearer token to use instead of the client's token |
+
+**Returns:** The GraphQL response data.
+
+
+### `fetch_remote_schema`
+
+```python
+fetch_remote_schema(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 30,
+    verify_ssl: bool = True,
+) -> GraphQLSchema
+```
+
+Fetches a GraphQL schema from a remote server via introspection.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | `str` | *required* | The GraphQL endpoint URL |
+| `headers` | `Optional[Dict[str, str]]` | `None` | Optional headers to include in the request (e.g., authorization) |
+| `timeout` | `int` | `30` | Request timeout in seconds |
+| `verify_ssl` | `bool` | `True` | Whether to verify SSL certificates (default: True, set to False for development) |
+
+**Returns:** `GraphQLSchema` — The fetched and built schema.
+
+
+### `fetch_remote_schema_sync`
+
+```python
+fetch_remote_schema_sync(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 30,
+    verify_ssl: bool = True,
+) -> GraphQLSchema
+```
+
+Synchronous wrapper for fetching a remote GraphQL schema.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | `str` | *required* | The GraphQL endpoint URL |
+| `headers` | `Optional[Dict[str, str]]` | `None` | Optional headers to include in the request |
+| `timeout` | `int` | `30` | Request timeout in seconds |
+| `verify_ssl` | `bool` | `True` | Whether to verify SSL certificates (default: True, set to False for development) |
+
+**Returns:** `GraphQLSchema` — The fetched and built schema.
+

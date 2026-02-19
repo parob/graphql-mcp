@@ -17,7 +17,7 @@ features:
   - icon: ✅
     title: Universal Compatibility
     details: Works with any GraphQL library that produces a graphql-core schema — Strawberry, Ariadne, Graphene, graphql-api, and more.
-    link: /getting-started
+    link: /local-apis
   - icon: ⚡
     title: Automatic Tool Generation
     details: GraphQL queries and mutations become MCP tools instantly. No manual tool definitions needed.
@@ -25,7 +25,7 @@ features:
   - icon: 🔌
     title: Remote GraphQL
     details: Connect to any existing GraphQL endpoint — GitHub, Shopify, Hasura, or your own API.
-    link: /remote-graphql
+    link: /remote-apis
   - icon: 🎯
     title: Type-Safe
     details: Preserves GraphQL types, enums, and input objects. Auto-generates Pydantic models for MCP schemas.
@@ -33,18 +33,9 @@ features:
   - icon: 🔧
     title: MCP Inspector
     details: Built-in web interface for browsing, testing, and debugging your MCP tools.
-    link: /mcp-inspector
+    link: /testing
   - icon: 📡
     title: Multiple Transports
     details: HTTP, SSE, and streamable-HTTP support. Stateless mode for serverless and load-balanced deployments.
-    link: /configuration#http-application-configuration
+    link: /deployment
 ---
-
-## Quick links
-
-- [Install and get started](/getting-started)
-- [How tool generation works](/how-it-works)
-- [Design your schema for MCP](/schema-design)
-- [Connect to a remote GraphQL API](/remote-graphql)
-- [Configuration reference](/configuration)
-- [API reference](/api-reference)

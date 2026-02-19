@@ -110,31 +110,16 @@ class GraphQLMCP(FastMCP):  # type: ignore
             graphql_http: Whether to enable GraphQL HTTP endpoint (default: True)
             graphql_http_kwargs: Optional keyword arguments to pass to GraphQLHTTP
             allow_mutations: Whether to expose mutations as tools (default: True)
-            forward_bearer_token: Whether to forward bearer tokens from MCP requests
-                to the remote GraphQL server (default: False).
-
-                IMPORTANT: This parameter is ONLY relevant for remote GraphQL servers.
-                For local schemas (using `from_schema()`), bearer token context is
-                automatically available through FastMCP's Context object.
-
-                SECURITY WARNING: When enabled, bearer tokens from incoming MCP requests
-                will be forwarded to the remote GraphQL server. This means:
-                - Client authentication tokens will be shared with the remote server
-                - The remote server will have access to the original client's credentials
-                - Only enable this if you trust the remote GraphQL server completely
-                - Consider the security implications of token forwarding in your deployment
-
+            forward_bearer_token: Whether to forward bearer tokens from MCP
+                requests to the remote GraphQL server (default: False).
+                Only enable if you trust the remote server. Use HTTPS.
+            verify_ssl: Whether to verify SSL certificates (default: True).
+                Set to False only for development with self-signed certs.
             *args: Additional arguments to pass to FastMCP
             **kwargs: Additional keyword arguments to pass to FastMCP
 
         Returns:
             GraphQLMCP: A server instance with tools generated from the remote schema
-
-        Security Considerations:
-            - When forward_bearer_token=True, ensure the remote GraphQL server is trusted
-            - Use HTTPS for the remote URL to protect tokens in transit
-            - Consider implementing token validation or transformation before forwarding
-            - Monitor access logs for both the MCP server and remote GraphQL server
         """
         from graphql_mcp.remote import fetch_remote_schema_sync, RemoteGraphQLClient
 
@@ -198,6 +183,26 @@ class GraphQLMCP(FastMCP):  # type: ignore
         graphql_http_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> StarletteWithLifespan:
+        """
+        Create an ASGI HTTP application for serving the MCP server.
+
+        Extends FastMCP's ``http_app()`` to optionally mount a GraphQL HTTP
+        endpoint (with GraphiQL and the MCP Inspector) at ``/graphql``.
+
+        Args:
+            path: Base URL path for MCP endpoints.
+            middleware: Additional ASGI middleware to include.
+            json_response: Use JSON response format.
+            stateless_http: Disable session state. Set to True for serverless
+                and load-balanced deployments.
+            transport: MCP transport protocol (default: ``"http"``).
+            graphql_http: Override this instance's ``graphql_http`` setting.
+            graphql_http_kwargs: Override this instance's ``graphql_http_kwargs``.
+            **kwargs: Additional keyword arguments forwarded to FastMCP's ``http_app()``.
+
+        Returns:
+            StarletteWithLifespan: An ASGI application ready for ``uvicorn.run()``.
+        """
         app = super().http_app(path, middleware, json_response,
                                stateless_http, transport, **kwargs)
 
@@ -275,6 +280,22 @@ try:
 
         @classmethod
         def from_api(cls, api: GraphQLAPI, graphql_http: bool = True, allow_mutations: bool = True, *args, **kwargs):
+            """
+            Create a GraphQLMCP server from a graphql-api instance.
+
+            Requires the ``graphql-api`` package to be installed.
+
+            Args:
+                api: The GraphQLAPI instance to expose as MCP tools.
+                graphql_http: Whether to enable the GraphQL HTTP endpoint (default: True).
+                allow_mutations: Whether to expose mutation fields as MCP tools (default: True).
+                *args: Additional positional arguments forwarded to FastMCP.
+                **kwargs: Additional keyword arguments forwarded to FastMCP
+                    (e.g. ``name``, ``auth``).
+
+            Returns:
+                GraphQLMCP: A server instance with tools generated from the API schema.
+            """
             mcp = GraphQLMCP(
                 schema=api.schema(),
                 graphql_http=graphql_http,
@@ -1263,7 +1284,7 @@ class RemoteGraphQLProxy:
                 result = await self.remote_client.execute(
                     query, variables, operation_name
                 )
-                response_body = json.dumps(result).encode()
+                response_body = json.dumps({"data": result}).encode()
                 status = 200
             except Exception as e:
                 logger.error(f"Remote GraphQL proxy error: {e}")

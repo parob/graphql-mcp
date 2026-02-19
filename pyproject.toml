@@ -43,6 +43,7 @@ dev = [
     "autopep8>=2.3.2",
     "autoflake>=2.3.1",
     "pyright",
+    "docstring-parser",
 ]
 
 [tool.uv]

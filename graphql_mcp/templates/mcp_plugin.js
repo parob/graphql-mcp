@@ -69,6 +69,7 @@
                 const [expandedTool, setExpandedTool] = React.useState(null);
                 const [toolResults, setToolResults] = React.useState({});
                 const [toolInputs, setToolInputs] = React.useState({});
+                const [validationErrors, setValidationErrors] = React.useState({});
                 const [callHistory, setCallHistory] = React.useState(() => {
                     try {
                         return JSON.parse(localStorage.getItem('mcp-call-history') || '[]');
@@ -106,6 +107,7 @@
                 const [showAuth, setShowAuth] = React.useState(() => localStorage.getItem('mcp-show-auth') === 'true');
                 const [applyingAuth, setApplyingAuth] = React.useState(false);
                 const [refreshing, setRefreshing] = React.useState(false);
+                const [activeTab, setActiveTab] = React.useState('tools');
 
                 // MCP Client setup - now uses configurable URL
 
@@ -171,7 +173,17 @@
                 }, [mcpUrl]);
 
                 React.useEffect(() => {
-                    localStorage.setItem('mcp-call-history', JSON.stringify(callHistory));
+                    try {
+                        localStorage.setItem('mcp-call-history', JSON.stringify(callHistory));
+                    } catch {
+                        // Storage quota exceeded — trim oldest entries and retry
+                        try {
+                            const trimmed = callHistory.slice(-20);
+                            localStorage.setItem('mcp-call-history', JSON.stringify(trimmed));
+                        } catch {
+                            localStorage.removeItem('mcp-call-history');
+                        }
+                    }
                 }, [callHistory]);
 
                 // Clear tools when URL changes
@@ -450,11 +462,78 @@
                             [paramName]: value
                         }
                     }));
+                    // Clear validation error for this field when user types
+                    setValidationErrors(prev => {
+                        const toolErrors = prev[toolName];
+                        if (!toolErrors || !toolErrors[paramName]) return prev;
+                        const updated = { ...toolErrors };
+                        delete updated[paramName];
+                        if (Object.keys(updated).length === 0) {
+                            const newState = { ...prev };
+                            delete newState[toolName];
+                            return newState;
+                        }
+                        return { ...prev, [toolName]: updated };
+                    });
+                };
+
+                // Parse Pydantic validation errors into per-field messages
+                const parsePydanticError = (errorText) => {
+                    const fieldErrors = {};
+                    if (!errorText || typeof errorText !== 'string') return { parsed: false, fieldErrors };
+
+                    const pydanticMatch = errorText.match(/(\d+) validation errors? for/);
+                    if (pydanticMatch) {
+                        const lines = errorText.split('\n');
+                        let currentField = null;
+                        for (let i = 1; i < lines.length; i++) {
+                            const line = lines[i];
+                            if (line && !line.startsWith(' ') && !line.startsWith('\t')) {
+                                currentField = line.trim();
+                            } else if (currentField && line.trim()) {
+                                const detail = line.trim();
+                                if (detail.startsWith('For further information')) continue;
+                                const cleanMsg = detail
+                                    .replace(/\s*\[type=\w+,.*?\]/, '')
+                                    .trim();
+                                if (cleanMsg) {
+                                    fieldErrors[currentField] = cleanMsg;
+                                    currentField = null;
+                                }
+                            }
+                        }
+                        return { parsed: true, fieldErrors };
+                    }
+                    return { parsed: false, fieldErrors };
                 };
 
                 const callTool = async (toolName) => {
-                    const timestamp = new Date();
+                    const tool = tools.find(t => t.name === toolName);
                     const args = toolInputs[toolName] || {};
+
+                    // Client-side pre-validation: check required fields
+                    if (tool && tool.inputSchema && tool.inputSchema.required) {
+                        const errors = {};
+                        for (const requiredParam of tool.inputSchema.required) {
+                            const value = args[requiredParam];
+                            if (value === undefined || value === null || value === '') {
+                                errors[requiredParam] = 'Required';
+                            }
+                        }
+                        if (Object.keys(errors).length > 0) {
+                            setValidationErrors(prev => ({ ...prev, [toolName]: errors }));
+                            return;
+                        }
+                    }
+
+                    // Clear validation errors on valid submission
+                    setValidationErrors(prev => {
+                        const newState = { ...prev };
+                        delete newState[toolName];
+                        return newState;
+                    });
+
+                    const timestamp = new Date();
 
                     // Add to history immediately (pending)
                     const historyEntry = {
@@ -473,6 +552,18 @@
 
                         const result = await client.callTool(toolName, args);
                         console.log('MCP tool result:', result);
+
+                        // Handle MCP tool errors (isError flag)
+                        if (result && result.isError) {
+                            const errorText = (result.content && result.content[0] && result.content[0].text) || 'Tool returned an error';
+                            const parsed = parsePydanticError(errorText);
+                            if (parsed.parsed && Object.keys(parsed.fieldErrors).length > 0) {
+                                setValidationErrors(prev => ({ ...prev, [toolName]: parsed.fieldErrors }));
+                            }
+                            throw new Error(parsed.parsed && Object.keys(parsed.fieldErrors).length > 0
+                                ? Object.entries(parsed.fieldErrors).map(([f, m]) => `${f}: ${m}`).join(', ')
+                                : errorText);
+                        }
 
                         // Store formatted result in state
                         const formattedResult = formatMCPResponse(result);
@@ -496,9 +587,19 @@
                     } catch (error) {
                         console.error('MCP tool call failed:', error);
 
+                        // Try to parse Pydantic validation errors from server
+                        const parsed = parsePydanticError(error.message);
+                        if (parsed.parsed && Object.keys(parsed.fieldErrors).length > 0) {
+                            setValidationErrors(prev => ({ ...prev, [toolName]: parsed.fieldErrors }));
+                        }
+
+                        const displayError = (parsed.parsed && Object.keys(parsed.fieldErrors).length > 0)
+                            ? Object.entries(parsed.fieldErrors).map(([f, m]) => `${f}: ${m}`).join(', ')
+                            : error.message;
+
                         const errorResult = {
                             success: false,
-                            error: error.message,
+                            error: displayError,
                             timestamp: timestamp.toLocaleTimeString()
                         };
 
@@ -511,7 +612,7 @@
                         // Update history with error
                         setCallHistory(prev => prev.map(entry =>
                             entry.id === historyEntry.id
-                                ? { ...entry, status: 'error', error: error.message }
+                                ? { ...entry, status: 'error', error: displayError }
                                 : entry
                         ));
                     }
@@ -1002,6 +1103,54 @@
                         ])
                     ]) : null,
 
+                    // Tab bar
+                    React.createElement('div', {
+                        key: 'tab-bar',
+                        style: {
+                            display: 'flex',
+                            borderBottom: '2px solid #e0e0e0',
+                            flexShrink: 0,
+                            marginTop: '4px'
+                        }
+                    }, [
+                        React.createElement('button', {
+                            key: 'tab-tools',
+                            onClick: () => setActiveTab('tools'),
+                            style: {
+                                flex: 1,
+                                padding: '10px 16px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                fontFamily: 'system-ui, -apple-system, sans-serif',
+                                border: 'none',
+                                borderBottom: activeTab === 'tools' ? '2px solid #1976d2' : '2px solid transparent',
+                                marginBottom: '-2px',
+                                background: 'transparent',
+                                color: activeTab === 'tools' ? '#1976d2' : '#666',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }
+                        }, `Tools (${tools.length})`),
+                        React.createElement('button', {
+                            key: 'tab-history',
+                            onClick: () => setActiveTab('history'),
+                            style: {
+                                flex: 1,
+                                padding: '10px 16px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                fontFamily: 'system-ui, -apple-system, sans-serif',
+                                border: 'none',
+                                borderBottom: activeTab === 'history' ? '2px solid #1976d2' : '2px solid transparent',
+                                marginBottom: '-2px',
+                                background: 'transparent',
+                                color: activeTab === 'history' ? '#1976d2' : '#666',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }
+                        }, callHistory.length > 0 ? `History (${callHistory.length})` : 'History')
+                    ]),
+
                     // Scrollable content section
                     React.createElement('div', {
                         key: 'content',
@@ -1011,20 +1160,11 @@
                             padding: '0'
                         }
                     }, [
-                        // Tools section
-                        React.createElement('div', {
+                        // Tools section (visible on tools tab)
+                        activeTab === 'tools' ? React.createElement('div', {
                             key: 'tools-section',
                             style: { marginBottom: '24px' }
                         }, [
-                            React.createElement('h4', {
-                                key: 'tools-title',
-                                style: {
-                                    margin: '0 0 12px 0',
-                                    fontSize: '16px',
-                                    fontWeight: '600',
-                                    color: '#333'
-                                }
-                            }, 'Tools'),
                             React.createElement('div', {
                         key: 'tools',
                         style: { display: 'flex', flexDirection: 'column', gap: '8px' }
@@ -1115,8 +1255,9 @@
                                     React.createElement('div', {
                                         key: 'params-list',
                                         style: { display: 'flex', flexDirection: 'column', gap: '8px' }
-                                    }, Object.entries(tool.inputSchema.properties).map(([paramName, paramSchema]) =>
-                                        React.createElement('div', {
+                                    }, Object.entries(tool.inputSchema.properties).map(([paramName, paramSchema]) => {
+                                        const fieldError = validationErrors[tool.name] && validationErrors[tool.name][paramName];
+                                        return React.createElement('div', {
                                             key: paramName,
                                             style: { display: 'flex', flexDirection: 'column' }
                                         }, [
@@ -1124,7 +1265,7 @@
                                                 key: 'label',
                                                 style: {
                                                     fontSize: '12px',
-                                                    color: '#555',
+                                                    color: fieldError ? '#d32f2f' : '#555',
                                                     marginBottom: '4px',
                                                     fontFamily: 'monospace'
                                                 }
@@ -1135,16 +1276,25 @@
                                                 placeholder: paramSchema.description || `Enter ${paramName}`,
                                                 style: {
                                                     padding: '6px 8px',
-                                                    border: '1px solid #ccc',
+                                                    border: fieldError ? '2px solid #f44336' : '1px solid #ccc',
                                                     borderRadius: '4px',
                                                     fontSize: '12px',
-                                                    fontFamily: 'monospace'
+                                                    fontFamily: 'monospace',
+                                                    transition: 'border-color 0.2s'
                                                 },
                                                 value: (toolInputs[tool.name] && toolInputs[tool.name][paramName]) || '',
                                                 onChange: (e) => updateToolInput(tool.name, paramName, e.target.value)
-                                            })
-                                        ])
-                                    ))
+                                            }),
+                                            fieldError ? React.createElement('div', {
+                                                key: 'field-error',
+                                                style: {
+                                                    fontSize: '11px',
+                                                    color: '#d32f2f',
+                                                    marginTop: '2px'
+                                                }
+                                            }, fieldError) : null
+                                        ]);
+                                    }))
                                 ]) : null,
 
                                 // Output schema section
@@ -1232,42 +1382,28 @@
                                         } else {
                                             return JSON.stringify(result, null, 2);
                                         }
-                                    })() : `Error: ${toolResult.error}`)
+                                    })() : toolResult.error)
                                 ]) : null
                             ]) : null
                         ]);
                     }))
-                        ])
-                        ]),
+                        ]) : null,
 
-                        // History section (at the end)
-                        callHistory.length > 0 ? React.createElement('div', {
+                        // History section (visible on history tab)
+                        activeTab === 'history' ? React.createElement('div', {
                         key: 'history-section',
-                        style: {
-                            marginTop: '24px',
-                            borderTop: '2px solid #e0e0e0',
-                            paddingTop: '16px'
-                        }
-                    }, [
-                        // Call History header with clear button
+                        style: {}
+                    }, callHistory.length > 0 ? [
+                        // Clear button header
                         React.createElement('div', {
                             key: 'history-header',
                             style: {
                                 display: 'flex',
-                                justifyContent: 'space-between',
+                                justifyContent: 'flex-end',
                                 alignItems: 'center',
                                 marginBottom: '12px'
                             }
                         }, [
-                            React.createElement('h4', {
-                                key: 'history-title',
-                                style: {
-                                    margin: '0',
-                                    fontSize: '16px',
-                                    fontWeight: '600',
-                                    color: '#333'
-                                }
-                            }, 'Call History'),
                             React.createElement('button', {
                                 key: 'clear-history-btn',
                                 disabled: clearingHistory || callHistory.length === 0,
@@ -1425,7 +1561,18 @@
                                 }, 'Running...')
                             ])
                         ))
+                    ] : [
+                        React.createElement('div', {
+                            key: 'history-empty',
+                            style: {
+                                padding: '40px 24px',
+                                textAlign: 'center',
+                                color: '#999',
+                                fontSize: '13px'
+                            }
+                        }, 'No calls yet. Execute a tool to see history here.')
                     ]) : null
+                ])
                 ])
                 ])
             },
