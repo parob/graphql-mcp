@@ -1,10 +1,8 @@
 ---
-title: "Customization"
+title: "Configuration"
 ---
 
-# Customization
-
-Configure how GraphQL MCP generates and serves tools.
+# Configuration
 
 ## mcp_hidden
 
@@ -85,8 +83,6 @@ The GraphQL HTTP endpoint (with GraphiQL and the MCP Inspector) is enabled by de
 server = GraphQLMCP.from_api(api, graphql_http=False)
 ```
 
-When enabled, GraphQL queries can be sent to `/graphql` and the GraphiQL interface is available in the browser. See [graphql-http documentation](https://graphql-http.parob.com/) for details on the GraphQL HTTP endpoint.
-
 Pass additional configuration to the GraphQL HTTP endpoint:
 
 ```python
@@ -96,9 +92,32 @@ server = GraphQLMCP(
 )
 ```
 
+## Transport
+
+The `transport` parameter controls the MCP transport protocol:
+
+```python
+# Default HTTP transport
+app = server.http_app(transport="http")
+
+# Streamable HTTP (bidirectional)
+app = server.http_app(transport="streamable-http")
+
+# Server-Sent Events
+app = server.http_app(transport="sse")
+```
+
+### Stateless Mode
+
+For serverless or load-balanced deployments, disable session state:
+
+```python
+app = server.http_app(stateless_http=True)
+```
+
 ## Authentication
 
-GraphQL MCP supports JWT authentication via [FastMCP](https://gofastmcp.com/). When JWT is configured, both MCP and GraphQL HTTP endpoints are protected:
+GraphQL MCP supports JWT authentication via [FastMCP](https://gofastmcp.com/):
 
 ```python
 from fastmcp.server.auth.providers.jwt import JWTVerifier
@@ -113,7 +132,9 @@ jwt_verifier = JWTVerifier(
 server = GraphQLMCP.from_api(api, auth=jwt_verifier)
 ```
 
-See the [graphql-http authentication docs](https://graphql-http.parob.com/docs/authentication/) for more on JWT configuration.
+When JWT is configured, both MCP and GraphQL HTTP endpoints are protected.
+
+For remote APIs, see [token forwarding](/existing-apis#token-forwarding).
 
 ## Middleware
 
@@ -153,8 +174,20 @@ app = Starlette(
 )
 ```
 
-## Next Steps
+## Multi-API Servers
 
-- **[Python Libraries](/python-libraries)** — Schema design patterns for MCP
-- **[Existing APIs](/existing-apis)** — Token forwarding, SSL, timeout configuration
-- **[API Reference](/api-reference)** — Full parameter reference
+Serve multiple GraphQL APIs as different MCP servers:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from graphql_mcp import GraphQLMCP
+
+books_server = GraphQLMCP.from_api(books_api, name="Books")
+users_server = GraphQLMCP.from_api(users_api, name="Users")
+
+app = Starlette(routes=[
+    Mount("/mcp/books", app=books_server.http_app()),
+    Mount("/mcp/users", app=users_server.http_app()),
+])
+```

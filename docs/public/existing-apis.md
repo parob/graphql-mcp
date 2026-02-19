@@ -181,8 +181,4 @@ GraphQL MCP requires introspection to generate tools. Some APIs disable introspe
 
 CORS only applies to browser requests. Server-to-server connections (like GraphQL MCP) are not affected.
 
-## Next Steps
-
-- **[Customization](/customization)** — Auth, mcp_hidden, middleware
-- **[Testing](/testing)** — Test connections with the MCP Inspector
-- **[API Reference](/api-reference)** — Full `from_remote_url` parameter reference
+See also: [Configuration](/configuration) for auth, mcp_hidden, and middleware, [API Reference](/api-reference) for the full `from_remote_url` parameter reference.

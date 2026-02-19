@@ -105,14 +105,14 @@ app = server.http_app()
 <p>Connect to any GraphQL API — GitHub, Shopify, Hasura, or your own, in any language.</p>
 </a>
 
-<a class="hero-card" href="/customization">
-<h3>Customization</h3>
-<p>mcp_hidden, auth, mutations, middleware — configure how tools are generated and served.</p>
+<a class="hero-card" href="/configuration">
+<h3>Configuration</h3>
+<p>mcp_hidden, auth, mutations, transport, middleware — configure how tools are generated and served.</p>
 </a>
 
-<a class="hero-card" href="/testing">
-<h3>Testing</h3>
-<p>Built-in MCP Inspector for browsing, testing, and debugging your tools in the browser.</p>
+<a class="hero-card" href="/api-reference">
+<h3>API Reference</h3>
+<p>Type mapping, tool generation rules, and complete parameter reference.</p>
 </a>
 
 </div>

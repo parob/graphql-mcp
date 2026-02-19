@@ -297,7 +297,7 @@ def generate() -> str:
     """Generate the complete API reference markdown."""
     sections = []
 
-    # Header
+    # Header + Concepts
     sections.append(textwrap.dedent("""\
         ---
         title: "API Reference"
@@ -305,7 +305,61 @@ def generate() -> str:
 
         # API Reference
 
-        Auto-generated from source. See the [guides](/getting-started) for usage examples.
+        ## Concepts
+
+        ### Tool Generation
+
+        Each top-level field in your GraphQL schema becomes an MCP tool:
+
+        - **Query fields** become read tools
+        - **Mutation fields** become write tools (when `allow_mutations=True`)
+
+        GraphQL field names (camelCase) are converted to snake_case for tool names: `getUser` becomes `get_user`, `addBook` becomes `add_book`.
+
+        Tool descriptions come from your GraphQL field descriptions (docstrings in graphql-api). Fields without descriptions produce tools with no description.
+
+        If a query and mutation share the same name, the **query takes precedence**.
+
+        #### Nested Tools
+
+        Beyond top-level fields, tools are also generated for nested field paths that have arguments at depth >= 2. For example, `user(id) { posts(limit) }` produces a `user_posts` tool. Parent field arguments are prefixed: `user_posts(user_id, limit)`.
+
+        ### Type Mapping
+
+        | GraphQL | Python | Notes |
+        |---------|--------|-------|
+        | `String` | `str` | |
+        | `Int` | `int` | |
+        | `Float` | `float` | |
+        | `Boolean` | `bool` | |
+        | `ID` | `str` | |
+        | `UUID` | `uuid.UUID` | graphql-api only |
+        | `DateTime` | `datetime` | graphql-api only |
+        | `Date` | `date` | graphql-api only |
+        | `JSON` | `dict` | graphql-api only |
+        | `Bytes` | `bytes` | graphql-api only |
+        | `Type!` (non-null) | `T` | Required parameter |
+        | `Type` (nullable) | `Optional[T]` | Optional parameter |
+        | `[Type!]!` | `list[T]` | |
+        | Enum | `Literal[values]` | Case-insensitive — accepts both names and values |
+        | Input Object | Pydantic model | Dynamic model with proper field types |
+
+        ### Selection Sets
+
+        When a tool returns an object type, graphql-mcp builds a selection set automatically:
+
+        - Only scalar fields are selected
+        - Nested objects are traversed up to **5 levels deep** (local) or **2 levels deep** (remote)
+        - Circular type references are detected and stopped
+        - If an object has no scalar fields, `__typename` is returned
+
+        ### Local vs Remote Execution
+
+        **Local** (`GraphQLMCP(schema=...)` or `from_api()`): Tools execute GraphQL directly via graphql-core. Bearer tokens are available through FastMCP's Context.
+
+        **Remote** (`from_remote_url()`): Tools forward queries to the remote server via HTTP. The schema is introspected once at startup. `null` values for array fields are converted to `[]` for MCP validation. Unused variables are removed from queries. Bearer tokens are **not** forwarded unless `forward_bearer_token=True`.
+
+        ---
 
         ## `GraphQLMCP`
 
@@ -349,7 +403,7 @@ def generate() -> str:
 
         Requires `graphql-api` to be installed. When `graphql-api` is not available, `mcp_hidden` is `None`.
 
-        See [Customization](/customization#mcp-hidden) for usage examples.
+        See [Configuration](/configuration#mcp-hidden) for usage examples.
     """).rstrip())
 
     # Low-Level API

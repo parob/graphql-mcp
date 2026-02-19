@@ -30,18 +30,15 @@ export default defineConfig({
         {
           text: 'Guides',
           items: [
-            { text: 'How It Works', link: '/how-it-works' },
             { text: 'Python Libraries', link: '/python-libraries' },
             { text: 'Existing APIs', link: '/existing-apis' },
-            { text: 'Customization', link: '/customization' },
-            { text: 'Testing', link: '/testing' },
+            { text: 'Configuration', link: '/configuration' },
           ]
         },
         {
           text: 'Reference',
           items: [
             { text: 'API Reference', link: '/api-reference' },
-            { text: 'Examples', link: '/examples' },
           ]
         },
       ],

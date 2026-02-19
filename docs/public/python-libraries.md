@@ -213,10 +213,6 @@ class API:
         ...
 ```
 
-See [How It Works](/how-it-works#selection-sets) for details on selection set generation.
+See [API Reference](/api-reference#selection-sets) for details on selection set generation.
 
-## Next Steps
-
-- **[How It Works](/how-it-works)** — Tool generation mechanics, type mapping, selection sets
-- **[Customization](/customization)** — mcp_hidden, auth, middleware
-- **[Existing GraphQL APIs](/existing-apis)** — Connect to APIs built in any language
+See also: [Existing APIs](/existing-apis) for connecting to remote GraphQL endpoints, [Configuration](/configuration) for mcp_hidden, auth, and middleware, [API Reference](/api-reference) for type mapping and tool generation details.
