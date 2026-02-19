@@ -1,10 +1,12 @@
 ---
-title: "Local APIs"
+title: "Python GraphQL Libraries"
 ---
 
-# Local GraphQL APIs
+# Python GraphQL Libraries
 
-Use GraphQL MCP with any GraphQL library that produces a `graphql-core` schema.
+GraphQL MCP works alongside your existing Python GraphQL library. You keep your library for schema definition and resolvers — graphql-mcp adds MCP tool generation on top.
+
+Any library that produces a `graphql-core` schema is supported.
 
 ## With graphql-api
 
@@ -217,5 +219,5 @@ See [How It Works](/how-it-works#selection-sets) for details on selection set ge
 
 - **[How It Works](/how-it-works)** — Tool generation mechanics, type mapping, selection sets
 - **[Customization](/customization)** — mcp_hidden, auth, middleware
-- **[Remote APIs](/remote-apis)** — Connect to existing GraphQL endpoints
+- **[Existing GraphQL APIs](/existing-apis)** — Connect to APIs built in any language
 - **[Deployment](/deployment)** — Docker, Kubernetes, serverless

@@ -1,10 +1,10 @@
 ---
-title: "Remote APIs"
+title: "Existing GraphQL APIs"
 ---
 
-# Remote GraphQL APIs
+# Existing GraphQL APIs
 
-Connect to any existing GraphQL endpoint and expose it as MCP tools.
+Connect to any existing GraphQL API and expose it as MCP tools — regardless of what language or framework the API is built with. If it speaks GraphQL, graphql-mcp can wrap it.
 
 ## Basic Usage
 
@@ -19,7 +19,7 @@ server = GraphQLMCP.from_remote_url(
 app = server.http_app()
 ```
 
-All queries and mutations from the remote API are now available as MCP tools.
+All queries and mutations from the API are now available as MCP tools.
 
 ## Authentication
 
@@ -184,6 +184,6 @@ CORS only applies to browser requests. Server-to-server connections (like GraphQ
 ## Next Steps
 
 - **[Customization](/customization)** — Auth, mcp_hidden, middleware
-- **[Testing](/testing)** — Test remote connections with the MCP Inspector
+- **[Testing](/testing)** — Test connections with the MCP Inspector
 - **[Deployment](/deployment)** — Docker, Kubernetes, serverless
 - **[API Reference](/api-reference)** — Full `from_remote_url` parameter reference

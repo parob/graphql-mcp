@@ -70,11 +70,12 @@ Types, descriptions, enums, and optionality are all preserved automatically.
 ```python
 from graphql_mcp import GraphQLMCP
 
-server = GraphQLMCP.from_api(api, name="Task Manager")
+api = ...  # your Strawberry, Ariadne, Graphene, or graphql-api schema
+server = GraphQLMCP.from_api(api, name="My API")
 app = server.http_app()
 ```
 
-Or connect to any remote GraphQL endpoint:
+Or connect to any existing GraphQL API, in any language:
 
 ```python
 server = GraphQLMCP.from_remote_url("https://api.example.com/graphql")
@@ -96,14 +97,14 @@ app = server.http_app()
 
 <div class="hero-grid">
 
-<a class="hero-card" href="/local-apis">
-<h3>Local APIs</h3>
-<p>Use graphql-mcp with your own GraphQL schema — Strawberry, Ariadne, Graphene, or graphql-api.</p>
+<a class="hero-card" href="/python-libraries">
+<h3>Python Libraries</h3>
+<p>Works alongside Strawberry, Ariadne, Graphene, graphql-api, or any graphql-core schema.</p>
 </a>
 
-<a class="hero-card" href="/remote-apis">
-<h3>Remote APIs</h3>
-<p>Connect to GitHub, Shopify, Hasura, or any existing GraphQL endpoint.</p>
+<a class="hero-card" href="/existing-apis">
+<h3>Existing APIs</h3>
+<p>Connect to any GraphQL API — GitHub, Shopify, Hasura, or your own, in any language.</p>
 </a>
 
 <a class="hero-card" href="/customization">

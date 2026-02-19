@@ -110,7 +110,7 @@ For a `User` type with fields `id`, `name`, `email`, `address { street, city }`,
 { id, name, email, address { street, city } }
 ```
 
-If you need more control over which fields are returned, consider flattening your return types. See [Local APIs — Schema Design](/local-apis#shape-return-types-for-mcp) for patterns.
+If you need more control over which fields are returned, consider flattening your return types. See [Python Libraries — Schema Design](/python-libraries#shape-return-types-for-mcp) for patterns.
 
 ## Type Mapping
 
@@ -217,10 +217,10 @@ When using `GraphQLMCP.from_remote_url(url)`:
 - The remote schema is introspected once at startup to determine types
 - **Null-to-empty-array transformation:** `null` values for array fields are automatically converted to `[]` to satisfy MCP output schema validation
 - **Undefined variable cleanup:** variables not provided by the MCP client are removed from the query to avoid remote server validation errors
-- Bearer tokens are **not** automatically forwarded — use `forward_bearer_token=True` if needed (see [Remote APIs](/remote-apis#token-forwarding))
+- Bearer tokens are **not** automatically forwarded — use `forward_bearer_token=True` if needed (see [Existing APIs](/existing-apis#token-forwarding))
 
 ## Next Steps
 
-- **[Local APIs](/local-apis)** — Schema design patterns for optimal MCP tools
+- **[Python Libraries](/python-libraries)** — Schema design patterns for optimal MCP tools
 - **[Customization](/customization)** — mcp_hidden, auth, middleware
 - **[API Reference](/api-reference)** — Complete API documentation
