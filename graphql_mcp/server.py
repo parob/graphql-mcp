@@ -606,10 +606,10 @@ def _get_graphql_type_name(graphql_type: Any) -> str:
     return graphql_type.name
 
 
-def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0) -> str:
+def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0, _seen_types: frozenset = frozenset()) -> str:
     """
     Builds a selection set for a GraphQL type.
-    Only includes scalar fields.
+    Tracks seen types per branch to prevent circular reference expansion.
     """
     if depth >= max_depth:
         return ""
@@ -618,23 +618,25 @@ def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0) 
     if is_leaf_type(named_type):
         return ""
 
+    type_name = named_type.name
+    is_cycle = type_name in _seen_types
+    seen_with_current = _seen_types | {type_name}
+
     selections = []
     if hasattr(named_type, "fields"):
         for field_name, field_def in named_type.fields.items():
             field_named_type = get_named_type(field_def.type)
             if is_leaf_type(field_named_type):
                 selections.append(field_name)
-            else:
+            elif not is_cycle:
                 nested_selection = _build_selection_set(
-                    field_def.type, max_depth=max_depth, depth=depth + 1
+                    field_def.type, max_depth=max_depth, depth=depth + 1,
+                    _seen_types=seen_with_current
                 )
                 if nested_selection:
                     selections.append(f"{field_name} {nested_selection}")
 
     if not selections:
-        # If no leaf fields, maybe it's an object with no scalar fields.
-        # What to do here? Can't return an empty object.
-        # Maybe just return __typename as a default.
         return "{ __typename }"
 
     return f"{{ {', '.join(selections)} }}"
