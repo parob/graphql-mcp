@@ -12,8 +12,7 @@ Welcome to the GraphQL MCP documentation! This guide will help you get started w
 
 New to GraphQL MCP? Start here:
 
-- **[Getting Started](getting-started/)** - Quick introduction and basic usage
-- **[Installation](installation/)** - How to install and set up GraphQL MCP
+- **[Getting Started](getting-started/)** - Installation, quick introduction, and basic usage
 
 ## Core Concepts
 

@@ -153,19 +153,21 @@ Your MCP server is now running on `http://localhost:8002`!
 
 ### Using the MCP Inspector
 
-If you enable the GraphQL HTTP endpoint, you can use the built-in MCP Inspector:
+The GraphQL HTTP endpoint and MCP Inspector are enabled by default (`graphql_http=True`). Just visit the GraphQL endpoint in your browser:
+
+```
+http://localhost:8002/graphql
+```
+
+The inspector interface will appear alongside GraphiQL. To disable it (e.g. in production):
 
 ```python
 server = GraphQLMCP.from_api(
     api,
     name="Greetings",
-    graphql_http=True  # Enable GraphQL and MCP Inspector
+    graphql_http=False  # Disable GraphQL endpoint and inspector
 )
-
-mcp_app = server.http_app()
 ```
-
-Now visit `http://localhost:8002/graphql` in your browser to access the inspector interface.
 
 ### Using an MCP Client
 
@@ -209,7 +211,7 @@ Now that you have a basic server running, you can:
 GraphQL MCP supports JWT authentication. For details on authentication configuration, see the [graphql-http authentication documentation](https://graphql-http.parob.com/docs/authentication/).
 
 ```python
-from graphql_mcp.auth import JWTVerifier
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 jwt_verifier = JWTVerifier(
     jwks_uri="https://your-auth0-domain/.well-known/jwks.json",

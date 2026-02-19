@@ -1,0 +1,63 @@
+# Cloud Build - deploy graphql-mcp examples to Cloud Run
+
+substitutions:
+  _AR_HOSTNAME: "europe-west1-docker.pkg.dev"
+  _AR_REPO: "graphql-mcp"
+  _IMAGE_NAME: "graphql-mcp-examples"
+  _SERVICE_NAME: graphql-mcp-examples
+  _PROJECT_ID: parob-297412
+  _DEPLOY_REGION: europe-west1
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: "600s"
+
+steps:
+  - id: "Build image"
+    name: "gcr.io/cloud-builders/docker"
+    dir: "examples"
+    env:
+      - DOCKER_BUILDKIT=1
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+        export DOCKER_BUILDKIT=1
+        echo "Building ${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:$SHORT_SHA and :latest"
+        docker build \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -t "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:$SHORT_SHA" \
+          -t "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest" \
+          --cache-from "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest" \
+          .
+
+  - id: "Push image (commit)"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:$SHORT_SHA"]
+
+  - id: "Push image (latest)"
+    name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest"]
+
+  - id: "Deploy"
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: "gcloud"
+    args:
+      - run
+      - services
+      - update
+      - $_SERVICE_NAME
+      - '--platform=managed'
+      - >-
+        --image=${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:$SHORT_SHA
+      - >-
+        --labels=commit-sha=$SHORT_SHA
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+
+images:
+  - "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:$SHORT_SHA"
+  - "${_AR_HOSTNAME}/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest"

@@ -142,7 +142,7 @@ import os
 import uvicorn
 from graphql_api import GraphQLAPI, field
 from graphql_mcp.server import GraphQLMCP
-from graphql_mcp.auth import JWTVerifier
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 # Define your API
 class BookStoreAPI:
@@ -309,9 +309,13 @@ def test_tool_generation(mcp_server):
     assert app is not None
 ```
 
-## Docker Example
+---
 
-Dockerfile for deploying GraphQL MCP:
+## Deployment
+
+### Docker
+
+Dockerfile for deploying a GraphQL MCP server:
 
 ```dockerfile
 FROM python:3.11-slim
@@ -350,9 +354,9 @@ docker run -p 8000:8000 \
   graphql-mcp-server
 ```
 
-## Kubernetes Deployment
+### Kubernetes
 
-Deploy to Kubernetes:
+Deploy to Kubernetes with stateless HTTP:
 
 ```yaml
 apiVersion: apps/v1
@@ -401,9 +405,9 @@ spec:
   type: LoadBalancer
 ```
 
-## Serverless Example (AWS Lambda)
+### Serverless (AWS Lambda)
 
-Deploy to AWS Lambda:
+Deploy to AWS Lambda using [Mangum](https://mangum.io/):
 
 ```python
 from mangum import Mangum

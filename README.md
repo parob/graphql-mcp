@@ -166,6 +166,7 @@ GraphQL MCP automatically:
 - Maps GraphQL types to MCP tool schemas
 - Converts naming to `snake_case` (e.g., `addBook` → `add_book`)
 - Preserves all documentation and type information
+- Supports `@mcpHidden` directive to hide arguments from MCP tools
 
 ## MCP Inspector
 
@@ -173,7 +174,7 @@ Built-in web interface for testing and debugging MCP tools:
 
 <img src="docs/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
 
-Enable with `graphql_http=True` to access the inspector in your browser. See the [MCP Inspector documentation](https://graphql-mcp.parob.com/docs/mcp-inspector/) for details.
+The inspector is enabled by default — visit `/graphql` in your browser. See the [MCP Inspector documentation](https://graphql-mcp.parob.com/docs/mcp-inspector/) for details.
 
 ## Compatibility
 
@@ -199,13 +200,13 @@ GraphQL MCP works with any Python GraphQL library that produces a `graphql-core`
 server = GraphQLMCP(
     schema=your_schema,
     name="My API",
-    graphql_http=True,          # Enable GraphQL HTTP endpoint
-    allow_mutations=True,       # Allow mutation tools
+    graphql_http=False,         # Disable GraphQL HTTP endpoint (enabled by default)
+    allow_mutations=True,       # Allow mutation tools (default)
 )
 
 # Serve with custom configuration
 app = server.http_app(
-    transport="streamable-http",  # or "http" or "sse"
+    transport="streamable-http",  # or "http" (default) or "sse"
     stateless_http=True,         # Don't maintain client state
 )
 ```

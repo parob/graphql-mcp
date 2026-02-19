@@ -23,7 +23,6 @@ schema = GraphQLSchema(...)
 server = GraphQLMCP(
     schema=schema,
     name="My API",
-    graphql_http=True,
     allow_mutations=True,
     auth=None
 )
@@ -74,7 +73,6 @@ api = GraphQLAPI(root_type=MyAPI)
 server = GraphQLMCP.from_api(
     api,
     name="My API",
-    graphql_http=True,
     allow_mutations=True,
     auth=None
 )
@@ -100,7 +98,7 @@ server = GraphQLMCP(schema=my_schema)
 **Type:** `str`
 **Default:** `"GraphQL MCP Server"`
 
-The display name for your MCP server.
+The display name for your MCP server. Passed through to FastMCP via `**kwargs`.
 
 ```python
 server = GraphQLMCP(schema=schema, name="Books API")
@@ -108,12 +106,13 @@ server = GraphQLMCP(schema=schema, name="Books API")
 
 #### graphql_http
 **Type:** `bool`
-**Default:** `False`
+**Default:** `True`
 
 Whether to enable the GraphQL HTTP endpoint alongside MCP. When enabled, your server provides both MCP and GraphQL HTTP interfaces.
 
 ```python
-server = GraphQLMCP.from_api(api, graphql_http=True)
+# Disable GraphQL HTTP endpoint (MCP only)
+server = GraphQLMCP.from_api(api, graphql_http=False)
 ```
 
 When enabled:
@@ -122,6 +121,19 @@ When enabled:
 - MCP Inspector is automatically injected
 
 > **Learn more**: See [graphql-http documentation](https://graphql-http.parob.com/) for details on GraphQL HTTP serving.
+
+#### graphql_http_kwargs
+**Type:** `Optional[Dict[str, Any]]`
+**Default:** `None`
+
+Additional keyword arguments passed to `GraphQLHTTP` when `graphql_http` is enabled. Useful for configuring the GraphQL HTTP endpoint.
+
+```python
+server = GraphQLMCP(
+    schema=schema,
+    graphql_http_kwargs={"introspection": False}
+)
+```
 
 #### allow_mutations
 **Type:** `bool`
@@ -138,10 +150,10 @@ server = GraphQLMCP.from_api(api, allow_mutations=False)
 **Type:** `Optional[JWTVerifier]`
 **Default:** `None`
 
-JWT authentication configuration for protected endpoints.
+JWT authentication configuration for protected endpoints. Passed through to FastMCP via `**kwargs`.
 
 ```python
-from graphql_mcp.auth import JWTVerifier
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 jwt_verifier = JWTVerifier(
     jwks_uri="https://auth.example.com/.well-known/jwks.json",
@@ -154,15 +166,73 @@ server = GraphQLMCP.from_api(api, auth=jwt_verifier)
 
 > **Learn more**: See [graphql-http authentication docs](https://graphql-http.parob.com/docs/authentication/) for comprehensive authentication guides.
 
+## mcp_hidden Directive
+
+The `mcp_hidden` directive marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but won't appear as an MCP tool parameter. Hidden arguments **must** have default values.
+
+This is useful for arguments that should be populated server-side (e.g. from authentication context) rather than by the AI agent.
+
+### With graphql-api
+
+Use the `Annotated` type hint with the `mcp_hidden` marker:
+
+```python
+from typing import Annotated, Optional
+from uuid import UUID
+from graphql_api import GraphQLAPI, field
+from graphql_mcp import mcp_hidden
+
+class MyAPI:
+    @field(mutable=True)
+    def create_item(
+        self,
+        name: str,
+        user_id: Annotated[Optional[UUID], mcp_hidden] = None,
+    ) -> str:
+        """Create an item. user_id is auto-filled from auth context."""
+        return f"Created by {user_id}"
+
+# Register the directive with your API
+api = GraphQLAPI(root_type=MyAPI, directives=[mcp_hidden])
+server = GraphQLMCP.from_api(api)
+```
+
+The MCP tool for `create_item` will only expose the `name` parameter. The `user_id` argument still exists in the GraphQL schema and can be used by direct GraphQL clients.
+
+### With SDL (Any Library)
+
+Define the `@mcpHidden` directive in your schema definition:
+
+```graphql
+directive @mcpHidden on ARGUMENT_DEFINITION
+
+type Query {
+    search(
+        query: String!
+        internalFlag: Boolean = false @mcpHidden
+        debugMode: Boolean = false @mcpHidden
+    ): String
+}
+```
+
+Then use GraphQLMCP as normal — hidden arguments are detected automatically:
+
+```python
+from graphql import build_schema
+from graphql_mcp.server import GraphQLMCP
+
+schema = build_schema(type_defs)
+server = GraphQLMCP(schema=schema)
+```
+
 ## HTTP Application Configuration
 
-The `http_app()` method configures the HTTP transport:
+The `http_app()` method creates an ASGI application for serving MCP:
 
 ```python
 app = server.http_app(
     transport="streamable-http",
     stateless_http=True,
-    path="/mcp"
 )
 ```
 
@@ -170,23 +240,23 @@ app = server.http_app(
 
 #### transport
 **Type:** `str`
-**Default:** `"streamable-http"`
+**Default:** `"http"`
 **Options:** `"http"`, `"sse"`, `"streamable-http"`
 
 The MCP transport protocol to use:
 
-- `http` - Simple HTTP request/response
-- `sse` - Server-Sent Events for streaming
-- `streamable-http` - HTTP with streaming support (recommended)
+- `http` — Standard HTTP request/response (default)
+- `sse` — Server-Sent Events for streaming
+- `streamable-http` — HTTP with streaming support
 
 ```python
-# Use SSE transport
-app = server.http_app(transport="sse")
+# Use streamable HTTP for streaming support
+app = server.http_app(transport="streamable-http")
 ```
 
 #### stateless_http
-**Type:** `bool`
-**Default:** `False`
+**Type:** `bool | None`
+**Default:** `None`
 
 Whether to disable session state management.
 
@@ -201,14 +271,61 @@ Set to `True` for:
 - Simple request/response patterns
 
 #### path
-**Type:** `str`
-**Default:** `"/mcp"`
+**Type:** `str | None`
+**Default:** `None`
 
-The URL path for MCP endpoints.
+The base URL path for MCP endpoints.
 
 ```python
 # Custom path
 app = server.http_app(path="/api/mcp")
+```
+
+#### middleware
+**Type:** `list | None`
+**Default:** `None`
+
+Additional ASGI middleware to include in the application.
+
+```python
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+
+app = server.http_app(
+    middleware=[
+        Middleware(CORSMiddleware, allow_origins=["*"])
+    ]
+)
+```
+
+You can also add middleware after creation:
+
+```python
+app = server.http_app()
+server.add_middleware(MyCustomMiddleware)
+```
+
+### Lifespan Management
+
+When mounting the MCP app inside another Starlette application, you must enter its lifespan context for proper session management:
+
+```python
+from contextlib import asynccontextmanager, AsyncExitStack
+from starlette.applications import Starlette
+from starlette.routing import Mount
+
+mcp_app = server.http_app(stateless_http=True)
+
+@asynccontextmanager
+async def lifespan(app: Starlette):
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(mcp_app.lifespan(app))
+        yield
+
+app = Starlette(
+    routes=[Mount("/mcp", app=mcp_app)],
+    lifespan=lifespan,
+)
 ```
 
 ## Remote GraphQL Configuration
@@ -220,9 +337,9 @@ server = GraphQLMCP.from_remote_url(
     url="https://api.github.com/graphql",
     bearer_token="ghp_your_token_here",
     name="GitHub API",
-    headers={
-        "X-Custom-Header": "value"
-    }
+    headers={"X-Custom-Header": "value"},
+    timeout=60,
+    allow_mutations=False,
 )
 ```
 
@@ -238,7 +355,7 @@ The GraphQL endpoint URL.
 **Type:** `Optional[str]`
 **Default:** `None`
 
-Bearer token for authentication.
+Static bearer token for authentication with the remote server.
 
 ```python
 server = GraphQLMCP.from_remote_url(
@@ -260,6 +377,61 @@ server = GraphQLMCP.from_remote_url(
         "X-API-Key": "your_key",
         "X-Custom-Header": "value"
     }
+)
+```
+
+#### timeout
+**Type:** `int`
+**Default:** `30`
+
+Request timeout in seconds.
+
+```python
+server = GraphQLMCP.from_remote_url(
+    url="https://slow-api.example.com/graphql",
+    timeout=60
+)
+```
+
+#### allow_mutations
+**Type:** `bool`
+**Default:** `True`
+
+Whether to generate MCP tools for mutations.
+
+```python
+server = GraphQLMCP.from_remote_url(
+    url="https://api.example.com/graphql",
+    allow_mutations=False  # Read-only
+)
+```
+
+#### forward_bearer_token
+**Type:** `bool`
+**Default:** `False`
+
+Forward incoming MCP request bearer tokens to the remote GraphQL server. This is distinct from the static `bearer_token` parameter — it forwards the **client's** token from each MCP request.
+
+> **Security warning:** When enabled, client authentication tokens are shared with the remote server. Only enable if you trust the remote server completely. Always use HTTPS for the remote URL.
+
+```python
+server = GraphQLMCP.from_remote_url(
+    url="https://api.internal.example.com/graphql",
+    forward_bearer_token=True
+)
+```
+
+#### verify_ssl
+**Type:** `bool`
+**Default:** `True`
+
+Whether to verify SSL certificates. Set to `False` only for development with self-signed certificates.
+
+```python
+# Development only
+server = GraphQLMCP.from_remote_url(
+    url="https://localhost:8443/graphql",
+    verify_ssl=False
 )
 ```
 
@@ -293,6 +465,7 @@ For production deployments:
 
 ```python
 import uvicorn
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 from graphql_mcp.server import GraphQLMCP
 
 server = GraphQLMCP.from_api(
@@ -300,7 +473,7 @@ server = GraphQLMCP.from_api(
     name="Production API",
     graphql_http=False,  # Disable GraphiQL in production
     allow_mutations=True,
-    auth=jwt_verifier  # Always use authentication
+    auth=jwt_verifier    # Always use authentication
 )
 
 app = server.http_app(
@@ -321,6 +494,6 @@ if __name__ == "__main__":
 
 ## Next Steps
 
-- **[Learn about remote GraphQL](remote-graphql/)** - Connect to existing APIs
-- **[Explore the MCP Inspector](mcp-inspector/)** - Test your configuration
-- **[Check out examples](examples/)** - See configuration in action
+- **[Learn about remote GraphQL](remote-graphql/)** — Connect to existing APIs
+- **[Explore the MCP Inspector](mcp-inspector/)** — Test your configuration
+- **[Check out examples](examples/)** — See configuration in action

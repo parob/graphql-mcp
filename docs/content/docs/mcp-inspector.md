@@ -22,7 +22,7 @@ The MCP Inspector is a GraphiQL-integrated interface that lets you:
 
 ## Enabling the Inspector
 
-Enable the inspector by setting `graphql_http=True` when creating your server. Works with any GraphQL library:
+The inspector is enabled by default (`graphql_http=True`). It works with any GraphQL library:
 
 ```python
 from graphql_mcp.server import GraphQLMCP
@@ -201,7 +201,7 @@ You can use both simultaneously to test your API from both perspectives.
 
 ## Disabling in Production
 
-For production deployments, disable the GraphQL HTTP endpoint:
+Since `graphql_http` defaults to `True`, you should explicitly disable it in production:
 
 ```python
 server = GraphQLMCP(

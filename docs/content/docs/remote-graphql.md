@@ -120,6 +120,42 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
+## Token Forwarding
+
+By default, `from_remote_url` uses a static `bearer_token` for all requests to the remote server. If you need to forward the **client's** bearer token from each MCP request instead, use `forward_bearer_token`:
+
+```python
+server = GraphQLMCP.from_remote_url(
+    url="https://api.internal.example.com/graphql",
+    forward_bearer_token=True
+)
+```
+
+> **Security warning:** When enabled, client authentication tokens are shared with the remote server. Only enable this if you trust the remote server completely. Always use HTTPS for the remote URL.
+
+## Timeout Configuration
+
+The default request timeout is 30 seconds. Adjust for slow APIs:
+
+```python
+server = GraphQLMCP.from_remote_url(
+    url="https://slow-api.example.com/graphql",
+    timeout=60  # 60 seconds
+)
+```
+
+## SSL Verification
+
+SSL certificate verification is enabled by default. For development with self-signed certificates:
+
+```python
+# Development only — do not disable in production
+server = GraphQLMCP.from_remote_url(
+    url="https://localhost:8443/graphql",
+    verify_ssl=False
+)
+```
+
 ## Configuration Options
 
 ### Read-Only Mode
@@ -130,27 +166,20 @@ Disable mutation tools for safety:
 server = GraphQLMCP.from_remote_url(
     url="https://api.example.com/graphql",
     bearer_token="token",
-    name="Read-Only API"
-)
-
-# Disable mutations
-server = GraphQLMCP.from_remote_url(
-    url="https://api.example.com/graphql",
-    bearer_token="token",
     name="Read-Only API",
-    allow_mutations=False  # This option would need to be added to from_remote_url
+    allow_mutations=False
 )
 ```
 
 ### With Inspector
 
-Enable the MCP Inspector for testing:
+The GraphQL HTTP endpoint and MCP Inspector are enabled by default. To explicitly disable them:
 
 ```python
 server = GraphQLMCP.from_remote_url(
     url="https://api.example.com/graphql",
     bearer_token="token",
-    graphql_http=True,  # Enable GraphQL endpoint and inspector
+    graphql_http=False,  # Disable GraphQL endpoint and inspector
     name="Example API"
 )
 ```
@@ -260,9 +289,17 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
-### 4. Add Timeouts
+### 4. Set Appropriate Timeouts
 
-For production use, consider adding request timeouts in your HTTP client configuration.
+Adjust timeouts for your API's expected response times:
+
+```python
+server = GraphQLMCP.from_remote_url(
+    url=url,
+    bearer_token=token,
+    timeout=60  # Default is 30 seconds
+)
+```
 
 ## Combining Local and Remote
 
