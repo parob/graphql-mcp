@@ -155,6 +155,9 @@ class GraphQLMCP(FastMCP):  # type: ignore
         client = RemoteGraphQLClient(
             url, request_headers, timeout, bearer_token=bearer_token, verify_ssl=verify_ssl)
 
+        # Store remote client for GraphQL HTTP proxy
+        instance.remote_client = client
+
         # Add tools from schema with remote client
         add_tools_from_schema_with_remote(
             schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
@@ -246,6 +249,10 @@ class GraphQLMCP(FastMCP):  # type: ignore
                 if self.auth:
                     logger.critical("Auth mechanism is enabled for MCP but is not supported with GraphQLHTTP. "
                                     "Please use a different auth mechanism, or disable GraphQLHTTP.")
+
+            # Wrap with remote proxy if this is a remote schema
+            if getattr(self, 'remote_client', None) is not None:
+                graphql_app = RemoteGraphQLProxy(graphql_app, self.remote_client)
 
             app.add_middleware(GraphQLRootMiddleware, graphql_app=graphql_app)
 
@@ -1213,6 +1220,72 @@ def _create_tool_function(
     wrapper.__annotations__ = annotations
 
     return wrapper
+
+
+class RemoteGraphQLProxy:
+    """Proxies GraphQL HTTP requests to a remote server, serves GraphiQL locally."""
+
+    def __init__(self, graphql_app: ASGIApp, remote_client: RemoteGraphQLClient):
+        self.graphql_app = graphql_app
+        self.remote_client = remote_client
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("type") != "http":
+            await self.graphql_app(scope, receive, send)
+            return
+
+        method = scope.get("method", "GET")
+        headers = dict(scope.get("headers", []))
+        accept = headers.get(b"accept", b"").decode()
+
+        # Serve GraphiQL for browser GET requests
+        if method == "GET" and ("text/html" in accept or "*/*" in accept):
+            await self.graphql_app(scope, receive, send)
+            return
+
+        # Proxy query execution to remote
+        if method == "POST":
+            body = b""
+            while True:
+                message = await receive()
+                body += message.get("body", b"")
+                if not message.get("more_body", False):
+                    break
+
+            try:
+                request_data = json.loads(body) if body else {}
+                query = request_data.get("query", "")
+                variables = request_data.get("variables")
+                operation_name = request_data.get("operationName")
+
+                result = await self.remote_client.execute(
+                    query, variables, operation_name
+                )
+                response_body = json.dumps(result).encode()
+                status = 200
+            except Exception as e:
+                logger.error(f"Remote GraphQL proxy error: {e}")
+                response_body = json.dumps(
+                    {"errors": [{"message": str(e)}]}
+                ).encode()
+                status = 502
+
+            await send({
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(response_body)).encode()],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": response_body,
+            })
+            return
+
+        # Fall through for other methods (OPTIONS, etc.)
+        await self.graphql_app(scope, receive, send)
 
 
 class GraphQLRootMiddleware:

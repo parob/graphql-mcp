@@ -494,6 +494,8 @@ if __name__ == "__main__":
 
 ## Next Steps
 
+- **[How It Works](../how-it-works/)** — Understand tool generation, type mapping, and selection sets
+- **[Schema Design](../schema-design/)** — Structure your schema for optimal MCP tools
 - **[Learn about remote GraphQL](remote-graphql/)** — Connect to existing APIs
 - **[Explore the MCP Inspector](mcp-inspector/)** — Test your configuration
 - **[Check out examples](examples/)** — See configuration in action

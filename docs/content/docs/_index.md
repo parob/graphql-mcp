@@ -18,6 +18,8 @@ New to GraphQL MCP? Start here:
 
 Learn about the key features:
 
+- **[How It Works](how-it-works/)** - How GraphQL schemas become MCP tools
+- **[Schema Design](schema-design/)** - Design schemas for optimal MCP tool quality
 - **[Configuration](configuration/)** - Configure your MCP server
 - **[Remote GraphQL](remote-graphql/)** - Connect to existing GraphQL APIs
 - **[MCP Inspector](mcp-inspector/)** - Test and debug your tools
