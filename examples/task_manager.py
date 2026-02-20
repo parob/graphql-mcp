@@ -134,7 +134,42 @@ class TaskManagerAPI:
 
 
 api = GraphQLAPI(root_type=TaskManagerAPI)
-server = GraphQLMCP.from_api(api, allow_mutations=True)
+server = GraphQLMCP.from_api(api, allow_mutations=True, graphql_http_kwargs={
+    "graphiql_example_query": """\
+# List all tasks
+{
+  tasks {
+    id
+    title
+    status
+    priority
+    tags
+    createdAt
+  }
+}
+
+# Filter by status
+# {
+#   tasks(status: TODO) {
+#     title
+#     priority
+#   }
+# }
+
+# Create a task
+# mutation {
+#   createTask(
+#     title: "My new task"
+#     description: "Something important"
+#     priority: HIGH
+#     tags: ["example"]
+#   ) {
+#     id
+#     title
+#     createdAt
+#   }
+# }""",
+})
 app = server.http_app(transport="streamable-http", stateless_http=True)
 
 if __name__ == "__main__":

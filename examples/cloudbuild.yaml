@@ -47,8 +47,7 @@ steps:
     entrypoint: "gcloud"
     args:
       - run
-      - services
-      - update
+      - deploy
       - $_SERVICE_NAME
       - '--platform=managed'
       - >-
@@ -56,6 +55,7 @@ steps:
       - >-
         --labels=commit-sha=$SHORT_SHA
       - '--region=$_DEPLOY_REGION'
+      - '--allow-unauthenticated'
       - '--quiet'
 
 images:

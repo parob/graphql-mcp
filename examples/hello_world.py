@@ -13,7 +13,14 @@ class HelloWorldAPI:
 
 
 api = GraphQLAPI(root_type=HelloWorldAPI)
-server = GraphQLMCP.from_api(api)
+server = GraphQLMCP.from_api(api, graphql_http_kwargs={
+    "graphiql_example_query": """\
+{
+  hello
+
+  custom: hello(name: "GraphQL MCP")
+}""",
+})
 app = server.http_app(transport="streamable-http", stateless_http=True)
 
 if __name__ == "__main__":

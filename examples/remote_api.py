@@ -13,6 +13,19 @@ from graphql_mcp.server import GraphQLMCP
 server = GraphQLMCP.from_remote_url(
     "https://countries.trevorblades.com/graphql",
     allow_mutations=False,
+    graphql_http_kwargs={
+        "graphiql_example_query": """\
+{
+  countries(filter: { continent: { eq: "EU" } }) {
+    name
+    capital
+    emoji
+    languages {
+      name
+    }
+  }
+}""",
+    },
 )
 app = server.http_app(transport="streamable-http", stateless_http=True)
 
