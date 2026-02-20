@@ -7,16 +7,24 @@ license = {text = "MIT"}
 dependencies = [
     "graphql-mcp",
     "graphql-api",
+    "pydantic",
     "starlette",
     "uvicorn",
     "gunicorn",
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["setuptools>=64"]
