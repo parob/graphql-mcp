@@ -911,7 +911,9 @@ def _create_tool_function(
             elif hasattr(v, "model_dump"):  # Check for Pydantic model
                 # For GraphQL input objects, convert Pydantic models to dicts
                 # Use mode="json" to properly serialize enums and other complex types
-                processed_kwargs[k] = v.model_dump(mode="json")
+                # Use exclude_none=True so unset optional fields don't override
+                # GraphQL schema defaults with None values
+                processed_kwargs[k] = v.model_dump(mode="json", exclude_none=True)
             elif isinstance(v, list):
                 # Handle lists that might contain Pydantic models
                 processed_list = []
@@ -919,7 +921,7 @@ def _create_tool_function(
                     if hasattr(item, "model_dump"):
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
-                        processed_list.append(item.model_dump(mode="json"))
+                        processed_list.append(item.model_dump(mode="json", exclude_none=True))
                     elif isinstance(item, dict):
                         processed_list.append(item)
                     else:
@@ -1506,7 +1508,7 @@ def _create_recursive_tool_function(
             elif hasattr(v, "model_dump"):
                 # For GraphQL input objects, convert Pydantic models to dicts
                 # Use mode="json" to properly serialize enums and other complex types
-                processed_kwargs[k] = v.model_dump(mode="json")
+                processed_kwargs[k] = v.model_dump(mode="json", exclude_none=True)
             elif isinstance(v, list):
                 # Handle lists that might contain Pydantic models
                 processed_list = []
@@ -1514,7 +1516,7 @@ def _create_recursive_tool_function(
                     if hasattr(item, "model_dump"):
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
-                        processed_list.append(item.model_dump(mode="json"))
+                        processed_list.append(item.model_dump(mode="json", exclude_none=True))
                     elif isinstance(item, dict):
                         processed_list.append(item)
                     else:
@@ -1725,7 +1727,7 @@ def _create_remote_tool_function(
             elif hasattr(v, "model_dump"):
                 # For remote GraphQL, convert Pydantic models to dicts
                 # Use mode="json" to properly serialize enums and other complex types
-                processed_kwargs[k] = v.model_dump(mode="json")
+                processed_kwargs[k] = v.model_dump(mode="json", exclude_none=True)
             elif isinstance(v, list):
                 # Handle lists that might contain Pydantic models
                 processed_list = []
@@ -1733,7 +1735,7 @@ def _create_remote_tool_function(
                     if hasattr(item, "model_dump"):
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
-                        processed_list.append(item.model_dump(mode="json"))
+                        processed_list.append(item.model_dump(mode="json", exclude_none=True))
                     elif isinstance(item, dict):
                         processed_list.append(item)
                     else:
@@ -1891,7 +1893,7 @@ def _create_recursive_remote_tool_function(
             elif hasattr(v, "model_dump"):
                 # For remote GraphQL, convert Pydantic models to dicts
                 # Use mode="json" to properly serialize enums and other complex types
-                processed_kwargs[k] = v.model_dump(mode="json")
+                processed_kwargs[k] = v.model_dump(mode="json", exclude_none=True)
             elif isinstance(v, list):
                 # Handle lists that might contain Pydantic models
                 processed_list = []
@@ -1899,7 +1901,7 @@ def _create_recursive_remote_tool_function(
                     if hasattr(item, "model_dump"):
                         # Convert Pydantic model to dict for GraphQL
                         # Use mode="json" to properly serialize enums and other complex types
-                        processed_list.append(item.model_dump(mode="json"))
+                        processed_list.append(item.model_dump(mode="json", exclude_none=True))
                     elif isinstance(item, dict):
                         processed_list.append(item)
                     else:
