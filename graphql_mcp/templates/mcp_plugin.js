@@ -97,7 +97,7 @@
                     return currentUrl.origin + basePath + 'mcp';
                 };
 
-                const [mcpUrl, setMcpUrl] = React.useState(() => localStorage.getItem('mcp-server-url') || getDefaultMcpUrl());
+                const [mcpUrl, setMcpUrl] = React.useState(() => getDefaultMcpUrl());
                 const [clearingHistory, setClearingHistory] = React.useState(false);
                 const [authType, setAuthType] = React.useState(() => localStorage.getItem('mcp-auth-type') || 'none');
                 const [bearerToken, setBearerToken] = React.useState(() => localStorage.getItem('mcp-bearer-token') || '');
