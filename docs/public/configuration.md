@@ -6,15 +6,12 @@ title: "Configuration"
 
 ## mcp_hidden
 
-The `mcp_hidden` directive marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but won't appear as an MCP tool parameter. Hidden arguments **must** have default values.
+The `mcp_hidden` directive marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but won't appear as an MCP tool parameter.
 
 This is useful for arguments that should be populated server-side (e.g. from authentication context) rather than by the AI agent.
 
-### With graphql-api
-
-Use the `Annotated` type hint with the `mcp_hidden` marker:
-
-```python
+::: code-group
+```python [graphql-api]
 from typing import Annotated, Optional
 from uuid import UUID
 from graphql_api import GraphQLAPI, field
@@ -35,17 +32,7 @@ api = GraphQLAPI(root_type=MyAPI, directives=[mcp_hidden])
 server = GraphQLMCP.from_api(api)
 ```
 
-The MCP tool for `create_item` exposes only the `name` parameter. The `user_id` argument still exists in the GraphQL schema for direct API consumers.
-
-**Rules:**
-- Hidden arguments **must** have a default value
-- Register the directive: `GraphQLAPI(..., directives=[mcp_hidden])`
-
-### With SDL (Any Library)
-
-Define the `@mcpHidden` directive in your schema definition:
-
-```graphql
+```graphql [SDL (any library)]
 directive @mcpHidden on ARGUMENT_DEFINITION
 
 type Query {
@@ -56,16 +43,13 @@ type Query {
     ): String
 }
 ```
+:::
 
-Then use GraphQLMCP as normal — hidden arguments are detected automatically:
+The MCP tool exposes only the non-hidden parameters. Hidden arguments still exist in the GraphQL schema for direct API consumers.
 
-```python
-from graphql import build_schema
-from graphql_mcp import GraphQLMCP
-
-schema = build_schema(type_defs)
-server = GraphQLMCP(schema=schema)
-```
+::: warning
+Hidden arguments **must** have a default value. GraphQL MCP raises a `ValueError` at startup if a hidden argument has no default.
+:::
 
 ## Controlling Mutations
 
@@ -107,6 +91,12 @@ app = server.http_app(transport="streamable-http")
 app = server.http_app(transport="sse")
 ```
 
+| Transport | Use Case |
+|-----------|----------|
+| `http` | Default. Works with all MCP clients. |
+| `streamable-http` | Bidirectional communication. Use for streaming responses or long-running tools. |
+| `sse` | Legacy protocol. Use only if your MCP client doesn't support HTTP transport. |
+
 ### Stateless Mode
 
 For serverless or load-balanced deployments, disable session state:
@@ -114,6 +104,10 @@ For serverless or load-balanced deployments, disable session state:
 ```python
 app = server.http_app(stateless_http=True)
 ```
+
+::: tip When to use stateless mode
+Serverless functions (Lambda, Cloud Run) and load balancers can't share session state between requests. Enable `stateless_http=True` in these environments so each request is self-contained.
+:::
 
 ## Authentication
 
@@ -151,8 +145,7 @@ app = server.http_app(
 )
 ```
 
-## Lifespan Management
-
+::: details Lifespan management
 When mounting the MCP app inside another Starlette application, enter its lifespan context for proper session management:
 
 ```python
@@ -173,6 +166,7 @@ app = Starlette(
     lifespan=lifespan,
 )
 ```
+:::
 
 ## Multi-API Servers
 

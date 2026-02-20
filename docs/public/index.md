@@ -11,8 +11,8 @@ hero:
       text: Get Started
       link: /getting-started
     - theme: alt
-      text: API Reference
-      link: /api-reference
+      text: Live Examples
+      link: https://examples.graphql-mcp.com
 ---
 
 MCP (Model Context Protocol) lets AI agents call external tools. GraphQL MCP reads your schema and generates those tools automatically — no boilerplate, no manual definitions.

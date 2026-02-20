@@ -6,13 +6,17 @@ title: "Existing GraphQL APIs"
 
 Connect to any existing GraphQL API and expose it as MCP tools — regardless of what language or framework the API is built with. If it speaks GraphQL, graphql-mcp can wrap it.
 
+::: tip Try it live
+A deployed example wrapping the public Countries API is running at [examples.graphql-mcp.com/remote-api](https://examples.graphql-mcp.com/remote-api/).
+:::
+
 ## Basic Usage
 
 ```python
 from graphql_mcp import GraphQLMCP
 
 server = GraphQLMCP.from_remote_url(
-    url="https://countries.trevorblades.com/",
+    url="https://countries.trevorblades.com/graphql",
     name="Countries API"
 )
 
@@ -20,6 +24,10 @@ app = server.http_app()
 ```
 
 All queries and mutations from the API are now available as MCP tools.
+
+::: warning Introspection required
+GraphQL MCP introspects the remote schema at startup to discover types and generate tools. APIs that disable introspection cannot be wrapped — this is a hard requirement.
+:::
 
 ## Authentication
 
@@ -48,7 +56,9 @@ server = GraphQLMCP.from_remote_url(
 
 ### Environment Variables
 
-Use environment variables for sensitive data:
+::: tip
+Always use environment variables for tokens and secrets — never hardcode them.
+:::
 
 ```python
 import os
@@ -68,8 +78,8 @@ python server.py
 
 ## Popular APIs
 
-### GitHub
-
+::: details GitHub, Shopify, Hasura, Contentful
+**GitHub**
 ```python
 server = GraphQLMCP.from_remote_url(
     url="https://api.github.com/graphql",
@@ -77,11 +87,9 @@ server = GraphQLMCP.from_remote_url(
     name="GitHub"
 )
 ```
-
 Generate a token at [github.com/settings/tokens](https://github.com/settings/tokens).
 
-### Shopify
-
+**Shopify**
 ```python
 server = GraphQLMCP.from_remote_url(
     url=f"https://{shop_name}.myshopify.com/admin/api/2024-01/graphql.json",
@@ -90,8 +98,7 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
-### Hasura
-
+**Hasura**
 ```python
 server = GraphQLMCP.from_remote_url(
     url="https://your-hasura-instance.hasura.app/v1/graphql",
@@ -100,8 +107,7 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
-### Contentful
-
+**Contentful**
 ```python
 server = GraphQLMCP.from_remote_url(
     url=f"https://graphql.contentful.com/content/v1/spaces/{space_id}",
@@ -109,6 +115,7 @@ server = GraphQLMCP.from_remote_url(
     name="Contentful"
 )
 ```
+:::
 
 ## Token Forwarding
 
@@ -121,7 +128,9 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
-> **Security warning:** Client authentication tokens are shared with the remote server. Only enable if you trust the remote server completely. Always use HTTPS.
+::: warning Security
+Client authentication tokens are shared with the remote server. Only enable `forward_bearer_token` if you trust the remote server completely. Always use HTTPS.
+:::
 
 ## Timeout and SSL
 
@@ -160,6 +169,10 @@ server = GraphQLMCP.from_remote_url(
 )
 ```
 
+::: tip
+Use read-only mode when wrapping production APIs you don't own — it prevents AI agents from accidentally calling mutations on third-party services.
+:::
+
 ## Troubleshooting
 
 ### Connection Refused
@@ -180,5 +193,3 @@ GraphQL MCP requires introspection to generate tools. Some APIs disable introspe
 ### CORS Errors
 
 CORS only applies to browser requests. Server-to-server connections (like GraphQL MCP) are not affected.
-
-See also: [Configuration](/configuration) for auth, mcp_hidden, and middleware, [API Reference](/api-reference) for the full `from_remote_url` parameter reference.

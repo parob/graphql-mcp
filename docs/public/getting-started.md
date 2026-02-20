@@ -6,15 +6,14 @@ title: "Getting Started"
 
 ## Installation
 
-```bash
+::: code-group
+```bash [pip]
 pip install graphql-mcp
 ```
-
-Or with uv:
-
-```bash
+```bash [uv]
 uv add graphql-mcp
 ```
+:::
 
 ## Your First MCP Server
 
@@ -43,13 +42,11 @@ Run it:
 python server.py
 ```
 
-Your MCP server is now running at `http://localhost:8002`.
+Your MCP server is now running at `http://localhost:8002`. GraphQL MCP analyzed the schema, created an MCP tool called `hello`, and is serving it over HTTP alongside a GraphQL endpoint.
 
-## What Just Happened
-
-1. **Defined a GraphQL API** — `@field` marks methods as GraphQL query fields
-2. **Created an MCP server** — `GraphQLMCP.from_api()` analyzed the schema and generated MCP tools
-3. **Started an HTTP server** — `http_app()` creates an ASGI app serving both MCP and GraphQL endpoints
+::: tip Try it live
+A deployed version of this example is running at [examples.graphql-mcp.com/hello-world](https://examples.graphql-mcp.com/hello-world/) — open it to see GraphiQL and the MCP Inspector without installing anything.
+:::
 
 ## MCP Inspector
 
@@ -61,7 +58,7 @@ Visit `http://localhost:8002/graphql` in your browser to open the built-in MCP I
 - View parameter and output schemas
 - Track call history
 
-The inspector runs alongside GraphiQL — both are available at `/graphql`. To disable it in production, set `graphql_http=False`.
+The inspector runs alongside GraphiQL — both are available at `/graphql`.
 
 ## Pick Your Path
 
@@ -85,13 +82,18 @@ The inspector runs alongside GraphiQL — both are available at `/graphql`. To d
 
 Make sure all dependencies are installed:
 
-```bash
+::: code-group
+```bash [pip]
 pip install graphql-mcp graphql-api uvicorn
 ```
+```bash [uv]
+uv add graphql-mcp graphql-api uvicorn
+```
+:::
 
 ### Tools not appearing
 
-- Check that your GraphQL fields have docstrings (these become tool descriptions)
+- Check that your GraphQL fields have docstrings — these become tool descriptions
 - Verify mutations are enabled: `allow_mutations=True`
 - See [API Reference](/api-reference) for the complete tool generation rules
 
