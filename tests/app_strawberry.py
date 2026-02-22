@@ -26,7 +26,7 @@ mcp_app = server.http_app(
 
 async def demo():
     # Get available tools
-    print(f"Available tools: {await server.get_tools()}")
+    print(f"Available tools: {await server.list_tools()}")
 
     # Call the hello tool
     print(f"Query result: {await server._mcp_call_tool('hello', arguments={'name': 'Rob'})}")

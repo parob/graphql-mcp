@@ -146,8 +146,8 @@ async def test_graphql_http_mcp_integration():
     mcp_server = GraphQLMCP.from_api(api, graphql_http=True, name="TestServer")
 
     # Verify that the MCP server has tools from the GraphQL schema
-    tools = await mcp_server.get_tools()
-    tool_names = list(tools.keys())
+    tools = await mcp_server.list_tools()
+    tool_names = [t.name for t in tools]
 
     # Should have MCP tools generated from GraphQL schema
     assert "hello" in tool_names

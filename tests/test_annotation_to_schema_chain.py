@@ -132,11 +132,7 @@ async def test_fastmcp_schema_matches_pydantic_model():
         schema = tool.outputSchema
         print(f"\nCustomer outputSchema:\n{json.dumps(schema, indent=2)}")
 
-        # Should have $defs for nested Address type
-        assert "$defs" in schema, "Should have $defs for nested Address"
-        assert len(schema["$defs"]) > 0, "$defs should contain Address definition"
-
-        # Properties should include address with $ref
+        # Properties should include address as a nested object (inline or $ref)
         props = schema["properties"]
         assert "address" in props or any("address" in k.lower() for k in props.keys()), \
             "Should have address field"
@@ -151,12 +147,14 @@ async def test_fastmcp_schema_matches_pydantic_model():
             address_schema = props[address_field_name]
             print(f"\nAddress field schema: {address_schema}")
 
-            # Should reference a definition
+            # Should have address as a nested object (either $ref or inline)
             has_ref = "$ref" in address_schema
-            if not has_ref and "anyOf" in address_schema:
+            has_inline = "properties" in address_schema
+            if not has_ref and not has_inline and "anyOf" in address_schema:
                 has_ref = any("$ref" in item for item in address_schema["anyOf"])
+                has_inline = any("properties" in item for item in address_schema["anyOf"])
 
-            assert has_ref, "Address field should use $ref to definition"
+            assert has_ref or has_inline, "Address field should be a nested object (inline or $ref)"
 
         print("✅ Nested object structure properly reflected in outputSchema!")
 

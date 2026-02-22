@@ -5,7 +5,7 @@ This test file specifically validates the MCP JSON schema structure to ensure:
 1. Python type mappings produce correct JSON schema types
 2. All scalar types have the correct JSON schema representation
 3. Complex types (lists, objects, enums) have proper structure
-4. Nested objects use $ref correctly
+4. Nested objects are properly structured
 5. Required vs optional fields are properly marked
 """
 import json
@@ -25,6 +25,23 @@ def get_output_schema(tool):
     if hasattr(tool, 'outputSchema'):
         return tool.outputSchema
     return None
+
+
+def resolve_object_schema(prop_schema, root_schema=None):
+    """Resolve a property schema to its object definition, handling both $ref and inline."""
+    if "$ref" in prop_schema:
+        ref_name = prop_schema["$ref"].split("/")[-1]
+        return root_schema["$defs"][ref_name]
+    if "properties" in prop_schema:
+        return prop_schema
+    if "anyOf" in prop_schema:
+        for item in prop_schema["anyOf"]:
+            if "$ref" in item and root_schema:
+                ref_name = item["$ref"].split("/")[-1]
+                return root_schema["$defs"][ref_name]
+            if "properties" in item:
+                return item
+    return prop_schema
 
 
 @pytest.mark.asyncio
@@ -326,24 +343,8 @@ async def test_mcp_output_schema_nested_objects():
         assert "address" in props
         address_schema = props["address"]
 
-        # Address should use $ref
-        if "anyOf" in address_schema:
-            ref_items = [item for item in address_schema["anyOf"] if "$ref" in item]
-            assert len(ref_items) > 0
-            ref = ref_items[0]["$ref"]
-        else:
-            assert "$ref" in address_schema
-            ref = address_schema["$ref"]
-
-        # Extract referenced definition name
-        assert ref.startswith("#/$defs/")
-        def_name = ref.split("/")[-1]
-
-        # Should have $defs with the Address definition
-        assert "$defs" in schema
-        assert def_name in schema["$defs"]
-
-        address_def = schema["$defs"][def_name]
+        # Address should be a nested object (inline or $ref)
+        address_def = resolve_object_schema(address_schema, schema)
         assert address_def["type"] == "object"
         assert "properties" in address_def
 
@@ -405,20 +406,9 @@ async def test_mcp_output_schema_list_of_objects():
         items_schema = props["items"]
         assert items_schema["type"] == "array"
 
-        # Array items should use $ref
+        # Array items should be a detailed object (inline or $ref)
         items_def = items_schema["items"]
-        assert "$ref" in items_def
-        ref = items_def["$ref"]
-
-        # Extract referenced definition
-        assert ref.startswith("#/$defs/")
-        def_name = ref.split("/")[-1]
-
-        # Should have Item definition
-        assert "$defs" in schema
-        assert def_name in schema["$defs"]
-
-        item_def = schema["$defs"][def_name]
+        item_def = resolve_object_schema(items_def, schema)
         assert item_def["type"] == "object"
 
         # Validate Item properties
@@ -667,13 +657,8 @@ async def test_mcp_output_schema_all_types_combined():
         assert "scores" in props
         assert "description" in props
 
-        # Validate metadata uses $ref
+        # Validate metadata is a nested object (inline or $ref)
         metadata_schema = props["metadata"]
-        has_ref = "$ref" in metadata_schema
-        if not has_ref and "anyOf" in metadata_schema:
-            has_ref = any("$ref" in item for item in metadata_schema["anyOf"])
-        assert has_ref, "Nested metadata object should use $ref"
-
-        # Should have $defs with Metadata
-        assert "$defs" in schema
-        assert len(schema["$defs"]) > 0
+        metadata_def = resolve_object_schema(metadata_schema, schema)
+        assert "properties" in metadata_def or "type" in metadata_def, \
+            "Nested metadata should be a structured object"

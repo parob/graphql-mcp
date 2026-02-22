@@ -19,6 +19,11 @@ from fastmcp.server.http import (
 )
 
 try:
+    from fastmcp.server.dependencies import get_http_request as _get_http_request
+except ImportError:
+    _get_http_request = None
+
+try:
     from fastmcp.server.auth.providers.jwt import JWTVerifier
 except ImportError:
     JWTVerifier = None
@@ -71,7 +76,7 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
         return None
 
     try:
-        request = ctx.get_http_request()
+        request = _get_http_request() if _get_http_request else None
         if request and hasattr(request, 'headers'):
             auth_header = request.headers.get('authorization', '')
             if auth_header.startswith('Bearer '):

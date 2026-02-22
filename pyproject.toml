@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "graphql-core",
-    "fastmcp",
+    "fastmcp>=3.0,<4",
     "graphql-api",
     "graphql-http>=2.1.5",
     "aiohttp",

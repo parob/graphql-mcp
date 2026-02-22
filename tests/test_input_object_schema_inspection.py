@@ -17,6 +17,23 @@ from typing import cast, Optional
 from graphql_mcp.server import add_tools_from_schema
 
 
+def resolve_object_schema(prop_schema, root_schema=None):
+    """Resolve a property schema to its object definition, handling both $ref and inline."""
+    if "$ref" in prop_schema:
+        ref_name = prop_schema["$ref"].split("/")[-1]
+        return root_schema["$defs"][ref_name]
+    if "properties" in prop_schema:
+        return prop_schema
+    if "anyOf" in prop_schema:
+        for item in prop_schema["anyOf"]:
+            if "$ref" in item and root_schema:
+                ref_name = item["$ref"].split("/")[-1]
+                return root_schema["$defs"][ref_name]
+            if "properties" in item:
+                return item
+    return prop_schema
+
+
 def get_result_text(result):
     """Helper function to get text from result, handling different FastMCP API versions"""
     if hasattr(result, 'content'):
@@ -84,18 +101,9 @@ async def test_input_object_type_schema_inspection():
         assert "required" in schema_dict
         assert "userInput" in schema_dict["required"]
 
-        # Check that userInput has detailed object structure via $ref
+        # Check that userInput has detailed object structure (inline or $ref)
         user_input_schema = schema_dict["properties"]["userInput"]
-        assert "$ref" in user_input_schema  # Should reference a detailed schema
-
-        # Check that the detailed schema is in $defs
-        assert "$defs" in schema_dict
-
-        # Find the referenced schema definition
-        ref_name = user_input_schema["$ref"].split("/")[-1]
-        assert ref_name in schema_dict["$defs"]
-
-        detailed_schema = schema_dict["$defs"][ref_name]
+        detailed_schema = resolve_object_schema(user_input_schema, schema_dict)
         assert detailed_schema["type"] == "object"
         assert "properties" in detailed_schema
 
@@ -134,15 +142,9 @@ async def test_input_object_type_schema_inspection():
         assert set(addr_schema_dict["required"]) == {
             "userInput", "addressInput"}
 
-        # Verify addressInput structure via $ref
+        # Verify addressInput structure (inline or $ref)
         addr_input_schema = addr_schema_dict["properties"]["addressInput"]
-        assert "$ref" in addr_input_schema
-
-        # Find the address schema in $defs
-        addr_ref_name = addr_input_schema["$ref"].split("/")[-1]
-        assert addr_ref_name in addr_schema_dict["$defs"]
-
-        addr_detailed_schema = addr_schema_dict["$defs"][addr_ref_name]
+        addr_detailed_schema = resolve_object_schema(addr_input_schema, addr_schema_dict)
         addr_props = addr_detailed_schema["properties"]
         assert "street" in addr_props
         assert "city" in addr_props
@@ -257,21 +259,14 @@ async def test_mixed_input_types_schema_inspection():
         assert set(schema_dict["required"]) == {
             "userInput", "metadata", "tags"}
 
-        # userInput should have detailed object structure (GraphQLInputObjectType) via $ref
+        # userInput should have detailed object structure (inline or $ref)
         user_input_schema = props["userInput"]
-        assert "$ref" in user_input_schema
-
-        # Find the detailed schema in $defs
-        user_ref_name = user_input_schema["$ref"].split("/")[-1]
-        assert user_ref_name in schema_dict["$defs"]
-
-        user_detailed_schema = schema_dict["$defs"][user_ref_name]
+        user_detailed_schema = resolve_object_schema(user_input_schema, schema_dict)
         assert "name" in user_detailed_schema["properties"]
         assert "age" in user_detailed_schema["properties"]
 
         # metadata should have generic object structure (JSON scalar)
         metadata_schema = props["metadata"]
-        assert "$ref" not in metadata_schema  # Should not reference detailed schema
         # Should NOT have detailed properties like GraphQLInputObjectType does
         assert "properties" not in metadata_schema or not metadata_schema.get(
             "properties")
@@ -375,15 +370,9 @@ async def test_optional_input_object_schema_inspection():
         assert "required" not in schema_dict or "userInput" not in schema_dict.get(
             "required", [])
 
-        # But should still have proper object structure via $ref
+        # Should still have proper object structure (inline or $ref)
         user_input_schema = schema_dict["properties"]["userInput"]
-        assert "$ref" in user_input_schema
-
-        # Find the detailed schema in $defs
-        user_ref_name = user_input_schema["$ref"].split("/")[-1]
-        assert user_ref_name in schema_dict["$defs"]
-
-        user_detailed_schema = schema_dict["$defs"][user_ref_name]
+        user_detailed_schema = resolve_object_schema(user_input_schema, schema_dict)
         assert "name" in user_detailed_schema["properties"]
         assert "age" in user_detailed_schema["properties"]
 
@@ -455,15 +444,9 @@ async def test_list_of_input_objects_schema_inspection():
         tasks_schema = schema_dict["properties"]["tasks"]
         assert tasks_schema["type"] == "array"
 
-        # Check that array items reference a detailed schema
+        # Check that array items have detailed schema (inline or $ref)
         items_schema = tasks_schema["items"]
-        assert "$ref" in items_schema
-
-        # Find the detailed schema in $defs
-        task_ref_name = items_schema["$ref"].split("/")[-1]
-        assert task_ref_name in schema_dict["$defs"]
-
-        task_detailed_schema = schema_dict["$defs"][task_ref_name]
+        task_detailed_schema = resolve_object_schema(items_schema, schema_dict)
         assert "title" in task_detailed_schema["properties"]
         assert "description" in task_detailed_schema["properties"]
         assert "status" in task_detailed_schema["properties"]

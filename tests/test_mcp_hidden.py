@@ -86,18 +86,15 @@ class TestMcpHiddenDirective:
         assert internal_directives[0].directive.name == 'mcpHidden'
         assert debug_directives[0].directive.name == 'mcpHidden'
 
-    def test_mcp_tool_hides_args(self, api_with_hidden_args):
+    @pytest.mark.asyncio
+    async def test_mcp_tool_hides_args(self, api_with_hidden_args):
         """MCP tool should not expose hidden arguments."""
         from graphql_mcp import GraphQLMCP
 
         mcp = GraphQLMCP.from_api(api_with_hidden_args)
 
         # Get the tool function for search
-        search_tool = None
-        for tool_name, tool_info in mcp._tool_manager._tools.items():
-            if tool_name == 'search':
-                search_tool = tool_info
-                break
+        search_tool = await mcp.get_tool('search')
 
         assert search_tool is not None, "search tool should exist"
 
@@ -117,18 +114,15 @@ class TestMcpHiddenDirective:
         assert 'debugMode' not in param_names, "debugMode should be hidden"
         assert 'debug_mode' not in param_names, "debug_mode should be hidden"
 
-    def test_normal_query_unchanged(self, api_with_hidden_args):
+    @pytest.mark.asyncio
+    async def test_normal_query_unchanged(self, api_with_hidden_args):
         """Queries without @mcpHidden should work normally."""
         from graphql_mcp import GraphQLMCP
 
         mcp = GraphQLMCP.from_api(api_with_hidden_args)
 
         # Get the normal_query tool
-        normal_tool = None
-        for tool_name, tool_info in mcp._tool_manager._tools.items():
-            if tool_name == 'normal_query':
-                normal_tool = tool_info
-                break
+        normal_tool = await mcp.get_tool('normal_query')
 
         assert normal_tool is not None, "normal_query tool should exist"
 
@@ -189,7 +183,8 @@ class TestMcpHiddenValidation:
 class TestHiddenArgsSDLDirective:
     """Tests for @mcpHidden directive via SDL (works with any library)."""
 
-    def test_sdl_directive_hides_arguments(self):
+    @pytest.mark.asyncio
+    async def test_sdl_directive_hides_arguments(self):
         """@mcpHidden directive in SDL should hide arguments from MCP tools."""
         from graphql import build_schema
         from graphql_mcp import GraphQLMCP
@@ -211,11 +206,7 @@ class TestHiddenArgsSDLDirective:
         mcp = GraphQLMCP(schema=schema)
 
         # Get the search tool
-        search_tool = None
-        for tool_name, tool_info in mcp._tool_manager._tools.items():
-            if tool_name == 'search':
-                search_tool = tool_info
-                break
+        search_tool = await mcp.get_tool('search')
 
         assert search_tool is not None, "search tool should exist"
 

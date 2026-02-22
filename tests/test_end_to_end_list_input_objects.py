@@ -127,16 +127,20 @@ async def test_end_to_end_list_input_objects_original_scenario():
         assert "responses" in schema_dict["properties"]
         assert "responses" in schema_dict["required"]
 
-        # Verify it's an array of detailed objects
+        # Verify it's an array of detailed objects (inline or $ref)
         responses_schema = schema_dict["properties"]["responses"]
         assert responses_schema["type"] == "array"
-        assert "$ref" in responses_schema["items"]
 
-        # Verify the detailed schema exists
-        ref_name = responses_schema["items"]["$ref"].split("/")[-1]
-        assert ref_name in schema_dict["$defs"]
+        # Items may be inline or $ref
+        items_schema = responses_schema["items"]
+        if "$ref" in items_schema:
+            ref_name = items_schema["$ref"].split("/")[-1]
+            assert ref_name in schema_dict["$defs"]
+            response_model_schema = schema_dict["$defs"][ref_name]
+        else:
+            # Inline schema
+            response_model_schema = items_schema
 
-        response_model_schema = schema_dict["$defs"][ref_name]
         assert "message" in response_model_schema["properties"]
         assert "role" in response_model_schema["properties"]
         # camelCase in GraphQL
