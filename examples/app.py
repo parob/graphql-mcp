@@ -1,7 +1,9 @@
 """GraphQL MCP Examples - all examples served under one Cloud Run instance."""
 
+import html
 from contextlib import asynccontextmanager
 from contextlib import AsyncExitStack
+from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
@@ -12,38 +14,51 @@ from task_manager import app as task_manager_app
 from nested_api import app as nested_api_app
 from remote_api import app as remote_api_app
 
-# Registry of all examples: (path, app, title, description)
+EXAMPLES_DIR = Path(__file__).parent
+
+# Registry of all examples: (path, app, title, description, source_file)
 EXAMPLES = [
     ("/hello-world", hello_world_app, "Hello World",
-     "Minimal MCP server with a single query — the simplest possible starting point."),
+     "Minimal MCP server with a single query — the simplest possible starting point.",
+     "hello_world.py"),
     ("/task-manager", task_manager_app, "Task Manager",
-     "Full CRUD with enums, mutations, UUID/datetime scalars, and in-memory state."),
+     "Full CRUD with enums, mutations, UUID/datetime scalars, and in-memory state.",
+     "task_manager.py"),
     ("/nested-api", nested_api_app, "Nested API",
-     "Nested tools, @mcpHidden directive, Pydantic models, and async resolvers."),
+     "Nested tools, @mcpHidden directive, Pydantic models, and async resolvers.",
+     "nested_api.py"),
     ("/remote-api", remote_api_app, "Remote API",
-     "Wraps a public GraphQL API (Countries) as MCP tools via from_remote_url()."),
+     "Wraps a public GraphQL API (Countries) as MCP tools via from_remote_url().",
+     "remote_api.py"),
 ]
 
 
 async def index(request):
     """Landing page listing all available examples."""
-    cards = "\n".join(
-        f'''<div class="card">
+    cards_parts = []
+    for path, _, title, desc, source_file in EXAMPLES:
+        source = html.escape((EXAMPLES_DIR / source_file).read_text())
+        cards_parts.append(f'''<div class="card">
             <h2>{title}</h2>
             <p>{desc}</p>
             <div class="card-links">
                 <a class="btn btn-primary" href="{path}/">GraphiQL</a>
                 <a class="btn btn-secondary" href="{path}/mcp">MCP</a>
             </div>
-        </div>'''
-        for path, _, title, desc in EXAMPLES
-    )
-    html = f"""<!DOCTYPE html>
+            <details class="source">
+                <summary>{source_file}</summary>
+                <pre><code class="language-python">{source}</code></pre>
+            </details>
+        </div>''')
+    cards = "\n".join(cards_parts)
+    page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>GraphQL MCP Examples</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <style>
         *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
@@ -156,6 +171,27 @@ async def index(request):
         }}
         footer a {{ color: #64748b; text-decoration: none; }}
         footer a:hover {{ color: #3b82f6; }}
+        .source {{
+            margin-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 0.75rem;
+        }}
+        .source summary {{
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+        }}
+        .source summary:hover {{ color: #3b82f6; }}
+        .source pre {{
+            margin-top: 0.75rem;
+            max-height: 400px;
+            overflow: auto;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }}
     </style>
 </head>
 <body>
@@ -185,23 +221,24 @@ async def index(request):
         &nbsp;&middot;&nbsp;
         <a href="https://github.com/parob/graphql-mcp">Source</a>
     </footer>
+    <script>hljs.highlightAll();</script>
 </body>
 </html>"""
-    return HTMLResponse(html)
+    return HTMLResponse(page)
 
 
 @asynccontextmanager
 async def lifespan(app):
     """Enter each example sub-app's lifespan (required for MCP session management)."""
     async with AsyncExitStack() as stack:
-        for _, example_app, _, _ in EXAMPLES:
+        for _, example_app, _, _, _ in EXAMPLES:
             if hasattr(example_app, "lifespan"):
                 await stack.enter_async_context(example_app.lifespan(app))
         yield
 
 
 routes = [Route("/", index, methods=["GET"])]
-routes += [Mount(path, app=example_app) for path, example_app, _, _ in EXAMPLES]
+routes += [Mount(path, app=example_app) for path, example_app, _, _, _ in EXAMPLES]
 
 app = Starlette(routes=routes, lifespan=lifespan)
 
