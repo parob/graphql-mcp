@@ -1,10 +1,10 @@
 ---
 title: GraphQL MCP
-description: Turn your GraphQL API into AI-ready tools. Every query becomes a read tool, every mutation becomes a write tool.
+description: A Python package that turns any GraphQL API into AI-ready MCP tools. Every query becomes a read tool, every mutation becomes a write tool.
 layout: home
 hero:
   name: GraphQL MCP
-  text: Turn your GraphQL API into AI-ready tools
+  text: A Python package that turns any GraphQL API into AI-ready tools
   tagline: Every query becomes a read tool. Every mutation becomes a write tool. Claude, ChatGPT, Cursor, and any MCP client can call them instantly.
   actions:
     - theme: brand
@@ -15,7 +15,7 @@ hero:
       link: https://examples.graphql-mcp.com
 ---
 
-MCP (Model Context Protocol) lets AI agents call external tools. GraphQL MCP reads your schema and generates those tools automatically — no boilerplate, no manual definitions.
+GraphQL MCP is a Python package that reads your GraphQL schema and generates MCP tools automatically — no boilerplate, no manual definitions. It works in two modes: wrap a Python schema directly, or proxy any remote GraphQL API.
 
 ## Your schema becomes AI tools
 
@@ -63,24 +63,45 @@ Types, descriptions, enums, and optionality are all preserved automatically.
 </div>
 </div>
 
-## From a Python schema
+## Two ways to use it
+
+<div class="before-after">
+<div class="media-frame">
+
+**Wrap a Python schema**
+
+Import your Strawberry, Ariadne, Graphene, or graphql-api schema and serve it directly — no network hop, no separate server.
 
 ```python
 from graphql_mcp import GraphQLMCP
 
-api = ...  # your Strawberry, Ariadne, Graphene, or graphql-api schema
+api = ...  # your Python GraphQL schema
 server = GraphQLMCP.from_api(api, name="My API")
 app = server.http_app()
 ```
 
-## From any existing GraphQL API
+<a href="/python-libraries">Python library guide &rarr;</a>
+
+</div>
+<div class="media-frame">
+
+**Proxy a remote API**
+
+Point at any GraphQL endpoint — GitHub, Shopify, Hasura, or your own, in any language — and graphql-mcp introspects the schema and generates tools automatically.
 
 ```python
 from graphql_mcp import GraphQLMCP
 
-server = GraphQLMCP.from_remote_url("https://api.example.com/graphql")
+server = GraphQLMCP.from_remote_url(
+    "https://api.example.com/graphql"
+)
 app = server.http_app()
 ```
+
+<a href="/existing-apis">Remote API guide &rarr;</a>
+
+</div>
+</div>
 
 ## Works with
 
@@ -108,11 +129,6 @@ app = server.http_app()
 <a class="hero-card" href="/configuration">
 <h3>Configuration</h3>
 <p>mcp_hidden, auth, mutations, transport, middleware — configure how tools are generated and served.</p>
-</a>
-
-<a class="hero-card" href="/api-reference">
-<h3>API Reference</h3>
-<p>Type mapping, tool generation rules, and complete parameter reference.</p>
 </a>
 
 </div>

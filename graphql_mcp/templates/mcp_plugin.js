@@ -873,7 +873,7 @@
                         key: 'auth-modal',
                         className: 'graphiql-dialog',
                         onMouseDown: (e) => e.stopPropagation(),
-                        style: { pointerEvents: 'auto', width: '380px', maxWidth: '90vw' }
+                        style: { pointerEvents: 'auto', width: '460px', maxWidth: '90vw' }
                     }, [
                         // Dialog header
                         React.createElement('div', {
@@ -1029,7 +1029,7 @@
                             },
                             style: {
                                 position: 'absolute',
-                                right: 0,
+                                right: '8px',
                                 top: '50%',
                                 transform: 'translateY(-50%)',
                                 cursor: clearingHistory ? 'not-allowed' : 'pointer',
