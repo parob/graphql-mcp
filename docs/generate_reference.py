@@ -336,19 +336,41 @@ def _clean_release_body(body: str) -> str:
     return cleaned
 
 
+def _split_highlights(body: str) -> tuple[str, str]:
+    """Split release body into (description, highlights) if it contains a highlights line."""
+    if not body:
+        return ("", "")
+    lines = body.split("\n")
+    desc_lines = []
+    highlights = ""
+    for line in lines:
+        if line.startswith("**1.") and "highlights:**" in line.lower():
+            highlights = re.sub(r"\*\*[\d.]+x highlights:\*\*\s*", "", line, flags=re.IGNORECASE)
+        else:
+            desc_lines.append(line)
+    return ("\n".join(desc_lines).strip(), highlights.strip())
+
+
+def _md_inline_to_html(text: str) -> str:
+    """Convert inline markdown (backticks) to HTML inside raw HTML blocks."""
+    from html import escape
+    # Escape HTML first, then convert backtick code spans
+    escaped = escape(text)
+    escaped = re.sub(r'`([^`]+)`', r'<code>\1</code>', escaped)
+    return escaped
+
+
 def _render_release_history(releases: list[dict]) -> str:
     """Render the release history section from GitHub releases."""
-    # Filter out drafts/prereleases and sort by version descending
+    from itertools import groupby
+
     valid = [
         r for r in releases
         if not r.get("draft") and not r.get("prerelease")
     ]
     valid.sort(key=lambda r: _parse_version(r["tag_name"]), reverse=True)
 
-    lines = ["---", "", "## Release History"]
-
-    # Group by (major, minor)
-    from itertools import groupby
+    lines = ["---", "", "## Release History", ""]
 
     def minor_key(r):
         parts = _parse_version(r["tag_name"])
@@ -356,8 +378,23 @@ def _render_release_history(releases: list[dict]) -> str:
 
     for (major, minor), group_iter in groupby(valid, key=minor_key):
         group = list(group_iter)
-        lines.append("")
         lines.append(f"### {major}.{minor}")
+        lines.append("")
+
+        # Find the highlights from the first release in the group (the .0 release is last since sorted desc)
+        highlights = ""
+        for release in group:
+            body = _clean_release_body(release.get("body", ""))
+            _, h = _split_highlights(body)
+            if h:
+                highlights = h
+                break
+
+        if highlights:
+            lines.append(f'<div class="release-highlights">{_md_inline_to_html(highlights)}</div>')
+            lines.append("")
+
+        lines.append('<div class="release-list">')
 
         for release in group:
             tag = release["tag_name"]
@@ -371,17 +408,25 @@ def _render_release_history(releases: list[dict]) -> str:
             pypi_url = f"https://pypi.org/project/{PYPI_PACKAGE}/{tag}/"
             gh_url = release.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}")
 
-            date_part = f" — {date_str}" if date_str else ""
-            lines.append("")
-            lines.append(
-                f"**{tag}**{date_part} &nbsp; "
-                f"[PyPI]({pypi_url}) · [GitHub]({gh_url})"
-            )
-
             body = _clean_release_body(release.get("body", ""))
-            if body:
-                lines.append("")
-                lines.append(body)
+            desc, _ = _split_highlights(body)
+
+            lines.append('<div class="release-entry">')
+            lines.append('<div class="release-header">')
+            lines.append(f'<span class="release-version">{tag}</span>')
+            if date_str:
+                lines.append(f'<span class="release-date">{date_str}</span>')
+            lines.append(f'<span class="release-links">'
+                         f'<a href="{pypi_url}">PyPI</a>'
+                         f'<a href="{gh_url}">GitHub</a>'
+                         f'</span>')
+            lines.append('</div>')
+            if desc:
+                lines.append(f'<p class="release-body">{_md_inline_to_html(desc)}</p>')
+            lines.append('</div>')
+
+        lines.append('</div>')
+        lines.append("")
 
     return "\n".join(lines)
 

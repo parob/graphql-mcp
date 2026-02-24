@@ -26,5 +26,8 @@ tests/remote_app.py
 *.pyc
 __pycache__/
 
+# Generated docs
+docs/public/api-reference.md
+
 # Lock files (keep uv.lock, ignore others)
 Pipfile.lock
