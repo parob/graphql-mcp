@@ -1,8 +1,8 @@
 ---
-title: "Existing GraphQL APIs"
+title: "Remote GraphQL APIs"
 ---
 
-# Existing GraphQL APIs
+# Remote GraphQL APIs
 
 Connect to any existing GraphQL API and expose it as MCP tools — regardless of what language or framework the API is built with. If it speaks GraphQL, graphql-mcp can wrap it.
 

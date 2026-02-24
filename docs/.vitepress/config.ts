@@ -31,7 +31,7 @@ export default defineConfig({
           text: 'Guides',
           items: [
             { text: 'Python Libraries', link: '/python-libraries' },
-            { text: 'Existing APIs', link: '/existing-apis' },
+            { text: 'Remote APIs', link: '/existing-apis' },
             { text: 'Configuration', link: '/configuration' },
           ]
         },

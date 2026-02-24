@@ -4,8 +4,8 @@ description: A Python package that turns any GraphQL API into AI-ready MCP tools
 layout: home
 hero:
   name: GraphQL MCP
-  text: A Python package that turns any GraphQL API into AI-ready tools
-  tagline: Every query becomes a read tool. Every mutation becomes a write tool. Claude, ChatGPT, Cursor, and any MCP client can call them instantly.
+  text: Turn any GraphQL schema into MCP tools
+  tagline: A Python package that reads your schema and generates AI-ready tools automatically. Every query becomes a read tool. Every mutation becomes a write tool.
   actions:
     - theme: brand
       text: Get Started
@@ -15,7 +15,7 @@ hero:
       link: https://examples.graphql-mcp.com
 ---
 
-GraphQL MCP is a Python package that reads your GraphQL schema and generates MCP tools automatically — no boilerplate, no manual definitions. It works in two modes: wrap a Python schema directly, or proxy any remote GraphQL API.
+Install graphql-mcp, point it at a graphql-core schema or a remote endpoint, and get a running MCP server. Works with Strawberry, Ariadne, Graphene, graphql-api, or any GraphQL API over HTTP.
 
 ## Your schema becomes AI tools
 
@@ -63,14 +63,9 @@ Types, descriptions, enums, and optionality are all preserved automatically.
 </div>
 </div>
 
-## Two ways to use it
+## Wrap a Python schema
 
-<div class="before-after">
-<div class="media-frame">
-
-**Wrap a Python schema**
-
-Import your Strawberry, Ariadne, Graphene, or graphql-api schema and serve it directly — no network hop, no separate server.
+Import your existing Python GraphQL schema and serve it as MCP tools directly — no network hop, no separate server. graphql-mcp reads the graphql-core schema object and generates tools in the same process.
 
 ```python
 from graphql_mcp import GraphQLMCP
@@ -80,14 +75,13 @@ server = GraphQLMCP.from_api(api, name="My API")
 app = server.http_app()
 ```
 
+Compatible with any library that produces a graphql-core schema: Strawberry, Ariadne, Graphene, graphql-api.
+
 <a href="/python-libraries">Python library guide &rarr;</a>
 
-</div>
-<div class="media-frame">
+## Proxy a remote GraphQL API
 
-**Proxy a remote API**
-
-Point at any GraphQL endpoint — GitHub, Shopify, Hasura, or your own, in any language — and graphql-mcp introspects the schema and generates tools automatically.
+Point at any GraphQL endpoint — in any language, on any host — and graphql-mcp introspects the schema over HTTP and generates tools automatically. Queries and mutations are forwarded to the remote server at call time.
 
 ```python
 from graphql_mcp import GraphQLMCP
@@ -98,37 +92,30 @@ server = GraphQLMCP.from_remote_url(
 app = server.http_app()
 ```
 
+Requires the remote API to have introspection enabled.
+
 <a href="/existing-apis">Remote API guide &rarr;</a>
-
-</div>
-</div>
-
-## Works with
-
-<p>
-<span class="note-chip">Strawberry</span>
-<span class="note-chip">Ariadne</span>
-<span class="note-chip">Graphene</span>
-<span class="note-chip">graphql-api</span>
-<span class="note-chip">Any graphql-core schema</span>
-<span class="note-chip">Remote GraphQL endpoints</span>
-</p>
 
 <div class="hero-grid">
 
+<a class="hero-card" href="/getting-started">
+<h3>Getting Started</h3>
+<p>Install, run your first server, open the MCP Inspector.</p>
+</a>
+
 <a class="hero-card" href="/python-libraries">
 <h3>Python Libraries</h3>
-<p>Works alongside Strawberry, Ariadne, Graphene, graphql-api, or any graphql-core schema.</p>
+<p>Setup guides for Strawberry, Ariadne, Graphene, and graphql-api.</p>
 </a>
 
 <a class="hero-card" href="/existing-apis">
-<h3>Existing APIs</h3>
-<p>Connect to any GraphQL API — GitHub, Shopify, Hasura, or your own, in any language.</p>
+<h3>Remote APIs</h3>
+<p>Connect to GitHub, Shopify, Hasura, or any GraphQL endpoint.</p>
 </a>
 
 <a class="hero-card" href="/configuration">
 <h3>Configuration</h3>
-<p>mcp_hidden, auth, mutations, transport, middleware — configure how tools are generated and served.</p>
+<p>Transports, authentication, mcp_hidden, mutations, middleware.</p>
 </a>
 
 </div>

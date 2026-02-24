@@ -38,15 +38,6 @@
   background: var(--vp-c-bg-soft);
 }
 
-.note-chip {
-  display: inline-block;
-  font-size: 0.78rem;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid var(--vp-c-divider);
-  margin-right: 0.35rem;
-}
-
 /*
  * Screenshot display sizing — all images are captured at 2× deviceScaleFactor.
  * Each rule sets max-width to the logical (1×) size so images render at the
