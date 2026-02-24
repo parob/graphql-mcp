@@ -203,8 +203,9 @@ async def index(request):
             border: none;
             border-radius: 16px;
             padding: 0;
-            width: min(90vw, 720px);
-            max-height: 85vh;
+            width: min(92vw, 860px);
+            max-height: 88vh;
+            margin: auto;
             box-shadow: 0 24px 48px rgba(0,0,0,0.15);
             overflow: hidden;
         }}
