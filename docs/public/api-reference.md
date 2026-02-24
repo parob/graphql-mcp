@@ -419,3 +419,217 @@ Synchronous wrapper for fetching a remote GraphQL schema.
 
 **Returns:** `GraphQLSchema` — The fetched and built schema.
 
+
+---
+
+## Release History
+
+### 1.7
+
+**1.7.7** — February 20, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.7/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.7)
+
+Fix `model_dump()` serializing `None` for unset optional fields.
+
+**1.7.6** — February 20, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.6/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.6)
+
+Scope root pytest to `tests/` directory.
+
+**1.7.5** — February 24, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.5/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.5)
+
+Migrate docs from Hugo to VitePress. Add nested API examples and default GraphiQL queries. Fix MCP Inspector not updating URL on page navigation.
+
+**1.7.4** — February 10, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.4/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.4)
+
+Update enum validation — enum names are now accepted alongside values.
+
+**1.7.3** — February 24, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.3/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.3)
+
+Auto-create GitHub Release on tag push via CI.
+
+**1.7.2** — February 24, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.2/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.2)
+
+Fix case-insensitive enum validation for LLM tool calls.
+
+**1.7.1** — December 16, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.1)
+
+Add `@mcpHidden` directive for hiding GraphQL arguments from MCP tools.
+
+**1.7.0** — December 9, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.7.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.7.0)
+
+Add GitHub Pages documentation site and test examples.
+
+### 1.6
+
+**1.6.1** — October 28, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.6.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.6.1)
+
+Version bump and project configuration update.
+
+**1.6.0** — October 27, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.6.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.6.0)
+
+Add `dict` type support and update graphql-http dependency.
+
+### 1.5
+
+**1.5.5** — October 7, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.5.5/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.5.5)
+
+Linter fixes.
+
+**1.5.4** — October 7, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.5.4/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.5.4)
+
+Fix concurrency issues in tool execution.
+
+**1.5.3** — October 7, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.5.3/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.5.3)
+
+Patch release.
+
+**1.5.2** — October 6, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.5.2/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.5.2)
+
+Fix output schema generation for object types.
+
+**1.5.1** — September 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.5.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.5.1)
+
+MCP Inspector cleanup.
+
+**1.5.0** — September 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.5.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.5.0)
+
+Introduce MCP Inspector — an interactive tool testing UI injected into GraphiQL.
+
+### 1.4
+
+**1.4.1** — September 24, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.4.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.4.1)
+
+Project configuration update.
+
+**1.4.0** — September 24, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.4.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.4.0)
+
+Code cleanup and reorganization.
+
+### 1.3
+
+**1.3.24** — September 2, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.24/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.24)
+
+Build and CI fixes.
+
+**1.3.23** — September 2, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.23/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.23)
+
+Warning removal and fixes.
+
+**1.3.22** — August 29, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.22/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.22)
+
+Internal renaming and cleanup.
+
+**1.3.21** — August 29, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.21/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.21)
+
+HTTP server updates.
+
+**1.3.20** — August 27, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.20/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.20)
+
+Fix enum return type handling.
+
+**1.3.19** — August 27, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.19/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.19)
+
+MCP tool generation fixes.
+
+**1.3.18** — August 27, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.18/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.18)
+
+Normalization fix for field names.
+
+**1.3.17** — August 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.17/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.17)
+
+Enum type handling fixes.
+
+**1.3.16** — August 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.16/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.16)
+
+Bug fix.
+
+**1.3.15** — August 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.15/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.15)
+
+Linter fixes.
+
+**1.3.14** — August 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.14/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.14)
+
+Internal updates.
+
+**1.3.13** — August 14, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.13/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.13)
+
+Add path redirect middleware.
+
+**1.3.12** — August 14, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.12/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.12)
+
+Restore GraphQL middleware support.
+
+**1.3.11** — August 13, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.11/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.11)
+
+Remove middleware layer.
+
+**1.3.10** — August 13, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.10/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.10)
+
+MCP tool generation fixes.
+
+**1.3.9** — August 13, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.9/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.9)
+
+Dependency and README updates.
+
+**1.3.8** — August 12, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.8/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.8)
+
+Add bearer token passthrough for remote APIs.
+
+**1.3.7** — August 12, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.7/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.7)
+
+Add `from_remote_url()` for connecting to remote GraphQL endpoints.
+
+**1.3.6** — August 11, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.6/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.6)
+
+Test fix.
+
+**1.3.5** — August 11, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.5/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.5)
+
+Test and linter fixes.
+
+**1.3.4** — August 11, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.3.4/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.3.4)
+
+Add enum type handling and various MCP fixes.
+
+### 1.1
+
+**1.1.3** — August 10, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.1.3/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.1.3)
+
+Add GraphQL HTTP server tests and MCP fixes.
+
+**1.1.2** — August 6, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.1.2/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.1.2)
+
+Mount GraphQL HTTP server by default when using `http_app()`.
+
+**1.1.1** — July 15, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.1.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.1.1)
+
+Test fixes for async execution.
+
+**1.1.0** — February 24, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.1.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.1.0)
+
+Add async execution support.
+
+### 1.0
+
+**1.0.5** — July 1, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.5/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.5)
+
+Add nested mutation support.
+
+**1.0.4** — July 1, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.4/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.4)
+
+Add MCP redirect middleware with tests.
+
+**1.0.3** — June 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.3/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.3)
+
+Bug fixes for tool generation.
+
+**1.0.2** — June 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.2/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.2)
+
+MCP tool generation updates.
+
+**1.0.1** — June 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.1)
+
+Add synchronous execution support.
+
+**1.0.0** — June 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.0)
+
+Initial release of graphql-mcp. Generates MCP tools from graphql-core schemas — every query becomes a read tool, every mutation becomes a write tool.

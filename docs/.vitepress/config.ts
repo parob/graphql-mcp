@@ -39,6 +39,7 @@ export default defineConfig({
           text: 'Reference',
           items: [
             { text: 'API Reference', link: '/api-reference' },
+            { text: 'Release History', link: '/api-reference#release-history' },
           ]
         },
       ],

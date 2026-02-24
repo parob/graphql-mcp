@@ -36,21 +36,38 @@ EXAMPLES = [
 async def index(request):
     """Landing page listing all available examples."""
     cards_parts = []
+    dialogs_parts = []
     for path, _, title, desc, source_file in EXAMPLES:
         source = html.escape((EXAMPLES_DIR / source_file).read_text())
+        dialog_id = path.strip("/")
         cards_parts.append(f'''<div class="card">
             <h2>{title}</h2>
             <p>{desc}</p>
             <div class="card-links">
                 <a class="btn btn-primary" href="{path}/">GraphiQL</a>
                 <a class="btn btn-secondary" href="{path}/mcp">MCP</a>
+                <button class="btn btn-source" onclick="openSource('{dialog_id}')">Source</button>
             </div>
-            <details class="source">
-                <summary>{source_file}</summary>
-                <pre><code class="language-python">{source}</code></pre>
-            </details>
         </div>''')
+        dialogs_parts.append(f'''<dialog id="dialog-{dialog_id}" class="source-dialog" onclick="if(event.target===this)this.close()">
+            <div class="dialog-inner">
+                <div class="dialog-header">
+                    <h2>{title}</h2>
+                    <button class="dialog-close" onclick="this.closest('dialog').close()">&times;</button>
+                </div>
+                <p class="dialog-desc">{desc}</p>
+                <div class="card-links">
+                    <a class="btn btn-primary" href="{path}/">GraphiQL</a>
+                    <a class="btn btn-secondary" href="{path}/mcp">MCP</a>
+                </div>
+                <div class="dialog-source">
+                    <div class="dialog-source-label">{source_file}</div>
+                    <pre><code class="language-python">{source}</code></pre>
+                </div>
+            </div>
+        </dialog>''')
     cards = "\n".join(cards_parts)
+    dialogs = "\n".join(dialogs_parts)
     page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -110,8 +127,8 @@ async def index(request):
             line-height: 1.6;
         }}
         .card-grid {{
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.25rem;
         }}
         .card {{
@@ -151,6 +168,8 @@ async def index(request):
             font-weight: 500;
             text-decoration: none;
             transition: background 0.15s, color 0.15s;
+            cursor: pointer;
+            border: none;
         }}
         .btn-primary {{
             background: #3b82f6;
@@ -163,6 +182,13 @@ async def index(request):
             border: 1px solid #e2e8f0;
         }}
         .btn-secondary:hover {{ background: #e2e8f0; }}
+        .btn-source {{
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            font-family: 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
+        }}
+        .btn-source:hover {{ background: #e2e8f0; }}
         footer {{
             text-align: center;
             padding: 2rem;
@@ -171,26 +197,73 @@ async def index(request):
         }}
         footer a {{ color: #64748b; text-decoration: none; }}
         footer a:hover {{ color: #3b82f6; }}
-        .source {{
-            margin-top: 1rem;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 0.75rem;
+
+        /* Dialog */
+        .source-dialog {{
+            border: none;
+            border-radius: 16px;
+            padding: 0;
+            width: min(90vw, 720px);
+            max-height: 85vh;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.15);
+            overflow: hidden;
         }}
-        .source summary {{
+        .source-dialog::backdrop {{
+            background: rgba(0,0,0,0.4);
+        }}
+        .dialog-inner {{
+            padding: 1.5rem;
+            overflow-y: auto;
+            max-height: 85vh;
+        }}
+        .dialog-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }}
+        .dialog-header h2 {{
+            font-size: 1.25rem;
+            font-weight: 600;
+        }}
+        .dialog-close {{
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            line-height: 1;
+        }}
+        .dialog-close:hover {{
+            background: #f1f5f9;
+            color: #1e293b;
+        }}
+        .dialog-desc {{
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }}
+        .dialog-source {{
+            margin-top: 1.25rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+        }}
+        .dialog-source-label {{
             font-size: 0.8rem;
             font-weight: 500;
             color: #64748b;
-            cursor: pointer;
-            font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+            font-family: 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
+            margin-bottom: 0.5rem;
         }}
-        .source summary:hover {{ color: #3b82f6; }}
-        .source pre {{
-            margin-top: 0.75rem;
-            max-height: 400px;
-            overflow: auto;
+        .dialog-source pre {{
             border-radius: 8px;
             font-size: 0.8rem;
             line-height: 1.5;
+            overflow: auto;
+            max-height: 50vh;
         }}
     </style>
 </head>
@@ -213,6 +286,7 @@ async def index(request):
         <div class="card-grid">
             {cards}
         </div>
+        {dialogs}
     </main>
     <footer>
         <a href="https://pypi.org/project/graphql-mcp/">PyPI</a>
@@ -221,7 +295,13 @@ async def index(request):
         &nbsp;&middot;&nbsp;
         <a href="https://github.com/parob/graphql-mcp">Source</a>
     </footer>
-    <script>hljs.highlightAll();</script>
+    <script>
+        hljs.highlightAll();
+        function openSource(id) {{
+            var d = document.getElementById('dialog-' + id);
+            d.showModal();
+        }}
+    </script>
 </body>
 </html>"""
     return HTMLResponse(page)

@@ -13,6 +13,9 @@ hero:
     - theme: alt
       text: Live Examples
       link: https://examples.graphql-mcp.com
+    - theme: alt
+      text: "v1.7.7"
+      link: "https://pypi.org/project/graphql-mcp/1.7.7/"
 ---
 
 Install graphql-mcp, point it at a graphql-core schema or a remote endpoint, and get a running MCP server. Works with Strawberry, Ariadne, Graphene, graphql-api, or any GraphQL API over HTTP.

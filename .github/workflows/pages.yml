@@ -46,6 +46,8 @@ jobs:
 
       - name: Build VitePress
         run: npm --prefix docs run docs:build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Setup Pages
         id: pages

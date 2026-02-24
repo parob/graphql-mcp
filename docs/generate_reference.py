@@ -1,8 +1,13 @@
 """Generate API reference documentation from graphql-mcp source code."""
 
 import inspect
+import json
+import os
+import re
 import sys
 import textwrap
+import urllib.request
+from datetime import datetime
 from pathlib import Path
 from typing import Any, get_type_hints
 
@@ -293,6 +298,127 @@ def _render_class(cls: type, cls_name: str, methods: list[tuple[str, Any, bool]]
     return "\n".join(lines)
 
 
+GITHUB_REPO = "parob/graphql-mcp"
+PYPI_PACKAGE = "graphql-mcp"
+
+
+def _parse_version(tag: str) -> tuple[int, ...]:
+    """Parse a version tag like '1.7.7' into a sortable tuple."""
+    return tuple(int(x) for x in tag.split("."))
+
+
+def _fetch_releases() -> list[dict] | None:
+    """Fetch releases from GitHub API. Returns None on failure."""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/releases?per_page=100"
+    headers = {"Accept": "application/vnd.github+json"}
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read())
+    except Exception as e:
+        print(f"Warning: Could not fetch releases from GitHub: {e}")
+        return None
+
+
+def _clean_release_body(body: str) -> str:
+    """Strip auto-generated 'Full Changelog' boilerplate from release body."""
+    if not body:
+        return ""
+    # Remove "**Full Changelog**: https://..." lines
+    cleaned = re.sub(
+        r"\*\*Full Changelog\*\*:\s*https://[^\s]+", "", body
+    ).strip()
+    return cleaned
+
+
+def _render_release_history(releases: list[dict]) -> str:
+    """Render the release history section from GitHub releases."""
+    # Filter out drafts/prereleases and sort by version descending
+    valid = [
+        r for r in releases
+        if not r.get("draft") and not r.get("prerelease")
+    ]
+    valid.sort(key=lambda r: _parse_version(r["tag_name"]), reverse=True)
+
+    lines = ["---", "", "## Release History"]
+
+    # Group by (major, minor)
+    from itertools import groupby
+
+    def minor_key(r):
+        parts = _parse_version(r["tag_name"])
+        return (parts[0], parts[1])
+
+    for (major, minor), group_iter in groupby(valid, key=minor_key):
+        group = list(group_iter)
+        lines.append("")
+        lines.append(f"### {major}.{minor}")
+
+        for release in group:
+            tag = release["tag_name"]
+            published = release.get("published_at", "")
+            if published:
+                dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+                date_str = dt.strftime("%B %-d, %Y")
+            else:
+                date_str = ""
+
+            pypi_url = f"https://pypi.org/project/{PYPI_PACKAGE}/{tag}/"
+            gh_url = release.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}")
+
+            date_part = f" — {date_str}" if date_str else ""
+            lines.append("")
+            lines.append(
+                f"**{tag}**{date_part} &nbsp; "
+                f"[PyPI]({pypi_url}) · [GitHub]({gh_url})"
+            )
+
+            body = _clean_release_body(release.get("body", ""))
+            if body:
+                lines.append("")
+                lines.append(body)
+
+    return "\n".join(lines)
+
+
+def _get_latest_version(releases: list[dict]) -> str | None:
+    """Return the latest non-draft, non-prerelease version string."""
+    valid = [
+        r["tag_name"] for r in releases
+        if not r.get("draft") and not r.get("prerelease")
+    ]
+    if not valid:
+        return None
+    valid.sort(key=_parse_version, reverse=True)
+    return valid[0]
+
+
+def _update_index_version(version: str) -> None:
+    """Update the homepage version badge with the latest release."""
+    index_path = Path(__file__).parent / "public" / "index.md"
+    content = index_path.read_text()
+
+    # Replace version in text: "vX.Y.Z"
+    content = re.sub(
+        r'text: "v[\d.]+"',
+        f'text: "v{version}"',
+        content,
+    )
+    # Replace version in PyPI link
+    content = re.sub(
+        r'link: "https://pypi\.org/project/graphql-mcp/[\d.]+/"',
+        f'link: "https://pypi.org/project/graphql-mcp/{version}/"',
+        content,
+    )
+    index_path.write_text(content)
+    print(f"Updated index.md version badge to v{version}")
+
+
 def generate() -> str:
     """Generate the complete API reference markdown."""
     sections = []
@@ -446,5 +572,16 @@ def generate() -> str:
 if __name__ == "__main__":
     output_path = Path(__file__).parent / "public" / "api-reference.md"
     content = generate()
+
+    # Fetch releases and append release history
+    releases = _fetch_releases()
+    if releases:
+        content += "\n" + _render_release_history(releases) + "\n"
+        latest = _get_latest_version(releases)
+        if latest:
+            _update_index_version(latest)
+    else:
+        print("Skipping release history (GitHub API unavailable)")
+
     output_path.write_text(content)
     print(f"Generated: {output_path} ({len(content)} bytes)")
