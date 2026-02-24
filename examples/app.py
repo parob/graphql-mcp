@@ -273,7 +273,7 @@ async def index(request):
         <div class="header-inner">
             <h1>GraphQL <span>MCP</span> Examples</h1>
             <nav>
-                <a href="https://graphql-mcp.parob.com/">Docs</a>
+                <a href="https://graphql-mcp.com/">Docs</a>
                 <a href="https://github.com/parob/graphql-mcp">GitHub</a>
             </nav>
         </div>
@@ -292,7 +292,7 @@ async def index(request):
     <footer>
         <a href="https://pypi.org/project/graphql-mcp/">PyPI</a>
         &nbsp;&middot;&nbsp;
-        <a href="https://graphql-mcp.parob.com/">Documentation</a>
+        <a href="https://graphql-mcp.com/">Documentation</a>
         &nbsp;&middot;&nbsp;
         <a href="https://github.com/parob/graphql-mcp">Source</a>
     </footer>

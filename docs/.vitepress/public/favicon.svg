@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="gm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D94E8F"/>
+      <stop offset="100%" stop-color="#C88DB5"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon edges -->
+  <line x1="50" y1="9.32" x2="85.23" y2="29.66" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="85.23" y1="29.66" x2="85.23" y2="70.34" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="85.23" y1="70.34" x2="50" y2="90.68" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="50" y1="90.68" x2="14.77" y2="70.34" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="14.77" y1="70.34" x2="14.77" y2="29.66" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="14.77" y1="29.66" x2="50" y2="9.32" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <!-- Inner triangle edges -->
+  <line x1="50" y1="19" x2="77" y2="66" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="77" y1="66" x2="23" y2="66" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="23" y1="66" x2="50" y2="19" stroke="url(#gm)" stroke-width="5.5" stroke-linecap="round"/>
+  <!-- Vertex nodes -->
+  <circle cx="50" cy="9.32" r="7" fill="url(#gm)"/>
+  <circle cx="85.23" cy="29.66" r="7" fill="url(#gm)"/>
+  <circle cx="85.23" cy="70.34" r="7" fill="url(#gm)"/>
+  <circle cx="50" cy="90.68" r="7" fill="url(#gm)"/>
+  <circle cx="14.77" cy="70.34" r="7" fill="url(#gm)"/>
+  <circle cx="14.77" cy="29.66" r="7" fill="url(#gm)"/>
+</svg>

@@ -11,7 +11,8 @@ export default defineConfig({
     publicDir: path.resolve(__dirname, 'public'),
   },
   head: [
-    ['meta', { name: 'theme-color', content: '#3B82F6' }]
+    ['meta', { name: 'theme-color', content: '#3B82F6' }],
+    ['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }],
   ],
   themeConfig: {
     nav: [

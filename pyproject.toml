@@ -25,8 +25,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://gitlab.com/parob/graphql-mcp"
-Repository = "https://gitlab.com/parob/graphql-mcp"
+Homepage = "https://graphql-mcp.com"
+Documentation = "https://graphql-mcp.com"
+Repository = "https://github.com/parob/graphql-mcp"
 
 [dependency-groups]
 dev = [

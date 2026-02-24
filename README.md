@@ -4,7 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/graphql-mcp.svg)](https://pypi.org/project/graphql-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[📚 Documentation](https://graphql-mcp.parob.com/)** | **[📦 PyPI](https://pypi.org/project/graphql-mcp/)** | **[🔧 GitHub](https://github.com/parob/graphql-mcp)**
+**[📚 Documentation](https://graphql-mcp.com/)** | **[📦 PyPI](https://pypi.org/project/graphql-mcp/)** | **[🔧 GitHub](https://github.com/parob/graphql-mcp)**
 
 ---
 
@@ -147,16 +147,16 @@ Works with:
 
 ## Documentation
 
-**Visit the [official documentation](https://graphql-mcp.parob.com/)** for comprehensive guides, examples, and API reference.
+**Visit the [official documentation](https://graphql-mcp.com/)** for comprehensive guides, examples, and API reference.
 
 ### Key Topics
 
-- **[Getting Started](https://graphql-mcp.parob.com/docs/getting-started/)** - Quick introduction and basic usage
-- **[Configuration](https://graphql-mcp.parob.com/docs/configuration/)** - Configure your MCP server
-- **[Remote GraphQL](https://graphql-mcp.parob.com/docs/remote-graphql/)** - Connect to existing GraphQL APIs
-- **[MCP Inspector](https://graphql-mcp.parob.com/docs/mcp-inspector/)** - Test and debug your tools
-- **[Examples](https://graphql-mcp.parob.com/docs/examples/)** - Real-world usage examples
-- **[API Reference](https://graphql-mcp.parob.com/docs/api-reference/)** - Complete API documentation
+- **[Getting Started](https://graphql-mcp.com/docs/getting-started/)** - Quick introduction and basic usage
+- **[Configuration](https://graphql-mcp.com/docs/configuration/)** - Configure your MCP server
+- **[Remote GraphQL](https://graphql-mcp.com/docs/remote-graphql/)** - Connect to existing GraphQL APIs
+- **[MCP Inspector](https://graphql-mcp.com/docs/mcp-inspector/)** - Test and debug your tools
+- **[Examples](https://graphql-mcp.com/docs/examples/)** - Real-world usage examples
+- **[API Reference](https://graphql-mcp.com/docs/api-reference/)** - Complete API documentation
 
 ## How It Works
 
@@ -174,7 +174,7 @@ Built-in web interface for testing and debugging MCP tools:
 
 <img src="docs/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
 
-The inspector is enabled by default — visit `/graphql` in your browser. See the [MCP Inspector documentation](https://graphql-mcp.parob.com/docs/mcp-inspector/) for details.
+The inspector is enabled by default — visit `/graphql` in your browser. See the [MCP Inspector documentation](https://graphql-mcp.com/docs/mcp-inspector/) for details.
 
 ## Compatibility
 
@@ -211,7 +211,7 @@ app = server.http_app(
 )
 ```
 
-See the [documentation](https://graphql-mcp.parob.com/) for advanced configuration, authentication, and deployment guides.
+See the [documentation](https://graphql-mcp.com/) for advanced configuration, authentication, and deployment guides.
 
 ## License
 
