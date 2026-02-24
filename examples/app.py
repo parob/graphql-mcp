@@ -110,8 +110,8 @@ async def index(request):
             line-height: 1.6;
         }}
         .card-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 1.25rem;
         }}
         .card {{
