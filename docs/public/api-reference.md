@@ -458,6 +458,8 @@ Add `@mcpHidden` directive for hiding GraphQL arguments from MCP tools.
 
 Add GitHub Pages documentation site and test examples.
 
+**1.7.x highlights:** Documentation site with VitePress, `@mcpHidden` directive, case-insensitive enum validation, nested API examples, MCP Inspector URL navigation fix, optional field serialization fix.
+
 ### 1.6
 
 **1.6.1** — October 28, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.6.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.6.1)
@@ -467,6 +469,8 @@ Version bump and project configuration update.
 **1.6.0** — October 27, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.6.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.6.0)
 
 Add `dict` type support and update graphql-http dependency.
+
+**1.6.x highlights:** Dict type support, graphql-http dependency update.
 
 ### 1.5
 
@@ -494,6 +498,8 @@ MCP Inspector cleanup.
 
 Introduce MCP Inspector — an interactive tool testing UI injected into GraphiQL.
 
+**1.5.x highlights:** MCP Inspector plugin, output schema fixes for object types, concurrency fixes in tool execution.
+
 ### 1.4
 
 **1.4.1** — September 24, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.4.1/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.4.1)
@@ -503,6 +509,8 @@ Project configuration update.
 **1.4.0** — September 24, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.4.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.4.0)
 
 Code cleanup and reorganization.
+
+**1.4.x highlights:** Internal cleanup and project configuration updates.
 
 ### 1.3
 
@@ -590,6 +598,8 @@ Test and linter fixes.
 
 Add enum type handling and various MCP fixes.
 
+**1.3.x highlights:** Remote URL support via `from_remote_url()`, bearer token passthrough, enum type handling, path redirect middleware, GraphQL middleware refactoring.
+
 ### 1.1
 
 **1.1.3** — August 10, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.1.3/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.1.3)
@@ -607,6 +617,8 @@ Test fixes for async execution.
 **1.1.0** — February 24, 2026 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.1.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.1.0)
 
 Add async execution support.
+
+**1.1.x highlights:** Async execution, GraphQL HTTP server mounted by default on `http_app()`, GraphQL HTTP server tests.
 
 ### 1.0
 
@@ -633,3 +645,5 @@ Add synchronous execution support.
 **1.0.0** — June 26, 2025 &nbsp; [PyPI](https://pypi.org/project/graphql-mcp/1.0.0/) · [GitHub](https://github.com/parob/graphql-mcp/releases/tag/1.0.0)
 
 Initial release of graphql-mcp. Generates MCP tools from graphql-core schemas — every query becomes a read tool, every mutation becomes a write tool.
+
+**1.0.x highlights:** Synchronous execution, nested mutation support, MCP redirect middleware.
