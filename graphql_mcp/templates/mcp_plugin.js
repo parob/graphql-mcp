@@ -1,4 +1,7 @@
         // MCP Tools Plugin for GraphiQL
+
+        // useGraphiQLTheme() and getThemeColors() are provided by the host page (graphql-http)
+
         const mcpPlugin = {
             title: 'MCP Inspector',
             description: 'Inspect and execute MCP (Model Context Protocol) tools directly from GraphiQL',
@@ -62,6 +65,9 @@
                         }
                     };
                 }, []);
+
+                const isDark = useGraphiQLTheme();
+                const t = getThemeColors(isDark);
 
                 const [status, setStatus] = React.useState('🔄 Connecting...');
                 const [tools, setTools] = React.useState([]);
@@ -648,7 +654,7 @@
                         className: 'graphiql-markdown-description',
                         style: {
                             margin: '0px 0px 20px',
-                            color: 'rgba(59, 75, 104, 0.76)'
+                            color: t.textDescription
                         }
                     }, 'Inspect and execute MCP (Model Context Protocol) tools'),
 
@@ -659,7 +665,7 @@
                             margin: '20px 0px 12px',
                             fontSize: '16px',
                             fontWeight: '600',
-                            color: '#333',
+                            color: t.textPrimary,
                             fontFamily: 'system-ui, -apple-system, sans-serif'
                         }
                     }, 'Server Details'),
@@ -687,11 +693,13 @@
                                 minWidth: '120px',
                                 padding: '6px 8px',
                                 fontSize: '13px',
-                                border: '1px solid #ddd',
+                                border: `1px solid ${t.border}`,
                                 borderRadius: '6px',
                                 fontFamily: 'system-ui, monospace',
                                 outline: 'none',
-                                transition: 'border-color 0.2s'
+                                transition: 'border-color 0.2s',
+                                background: t.bg,
+                                color: t.textPrimary
                             }
                         }),
 
@@ -714,8 +722,8 @@
                                 borderRadius: '6px',
                                 fontSize: '12px',
                                 fontWeight: '500',
-                                background: connected ? '#e8f5e8' : '#fff3e0',
-                                color: connected ? '#2e7d32' : '#f57c00',
+                                background: connected ? t.successBg : t.warningBg,
+                                color: connected ? t.successText : t.warningText,
                                 whiteSpace: 'nowrap',
                                 minWidth: '120px',
                                 textAlign: 'center'
@@ -754,7 +762,7 @@
                             style: {
                                 padding: '6px 10px',
                                 fontSize: '12px',
-                                backgroundColor: refreshing ? '#e9ecef' : '#f8f9fa',
+                                backgroundColor: refreshing ? t.hoverBg : t.hoverBgSubtle,
                                 border: 'none',
                                 borderRadius: '6px',
                                 cursor: refreshing ? 'not-allowed' : 'pointer',
@@ -763,16 +771,16 @@
                                 gap: '4px',
                                 fontWeight: '500',
                                 fontFamily: 'system-ui, -apple-system, sans-serif !important',
-                                color: '#495057',
+                                color: t.textSecondary,
                                 transition: 'all 0.2s',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                             },
                             onMouseEnter: (e) => {
-                                e.target.style.backgroundColor = '#e9ecef';
+                                e.target.style.backgroundColor = t.hoverBg;
                                 e.target.style.transform = 'translateY(-1px)';
                             },
                             onMouseLeave: (e) => {
-                                e.target.style.backgroundColor = '#f8f9fa';
+                                e.target.style.backgroundColor = t.hoverBgSubtle;
                                 e.target.style.transform = 'translateY(0)';
                             }
                         }, [
@@ -793,8 +801,8 @@
                             style: {
                                 padding: '6px 10px',
                                 fontSize: '12px',
-                                backgroundColor: showAuth ? '#1976d2' : '#f8f9fa',
-                                color: showAuth ? 'white' : '#495057',
+                                backgroundColor: showAuth ? t.accentBgHover : t.hoverBgSubtle,
+                                color: showAuth ? t.tooltipText : t.textSecondary,
                                 border: 'none',
                                 borderRadius: '6px',
                                 cursor: 'pointer',
@@ -808,13 +816,13 @@
                             },
                             onMouseEnter: (e) => {
                                 if (!showAuth) {
-                                    e.target.style.backgroundColor = '#e9ecef';
+                                    e.target.style.backgroundColor = t.hoverBg;
                                     e.target.style.transform = 'translateY(-1px)';
                                 }
                             },
                             onMouseLeave: (e) => {
                                 if (!showAuth) {
-                                    e.target.style.backgroundColor = '#f8f9fa';
+                                    e.target.style.backgroundColor = t.hoverBgSubtle;
                                     e.target.style.transform = 'translateY(0)';
                                 }
                             }
@@ -840,7 +848,7 @@
                                     fontSize: '10px',
                                     padding: '1px 4px',
                                     marginLeft: '4px',
-                                    backgroundColor: showAuth ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                    backgroundColor: showAuth ? t.semiWhite : t.bgMuted,
                                     borderRadius: '3px',
                                     fontWeight: '600'
                                 }
@@ -863,7 +871,7 @@
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'rgba(59, 75, 104, 0.15)',
+                            background: t.backdropBg,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -894,13 +902,13 @@
                                 },
                                 style: {
                                     position: 'absolute', top: '21px', right: '21px',
-                                    background: '#ffffff', border: '2px solid #e0e0e0', cursor: 'pointer',
+                                    background: t.bg, border: `2px solid ${t.border}`, cursor: 'pointer',
                                     width: '38px', height: '38px', borderRadius: '6px',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: '#5c6370', fontSize: '24px', lineHeight: 0, fontWeight: '300', paddingBottom: '2px'
+                                    color: t.textSecondary, fontSize: '24px', lineHeight: 0, fontWeight: '300', paddingBottom: '2px'
                                 },
-                                onMouseEnter: (e) => e.currentTarget.style.background = '#f5f5f5',
-                                onMouseLeave: (e) => e.currentTarget.style.background = '#ffffff'
+                                onMouseEnter: (e) => e.currentTarget.style.background = t.hoverBgSubtle,
+                                onMouseLeave: (e) => e.currentTarget.style.background = t.bg
                             }, '\u00d7')
                         ]),
                         // Auth type section
@@ -930,7 +938,7 @@
                                 onChange: (e) => setBearerToken(e.target.value),
                                 placeholder: 'Enter bearer token',
                                 className: 'graphiql-dialog-section-input',
-                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none' }
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: `1px solid ${t.border}`, borderRadius: '6px', background: t.bg, outline: 'none' }
                             })
                         ]) : null,
                         // API key inputs
@@ -943,13 +951,13 @@
                                 key: 'apikey-header-field', type: 'text', value: apiKeyHeader,
                                 onChange: (e) => setApiKeyHeader(e.target.value),
                                 placeholder: 'Header name (e.g. X-API-Key)',
-                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none', marginBottom: '8px' }
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: `1px solid ${t.border}`, borderRadius: '6px', background: t.bg, outline: 'none', marginBottom: '8px' }
                             }),
                             React.createElement('input', {
                                 key: 'apikey-value-field', type: 'text', value: apiKey,
                                 onChange: (e) => setApiKey(e.target.value),
                                 placeholder: 'API key value',
-                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none' }
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: `1px solid ${t.border}`, borderRadius: '6px', background: t.bg, outline: 'none' }
                             })
                         ]) : null,
                         // Custom headers input
@@ -963,7 +971,7 @@
                                 onChange: (e) => setCustomHeaders(e.target.value),
                                 placeholder: '{"X-Custom-Header": "value"}',
                                 rows: 3,
-                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--color-border, #ddd)', borderRadius: '6px', background: 'var(--color-base, #fff)', outline: 'none', fontFamily: 'monospace', resize: 'vertical' }
+                                style: { width: '100%', padding: '8px 10px', fontSize: '13px', border: `1px solid ${t.border}`, borderRadius: '6px', background: t.bg, outline: 'none', fontFamily: 'monospace', resize: 'vertical' }
                             })
                         ]) : null,
                         // Apply button section
@@ -1062,8 +1070,8 @@
                         return React.createElement('div', {
                             key: tool.name || index,
                             style: {
-                                background: isExpanded ? '#f1f3f4' : '#ffffff',
-                                border: isExpanded ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                                background: isExpanded ? t.bgMuted : t.bg,
+                                border: isExpanded ? `2px solid ${t.accentStrong}` : `1px solid ${t.border}`,
                                 borderRadius: '6px',
                                 overflow: 'hidden',
                                 transition: 'all 0.2s ease'
@@ -1075,8 +1083,8 @@
                                 style: {
                                     padding: '12px',
                                     cursor: 'pointer',
-                                    background: isExpanded ? '#e3f2fd' : 'transparent',
-                                    borderBottom: isExpanded ? '1px solid #e0e0e0' : 'none'
+                                    background: isExpanded ? t.accentBg : 'transparent',
+                                    borderBottom: isExpanded ? `1px solid ${t.border}` : 'none'
                                 },
                                 onClick: () => toggleTool(tool.name)
                             }, [
@@ -1092,7 +1100,7 @@
                                         key: 'name',
                                         style: {
                                             fontWeight: '600',
-                                            color: '#1976d2',
+                                            color: t.accentStrong,
                                             fontFamily: 'monospace',
                                             fontSize: '14px'
                                         }
@@ -1101,7 +1109,7 @@
                                         key: 'expand-icon',
                                         style: {
                                             fontSize: '12px',
-                                            color: '#666',
+                                            color: t.textSecondary,
                                             transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                                             transition: 'transform 0.2s'
                                         }
@@ -1111,7 +1119,7 @@
                                     key: 'description',
                                     style: {
                                         fontSize: '12px',
-                                        color: '#666',
+                                        color: t.textSecondary,
                                         marginTop: '4px'
                                     }
                                 }, tool.description || 'No description')
@@ -1122,7 +1130,7 @@
                                 key: 'expanded',
                                 style: {
                                     padding: '16px',
-                                    background: '#fafafa'
+                                    background: t.bgInset
                                 }
                             }, [
                                 // Parameters section (only if there are parameters)
@@ -1135,7 +1143,7 @@
                                         style: {
                                             fontSize: '13px',
                                             fontWeight: '600',
-                                            color: '#333',
+                                            color: t.textPrimary,
                                             marginBottom: '8px'
                                         }
                                     }, 'Parameters:'),
@@ -1152,7 +1160,7 @@
                                                 key: 'label',
                                                 style: {
                                                     fontSize: '12px',
-                                                    color: fieldError ? '#d32f2f' : '#555',
+                                                    color: fieldError ? t.errorText : t.textSecondary,
                                                     marginBottom: '4px',
                                                     fontFamily: 'monospace'
                                                 }
@@ -1163,11 +1171,13 @@
                                                 placeholder: paramSchema.description || `Enter ${paramName}`,
                                                 style: {
                                                     padding: '6px 8px',
-                                                    border: fieldError ? '2px solid #f44336' : '1px solid #ccc',
+                                                    border: fieldError ? `2px solid ${t.errorBorder}` : `1px solid ${t.borderStrong}`,
                                                     borderRadius: '4px',
                                                     fontSize: '12px',
                                                     fontFamily: 'monospace',
-                                                    transition: 'border-color 0.2s'
+                                                    transition: 'border-color 0.2s',
+                                                    background: t.bg,
+                                                    color: t.textPrimary
                                                 },
                                                 value: (toolInputs[tool.name] && toolInputs[tool.name][paramName]) || '',
                                                 onChange: (e) => updateToolInput(tool.name, paramName, e.target.value)
@@ -1176,7 +1186,7 @@
                                                 key: 'field-error',
                                                 style: {
                                                     fontSize: '11px',
-                                                    color: '#d32f2f',
+                                                    color: t.errorText,
                                                     marginTop: '2px'
                                                 }
                                             }, fieldError) : null
@@ -1194,15 +1204,15 @@
                                         style: {
                                             fontSize: '13px',
                                             fontWeight: '600',
-                                            color: '#333',
+                                            color: t.textPrimary,
                                             marginBottom: '8px'
                                         }
                                     }, 'Output Schema:'),
                                     React.createElement('div', {
                                         key: 'output-schema-content',
                                         style: {
-                                            background: '#f8f9fa',
-                                            border: '1px solid #e0e0e0',
+                                            background: t.hoverBgSubtle,
+                                            border: `1px solid ${t.border}`,
                                             borderRadius: '4px',
                                             padding: '12px',
                                             fontSize: '11px',
@@ -1210,7 +1220,7 @@
                                             whiteSpace: 'pre-wrap',
                                             maxHeight: '150px',
                                             overflow: 'auto',
-                                            color: '#333'
+                                            color: t.textPrimary
                                         }
                                     }, JSON.stringify(tool.outputSchema, null, 2))
                                 ]) : null,
@@ -1219,8 +1229,8 @@
                                 React.createElement('button', {
                                     key: 'run-button',
                                     style: {
-                                        background: '#1976d2',
-                                        color: 'white',
+                                        background: t.accentBgHover,
+                                        color: t.tooltipText,
                                         border: 'none',
                                         padding: '8px 16px',
                                         borderRadius: '4px',
@@ -1242,15 +1252,15 @@
                                         style: {
                                             fontSize: '13px',
                                             fontWeight: '600',
-                                            color: '#333',
+                                            color: t.textPrimary,
                                             marginBottom: '8px'
                                         }
                                     }, `Result (${toolResult.timestamp}):`),
                                     React.createElement('div', {
                                         key: 'results-content',
                                         style: {
-                                            background: toolResult.success ? '#e8f5e8' : '#ffebee',
-                                            border: `1px solid ${toolResult.success ? '#4caf50' : '#f44336'}`,
+                                            background: toolResult.success ? t.successBg : t.errorBg,
+                                            border: `1px solid ${toolResult.success ? t.successBorder : t.errorBorder}`,
                                             borderRadius: '4px',
                                             padding: '12px',
                                             fontSize: '12px',
@@ -1292,10 +1302,10 @@
                             React.createElement('div', {
                                 key: historyItem.id,
                                 style: {
-                                    background: historyItem.status === 'success' ? '#e8f5e8' :
-                                               historyItem.status === 'error' ? '#ffebee' : '#fff3e0',
-                                    border: `1px solid ${historyItem.status === 'success' ? '#4caf50' :
-                                                         historyItem.status === 'error' ? '#f44336' : '#ff9800'}`,
+                                    background: historyItem.status === 'success' ? t.successBg :
+                                               historyItem.status === 'error' ? t.errorBg : t.warningBg,
+                                    border: `1px solid ${historyItem.status === 'success' ? t.successBorder :
+                                                         historyItem.status === 'error' ? t.errorBorder : t.warningBorder}`,
                                     borderRadius: '4px',
                                     padding: '8px 12px',
                                     fontSize: '12px'
@@ -1315,14 +1325,14 @@
                                         style: {
                                             fontWeight: '600',
                                             fontFamily: 'monospace',
-                                            color: '#1976d2'
+                                            color: t.accentStrong
                                         }
                                     }, historyItem.toolName),
                                     React.createElement('span', {
                                         key: 'timestamp',
                                         style: {
                                             fontSize: '11px',
-                                            color: '#666'
+                                            color: t.textSecondary
                                         }
                                     }, historyItem.timestamp)
                                 ]),
@@ -1335,7 +1345,7 @@
                                         style: {
                                             fontSize: '11px',
                                             fontWeight: '600',
-                                            color: '#555',
+                                            color: t.textSecondary,
                                             marginBottom: '2px'
                                         }
                                     }, 'Inputs:'),
@@ -1344,8 +1354,8 @@
                                         style: {
                                             fontFamily: 'monospace',
                                             fontSize: '11px',
-                                            color: '#666',
-                                            backgroundColor: 'rgba(255,255,255,0.5)',
+                                            color: t.textSecondary,
+                                            backgroundColor: t.semiWhite,
                                             padding: '4px 6px',
                                             borderRadius: '2px'
                                         }
@@ -1360,7 +1370,7 @@
                                         style: {
                                             fontSize: '11px',
                                             fontWeight: '600',
-                                            color: '#555',
+                                            color: t.textSecondary,
                                             marginBottom: '2px'
                                         }
                                     }, 'Output:'),
@@ -1369,8 +1379,8 @@
                                         style: {
                                             fontFamily: 'monospace',
                                             fontSize: '11px',
-                                            color: '#666',
-                                            backgroundColor: 'rgba(255,255,255,0.5)',
+                                            color: t.textSecondary,
+                                            backgroundColor: t.semiWhite,
                                             padding: '4px 6px',
                                             borderRadius: '2px',
                                             maxHeight: '100px',
@@ -1386,7 +1396,7 @@
                                         style: {
                                             fontSize: '11px',
                                             fontWeight: '600',
-                                            color: '#d32f2f',
+                                            color: t.errorText,
                                             marginBottom: '2px'
                                         }
                                     }, 'Error:'),
@@ -1395,8 +1405,8 @@
                                         style: {
                                             fontFamily: 'monospace',
                                             fontSize: '11px',
-                                            color: '#d32f2f',
-                                            backgroundColor: 'rgba(255,255,255,0.5)',
+                                            color: t.errorText,
+                                            backgroundColor: t.semiWhite,
                                             padding: '4px 6px',
                                             borderRadius: '2px'
                                         }
@@ -1405,7 +1415,7 @@
                                     key: 'pending',
                                     style: {
                                         fontSize: '11px',
-                                        color: '#ff9800',
+                                        color: t.warningText,
                                         fontStyle: 'italic'
                                     }
                                 }, 'Running...')
@@ -1417,7 +1427,7 @@
                             style: {
                                 padding: '40px 24px',
                                 textAlign: 'center',
-                                color: '#999',
+                                color: t.textDimmed,
                                 fontSize: '13px'
                             }
                         }, 'No calls yet. Execute a tool to see history here.')
