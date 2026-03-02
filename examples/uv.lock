@@ -572,7 +572,7 @@ wheels = [
 
 [[package]]
 name = "graphql-http"
-version = "2.3.0"
+version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "graphql-api" },
@@ -585,9 +585,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/61/06/7bb438aeba862b276ca7d24cca27d119b115f76b45ad87f9e3096687a5f3/graphql_http-2.3.0.tar.gz", hash = "sha256:dfee2c3f700a378ee632390c581beb190c60ea0ee9e25084340059fc3b758d56", size = 196657 }
+sdist = { url = "https://files.pythonhosted.org/packages/41/eb/09a16d835f1303170338247d0b441561b2b7bae4285b0cc65376008486e1/graphql_http-2.3.1.tar.gz", hash = "sha256:9a9fc1c72c210cb73c378d50f02c944658c8be9679b7fe7177f26c9c2dd70a0f", size = 198226 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/3a/12c2042358a540885244028048cb517f40ea1c5521d7ec72897c85432703/graphql_http-2.3.0-py3-none-any.whl", hash = "sha256:c844fb9e6f68f3dd701a96f8b425402422a10a9f8310a833916ed77d82865494", size = 91252 },
+    { url = "https://files.pythonhosted.org/packages/b1/5b/224146032cae80bef338de603192eca70f88aef8592ac87b90b34c2d71f6/graphql_http-2.3.1-py3-none-any.whl", hash = "sha256:af6b82ff47b962b93eec08e01262fa24595623e849b7db70792f80a652f48b04", size = 92894 },
 ]
 
 [[package]]
