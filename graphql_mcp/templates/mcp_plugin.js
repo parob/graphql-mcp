@@ -1305,7 +1305,7 @@
                                     background: historyItem.status === 'success' ? t.successBg :
                                                historyItem.status === 'error' ? t.errorBg : t.warningBg,
                                     border: `1px solid ${historyItem.status === 'success' ? t.successBorder :
-                                                         historyItem.status === 'error' ? t.errorBorder : t.warningBorder}`,
+                                                         historyItem.status === 'error' ? t.errorBorder : t.border}`,
                                     borderRadius: '4px',
                                     padding: '8px 12px',
                                     fontSize: '12px'
