@@ -145,18 +145,30 @@ Works with:
 - Hasura
 - Any public or private GraphQL endpoint
 
+## Examples
+
+The [`examples/`](examples/) directory contains four runnable servers:
+
+| Example | What it demonstrates | Live |
+|---------|---------------------|------|
+| [Hello World](examples/hello_world.py) | Minimal MCP server with a single query | [Try it](https://examples.graphql-mcp.com/hello-world/) |
+| [Task Manager](examples/task_manager.py) | CRUD, enums, mutations, UUID/datetime scalars | [Try it](https://examples.graphql-mcp.com/task-manager/) |
+| [Nested API](examples/nested_api.py) | Nested tools, @mcpHidden, Pydantic models, async resolvers | [Try it](https://examples.graphql-mcp.com/nested-api/) |
+| [Remote API](examples/remote_api.py) | Wrap a public GraphQL API via `from_remote_url()` | [Try it](https://examples.graphql-mcp.com/remote-api/) |
+
+See the [examples documentation](https://graphql-mcp.com/examples) for detailed walkthroughs.
+
 ## Documentation
 
 **Visit the [official documentation](https://graphql-mcp.com/)** for comprehensive guides, examples, and API reference.
 
 ### Key Topics
 
-- **[Getting Started](https://graphql-mcp.com/docs/getting-started/)** - Quick introduction and basic usage
-- **[Configuration](https://graphql-mcp.com/docs/configuration/)** - Configure your MCP server
-- **[Remote GraphQL](https://graphql-mcp.com/docs/remote-graphql/)** - Connect to existing GraphQL APIs
-- **[MCP Inspector](https://graphql-mcp.com/docs/mcp-inspector/)** - Test and debug your tools
-- **[Examples](https://graphql-mcp.com/docs/examples/)** - Real-world usage examples
-- **[API Reference](https://graphql-mcp.com/docs/api-reference/)** - Complete API documentation
+- **[Getting Started](https://graphql-mcp.com/getting-started)** - Quick introduction and basic usage
+- **[Configuration](https://graphql-mcp.com/configuration)** - Configure your MCP server
+- **[Remote APIs](https://graphql-mcp.com/existing-apis)** - Connect to existing GraphQL APIs
+- **[Examples](https://graphql-mcp.com/examples)** - Real-world usage examples
+- **[API Reference](https://graphql-mcp.com/api-reference)** - Complete API documentation
 
 ## How It Works
 

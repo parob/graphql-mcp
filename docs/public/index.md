@@ -121,4 +121,9 @@ Requires the remote API to have introspection enabled.
 <p>Transports, authentication, mcp_hidden, mutations, middleware.</p>
 </a>
 
+<a class="hero-card" href="/examples">
+<h3>Examples</h3>
+<p>Four runnable servers covering hello-world, CRUD, nested tools, and remote APIs.</p>
+</a>
+
 </div>

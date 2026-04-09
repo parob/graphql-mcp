@@ -37,6 +37,12 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Examples',
+          items: [
+            { text: 'Examples', link: '/examples' },
+          ]
+        },
+        {
           text: 'Reference',
           items: [
             { text: 'API Reference', link: '/api-reference' },
