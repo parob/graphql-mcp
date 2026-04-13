@@ -4,7 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/graphql-mcp.svg)](https://pypi.org/project/graphql-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[📚 Documentation](https://graphql-mcp.com/)** | **[📦 PyPI](https://pypi.org/project/graphql-mcp/)** | **[🔧 GitHub](https://github.com/parob/graphql-mcp)**
+**[Documentation](https://graphql-mcp.com/)** | **[PyPI](https://pypi.org/project/graphql-mcp/)** | **[GitHub](https://github.com/parob/graphql-mcp)**
 
 ---
 
@@ -14,12 +14,12 @@ GraphQL MCP works with **any** Python GraphQL library—Strawberry, Ariadne, Gra
 
 ## Features
 
-- ✅ **Universal Compatibility** - Works with any GraphQL library that produces a `graphql-core` schema
-- 🚀 **Automatic Tool Generation** - GraphQL queries and mutations become MCP tools instantly
-- 🔌 **Remote GraphQL Support** - Connect to any existing GraphQL endpoint
-- 🎯 **Type-Safe** - Preserves GraphQL types and documentation
-- 🔧 **Built-in Inspector** - Web interface for testing MCP tools
-- 📡 **Multiple Transports** - HTTP, SSE, and streamable-HTTP support
+- **Universal Compatibility** - Works with any GraphQL library that produces a `graphql-core` schema
+- **Automatic Tool Generation** - GraphQL queries and mutations become MCP tools instantly
+- **Remote GraphQL Support** - Connect to any existing GraphQL endpoint
+- **Type-Safe** - Preserves GraphQL types and documentation
+- **Built-in Inspector** - Web interface for testing MCP tools
+- **Multiple Transports** - HTTP, SSE, and streamable-HTTP support
 
 ## Installation
 
@@ -192,12 +192,12 @@ The inspector is enabled by default — visit `/graphql` in your browser. See th
 
 GraphQL MCP works with any Python GraphQL library that produces a `graphql-core` schema:
 
-- ✅ **[Strawberry](https://strawberry.rocks/)** - Modern, type-hint based GraphQL
-- ✅ **[Ariadne](https://ariadnegraphql.org/)** - Schema-first GraphQL
-- ✅ **[Graphene](https://graphene-python.org/)** - Code-first GraphQL
-- ✅ **[graphql-api](https://graphql-api.parob.com/)** - Decorator-based GraphQL (recommended)
-- ✅ **[graphql-core](https://github.com/graphql-python/graphql-core)** - Reference implementation
-- ✅ **Any GraphQL library** using graphql-core schemas
+- **[Strawberry](https://strawberry.rocks/)** - Modern, type-hint based GraphQL
+- **[Ariadne](https://ariadnegraphql.org/)** - Schema-first GraphQL
+- **[Graphene](https://graphene-python.org/)** - Code-first GraphQL
+- **[graphql-api](https://graphql-api.parob.com/)** - Decorator-based GraphQL (recommended)
+- **[graphql-core](https://github.com/graphql-python/graphql-core)** - Reference implementation
+- **Any GraphQL library** using graphql-core schemas
 
 ## Ecosystem Integration
 
