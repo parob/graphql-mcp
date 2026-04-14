@@ -115,6 +115,8 @@ class Category:
 
 The `internal_score` parameter is visible in GraphiQL but hidden from MCP tools — useful for internal debugging arguments that AI agents shouldn't use.
 
+The `Annotated[..., mcp_hidden]` syntax shown here is graphql-api-specific. Users of Ariadne or `graphql.build_schema` apply the same directive inline in their SDL — see [Configuration → mcp_hidden](/configuration#mcp-hidden) for the per-library form.
+
 ## Remote API
 
 Wraps a public GraphQL API (Countries) as MCP tools via `from_remote_url()`. No Python schema needed.

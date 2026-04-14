@@ -6,9 +6,11 @@ title: "Configuration"
 
 ## mcp_hidden
 
-The `mcp_hidden` directive marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but won't appear as an MCP tool parameter.
+The `@mcpHidden` directive marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but won't appear as an MCP tool parameter.
 
 This is useful for arguments that should be populated server-side (e.g. from authentication context) rather than by the AI agent.
+
+`@mcpHidden` is a standard GraphQL directive — it works with any library whose schema carries the directive through to the final GraphQL AST (`ast_node.directives` on the argument). In practice that covers graphql-api and anything built from SDL (Ariadne, `graphql.build_schema`). See the per-library examples below.
 
 ::: code-group
 ```python [graphql-api]
@@ -32,20 +34,60 @@ api = GraphQLAPI(root_type=MyAPI, directives=[mcp_hidden])
 server = GraphQLMCP.from_api(api)
 ```
 
-```graphql [SDL (any library)]
-directive @mcpHidden on ARGUMENT_DEFINITION
+```python [Ariadne]
+from ariadne import make_executable_schema, QueryType
+from graphql_mcp import GraphQLMCP
 
-type Query {
-    search(
-        query: String!
-        internalFlag: Boolean = false @mcpHidden
-        debugMode: Boolean = false @mcpHidden
-    ): String
-}
+type_defs = """
+    directive @mcpHidden on ARGUMENT_DEFINITION
+
+    type Query {
+        search(
+            query: String!
+            internalFlag: Boolean = false @mcpHidden
+            debugMode: Boolean = false @mcpHidden
+        ): String
+    }
+"""
+
+query = QueryType()
+
+@query.field("search")
+def resolve_search(_, info, query, internalFlag=False, debugMode=False):
+    return query
+
+schema = make_executable_schema(type_defs, query)
+server = GraphQLMCP(schema=schema)
+```
+
+```python [graphql-core (SDL)]
+from graphql import build_schema
+from graphql_mcp import GraphQLMCP
+
+schema = build_schema("""
+    directive @mcpHidden on ARGUMENT_DEFINITION
+
+    type Query {
+        search(
+            query: String!
+            internalFlag: Boolean = false @mcpHidden
+            debugMode: Boolean = false @mcpHidden
+        ): String
+    }
+""")
+
+server = GraphQLMCP(schema=schema)
 ```
 :::
 
 The MCP tool exposes only the non-hidden parameters. Hidden arguments still exist in the GraphQL schema for direct API consumers.
+
+::: warning Strawberry and Graphene
+Strawberry and Graphene don't attach directive information to the graphql-core argument's `ast_node`, so `@mcpHidden` applied through their Python APIs isn't currently picked up by graphql-mcp. If you need to hide arguments with these libraries, either:
+
+- Print your schema to SDL (`str(schema)`) and rebuild it with `graphql.build_schema` (you'll need to re-attach resolvers via `assign_resolver` helpers or by using `ariadne.make_executable_schema`), or
+- Restructure the resolver so the hidden value is read from context rather than an argument.
+:::
 
 ::: warning
 Hidden arguments **must** have a default value. GraphQL MCP raises a `ValueError` at startup if a hidden argument has no default.
