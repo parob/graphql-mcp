@@ -1,8 +1,8 @@
-"""Nested API - demonstrates nested tools, @mcpHidden, Pydantic models, and async resolvers.
+"""Nested API - demonstrates nested tools, the @mcp directive, Pydantic models, and async resolvers.
 
 Demonstrates:
 - Nested query paths that auto-generate MCP tools (category → articles)
-- @mcpHidden directive to hide arguments from MCP tools
+- @mcp(hidden=True) to hide arguments from MCP tools
 - Pydantic BaseModel types as GraphQL object types
 - Async resolvers
 - Separate query_type / mutation_type pattern
@@ -14,7 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from graphql_api import GraphQLAPI, field
-from graphql_mcp import GraphQLMCP, mcp_hidden
+from graphql_mcp import GraphQLMCP, mcp
 
 
 class Comment(BaseModel):
@@ -97,12 +97,13 @@ class Category:
     async def articles(
         self,
         tag: Optional[str] = None,
-        internal_score: Annotated[Optional[int], mcp_hidden] = None,
+        internal_score: Annotated[Optional[int], mcp(hidden=True)] = None,
     ) -> list[Article]:
         """List articles in this category, optionally filtered by tag.
 
-        The internal_score argument is hidden from MCP tools via @mcpHidden
-        but remains accessible through the GraphQL API directly.
+        The internal_score argument is hidden from MCP tools via
+        @mcp(hidden: true) but remains accessible through the GraphQL
+        API directly.
         """
         result = self._articles
         if tag is not None:
@@ -162,7 +163,7 @@ class Mutation:
 api = GraphQLAPI(
     query_type=Query,
     mutation_type=Mutation,
-    directives=[mcp_hidden],
+    directives=[mcp],
 )
 server = GraphQLMCP.from_api(api, allow_mutations=True, graphql_http_kwargs={
     "graphiql_example_query": """\

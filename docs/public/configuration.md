@@ -4,33 +4,39 @@ title: "Configuration"
 
 # Configuration
 
-## mcp_hidden
+## `@mcp` directive
 
-The `@mcpHidden` directive marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but won't appear as an MCP tool parameter.
+The `@mcp` directive customizes how a GraphQL field or argument surfaces as an MCP tool. It accepts three optional arguments:
 
-This is useful for arguments that should be populated server-side (e.g. from authentication context) rather than by the AI agent.
+| Arg | Type | Effect |
+|-----|------|--------|
+| `name` | `String` | Override the MCP tool/argument name (replaces the default `snake_case` derivation). |
+| `description` | `String` | Override the MCP description (replaces the GraphQL field/argument description). |
+| `hidden` | `Boolean` | When `true`, skip the field or argument from MCP registration entirely. |
 
-`@mcpHidden` is a standard GraphQL directive — it works with any library whose schema carries the directive through to the final GraphQL AST (`ast_node.directives` on the argument). In practice that covers graphql-api and anything built from SDL (Ariadne, `graphql.build_schema`). See the per-library examples below.
+Valid on `FIELD_DEFINITION` and `ARGUMENT_DEFINITION`. The underlying GraphQL schema is unchanged — the directive only affects what MCP exposes.
+
+`@mcp` is a standard GraphQL directive — it works with any library whose schema carries the directive through to the final GraphQL AST (`ast_node.directives`). That covers graphql-api and anything built from SDL (Ariadne, `graphql.build_schema`). See the per-library examples below.
 
 ::: code-group
 ```python [graphql-api]
 from typing import Annotated, Optional
 from uuid import UUID
 from graphql_api import GraphQLAPI, field
-from graphql_mcp import GraphQLMCP, mcp_hidden
+from graphql_mcp import GraphQLMCP, mcp
 
 class MyAPI:
     @field(mutable=True)
+    @mcp(name="make_item", description="Create an item for the current user.")
     def create_item(
         self,
         name: str,
-        user_id: Annotated[Optional[UUID], mcp_hidden] = None,
+        user_id: Annotated[Optional[UUID], mcp(hidden=True)] = None,
     ) -> str:
-        """Create an item. user_id is auto-filled from auth context."""
         return f"Created by {user_id}"
 
 # Register the directive with your API
-api = GraphQLAPI(root_type=MyAPI, directives=[mcp_hidden])
+api = GraphQLAPI(root_type=MyAPI, directives=[mcp])
 server = GraphQLMCP.from_api(api)
 ```
 
@@ -39,14 +45,18 @@ from ariadne import make_executable_schema, QueryType
 from graphql_mcp import GraphQLMCP
 
 type_defs = """
-    directive @mcpHidden on ARGUMENT_DEFINITION
+    directive @mcp(
+        name: String
+        description: String
+        hidden: Boolean
+    ) on FIELD_DEFINITION | ARGUMENT_DEFINITION
 
     type Query {
         search(
             query: String!
-            internalFlag: Boolean = false @mcpHidden
-            debugMode: Boolean = false @mcpHidden
-        ): String
+            internalFlag: Boolean = false @mcp(hidden: true)
+            debugMode: Boolean = false @mcp(hidden: true)
+        ): String @mcp(name: "find", description: "Search the catalog.")
     }
 """
 
@@ -65,14 +75,18 @@ from graphql import build_schema
 from graphql_mcp import GraphQLMCP
 
 schema = build_schema("""
-    directive @mcpHidden on ARGUMENT_DEFINITION
+    directive @mcp(
+        name: String
+        description: String
+        hidden: Boolean
+    ) on FIELD_DEFINITION | ARGUMENT_DEFINITION
 
     type Query {
         search(
             query: String!
-            internalFlag: Boolean = false @mcpHidden
-            debugMode: Boolean = false @mcpHidden
-        ): String
+            internalFlag: Boolean = false @mcp(hidden: true)
+            debugMode: Boolean = false @mcp(hidden: true)
+        ): String @mcp(name: "find")
     }
 """)
 
@@ -80,17 +94,21 @@ server = GraphQLMCP(schema=schema)
 ```
 :::
 
-The MCP tool exposes only the non-hidden parameters. Hidden arguments still exist in the GraphQL schema for direct API consumers.
+The MCP tool exposes only non-hidden fields and arguments. Overridden names replace the default `snake_case` derivation. When an argument is renamed, the outbound GraphQL query still uses the original argument name — translation happens automatically inside the tool wrapper.
 
 ::: warning Strawberry and Graphene
-Strawberry and Graphene don't attach directive information to the graphql-core argument's `ast_node`, so `@mcpHidden` applied through their Python APIs isn't currently picked up by graphql-mcp. If you need to hide arguments with these libraries, either:
+Strawberry and Graphene don't attach directive information to the graphql-core argument's `ast_node`, so `@mcp` applied through their Python APIs isn't currently picked up by graphql-mcp. If you need directive-based control with these libraries, either:
 
 - Print your schema to SDL (`str(schema)`) and rebuild it with `graphql.build_schema` (you'll need to re-attach resolvers via `assign_resolver` helpers or by using `ariadne.make_executable_schema`), or
 - Restructure the resolver so the hidden value is read from context rather than an argument.
 :::
 
 ::: warning
-Hidden arguments **must** have a default value. GraphQL MCP raises a `ValueError` at startup if a hidden argument has no default.
+Hidden arguments **must** have a default value. GraphQL MCP raises a `ValueError` at startup if a hidden argument has no default. Two fields renamed to the same MCP name also raise a `ValueError`.
+:::
+
+::: info Migrating from `@mcpHidden`
+The previous `mcp_hidden` directive has been replaced by the unified `@mcp` directive. Replace `@mcpHidden` with `@mcp(hidden: true)` and the `mcp_hidden` Python export with `mcp(hidden=True)`.
 :::
 
 ## Controlling Mutations

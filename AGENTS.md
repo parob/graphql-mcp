@@ -32,7 +32,7 @@ uv run flake8 graphql_mcp tests
 - `GraphQLMCP.from_api(api)` for local schemas, `.from_remote_url(url)` for existing APIs
 - Auto-converts each Query field → read tool, each Mutation field → write tool (if `allow_mutations=True`)
 - Tool names use snake_case (converted from camelCase field names)
-- `@mcpHidden` directive hides arguments from MCP tools
+- Unified `@mcp` directive customizes how fields/arguments are exposed (`name`, `description`, `hidden`) — replaces the previous `@mcpHidden`
 - HTTP app: `server.http_app(transport="streamable-http", stateless_http=True)`
 - Built on `fastmcp` (>=3.0, <4)
 

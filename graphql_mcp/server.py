@@ -6,6 +6,7 @@ import json
 import logging
 import threading
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable, Literal, Tuple, Optional, Dict
 
@@ -668,37 +669,100 @@ def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0, 
     return f"{{ {', '.join(selections)} }}"
 
 
-def _is_arg_hidden(arg_def: GraphQLArgument) -> bool:
-    """
-    Check if an argument should be hidden from MCP via @mcpHidden directive.
+@dataclass
+class MCPConfig:
+    """Resolved @mcp directive options for a field or argument."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    hidden: bool = False
 
-    Checks two sources:
-    1. @mcpHidden directive via graphql-api's _applied_directives attribute
-    2. @mcpHidden directive via standard graphql-core ast_node.directives (SDL)
+
+def _extract_ast_directive_value(value_node) -> Any:
+    """Extract a Python value from a GraphQL AST value node."""
+    if value_node is None:
+        return None
+    # StringValueNode, BooleanValueNode, IntValueNode, FloatValueNode, EnumValueNode
+    # all expose a `.value` attribute holding the underlying Python value.
+    return getattr(value_node, 'value', None)
+
+
+def _get_mcp_config(node: Any) -> MCPConfig:
+    """
+    Resolve the @mcp directive options for a field or argument.
+
+    Reads from two sources, in order:
+    1. ``_applied_directives`` (graphql-api's runtime directive attachment)
+    2. ``ast_node.directives`` (standard SDL directive parsing)
+
+    If both are present, the first source encountered wins for each key.
 
     Args:
-        arg_def: The GraphQL argument definition
+        node: A GraphQLField or GraphQLArgument (or anything with directives).
 
     Returns:
-        True if the argument has @mcpHidden directive
+        MCPConfig with ``name``, ``description``, and ``hidden`` fields set
+        from the directive, or their defaults if the directive isn't present.
     """
-    # 1. Check for @mcpHidden directive via graphql-api's _applied_directives
-    applied_directives = getattr(arg_def, '_applied_directives', [])
+    cfg = MCPConfig()
+
+    # 1. graphql-api's _applied_directives
+    applied_directives = getattr(node, '_applied_directives', []) or []
     for applied in applied_directives:
         directive = getattr(applied, 'directive', None)
-        if directive and getattr(directive, 'name', None) == 'mcpHidden':
-            return True
+        if not directive or getattr(directive, 'name', None) != 'mcp':
+            continue
+        args = getattr(applied, 'args', {}) or {}
+        if cfg.name is None and args.get('name') is not None:
+            cfg.name = args['name']
+        if cfg.description is None and args.get('description') is not None:
+            cfg.description = args['description']
+        if args.get('hidden'):
+            cfg.hidden = True
 
-    # 2. Check for @mcpHidden directive via standard graphql-core ast_node.directives
-    ast_node = getattr(arg_def, 'ast_node', None)
+    # 2. SDL ast_node.directives
+    ast_node = getattr(node, 'ast_node', None)
     if ast_node:
         directives = getattr(ast_node, 'directives', None) or []
         for directive in directives:
-            directive_name = getattr(directive.name, 'value', None) if directive.name else None
-            if directive_name == 'mcpHidden':
-                return True
+            directive_name = (
+                getattr(directive.name, 'value', None) if directive.name else None
+            )
+            if directive_name != 'mcp':
+                continue
+            for arg in (getattr(directive, 'arguments', None) or []):
+                arg_name = (
+                    getattr(arg.name, 'value', None) if arg.name else None
+                )
+                value = _extract_ast_directive_value(arg.value)
+                if arg_name == 'name' and cfg.name is None and value is not None:
+                    cfg.name = value
+                elif arg_name == 'description' and cfg.description is None and value is not None:
+                    cfg.description = value
+                elif arg_name == 'hidden' and value:
+                    cfg.hidden = True
 
-    return False
+    return cfg
+
+
+def _is_arg_hidden(arg_def: GraphQLArgument) -> bool:
+    """Back-compat helper — returns True if @mcp(hidden: true) applies."""
+    return _get_mcp_config(arg_def).hidden
+
+
+def _apply_arg_description(python_type: Any, description: Optional[str]) -> Any:
+    """Wrap ``python_type`` in ``Annotated[T, pydantic.Field(description=...)]``
+    so FastMCP surfaces the description in the tool's JSON Schema.
+
+    Falls back to the bare type if pydantic is unavailable.
+    """
+    if not description:
+        return python_type
+    try:
+        from typing import Annotated
+        from pydantic import Field as _PField
+        return Annotated[python_type, _PField(description=description)]
+    except ImportError:
+        return python_type
 
 
 def _validate_hidden_arg_has_default(
@@ -723,7 +787,7 @@ def _validate_hidden_arg_has_default(
 
     if arg_def.default_value is Undefined:
         raise ValueError(
-            f"Argument '{arg_name}' in field '{field_name}' is marked as @mcp_hidden "
+            f"Argument '{arg_name}' in field '{field_name}' is marked as @mcp(hidden: true) "
             f"but has no default value. Hidden arguments must have defaults since "
             f"MCP clients won't provide them."
         )
@@ -734,35 +798,64 @@ def _add_tools_from_fields(
     schema: GraphQLSchema,
     fields: dict[str, Any],
     is_mutation: bool,
+    registered_names: Optional[set] = None,
 ):
     """Internal helper to add tools from a dictionary of fields."""
     for field_name, field in fields.items():
+        field_cfg = _get_mcp_config(field)
+        if field_cfg.hidden:
+            continue
+
         # Check all arguments for hidden status and validate defaults
         for arg_name, arg_def in field.args.items():
             if _is_arg_hidden(arg_def):
                 _validate_hidden_arg_has_default(field_name, arg_name, arg_def)
 
-        snake_case_name = _to_snake_case(field_name)
+        tool_name = field_cfg.name or _to_snake_case(field_name)
+        # Only raise on collisions caused by an explicit @mcp(name: ...) rename —
+        # the legacy "query overrides mutation on name collision" behavior
+        # (using auto-derived snake_case names) is preserved silently.
+        if registered_names is not None and field_cfg.name is not None:
+            if tool_name in registered_names:
+                raise ValueError(
+                    f"Duplicate MCP tool name '{tool_name}' from @mcp(name: ...) rename "
+                    f"on field '{field_name}'. Another tool is already registered "
+                    f"with this name."
+                )
+        if registered_names is not None:
+            registered_names.add(tool_name)
+
         tool_func = _create_tool_function(
-            field_name, field, schema, is_mutation=is_mutation
+            field_name, field, schema, is_mutation=is_mutation,
+            field_cfg=field_cfg,
         )
-        tool_decorator = server.tool(name=snake_case_name)
+        tool_decorator = server.tool(name=tool_name)
         tool_decorator(tool_func)
 
 
-def add_query_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
+def add_query_tools_from_schema(
+    server: FastMCP,
+    schema: GraphQLSchema,
+    registered_names: Optional[set] = None,
+):
     """Adds tools to a FastMCP server from the query fields of a GraphQL schema."""
     if schema.query_type:
         _add_tools_from_fields(
-            server, schema, schema.query_type.fields, is_mutation=False
+            server, schema, schema.query_type.fields, is_mutation=False,
+            registered_names=registered_names,
         )
 
 
-def add_mutation_tools_from_schema(server: FastMCP, schema: GraphQLSchema):
+def add_mutation_tools_from_schema(
+    server: FastMCP,
+    schema: GraphQLSchema,
+    registered_names: Optional[set] = None,
+):
     """Adds tools to a FastMCP server from the mutation fields of a GraphQL schema."""
     if schema.mutation_type:
         _add_tools_from_fields(
-            server, schema, schema.mutation_type.fields, is_mutation=True
+            server, schema, schema.mutation_type.fields, is_mutation=True,
+            registered_names=registered_names,
         )
 
 
@@ -797,15 +890,19 @@ def add_tools_from_schema(
             server_name = schema.query_type.name
         server = FastMCP(name=server_name)
 
+    registered_names: set = set()
+
     # Process mutations first (if allowed), so that queries can overwrite them if a name collision occurs.
     if allow_mutations:
-        add_mutation_tools_from_schema(server, schema)
+        add_mutation_tools_from_schema(server, schema, registered_names=registered_names)
 
-    add_query_tools_from_schema(server, schema)
+    add_query_tools_from_schema(server, schema, registered_names=registered_names)
 
     # After top-level queries and mutations, add tools for nested mutations
     _add_nested_tools_from_schema(
-        server, schema, allow_mutations=allow_mutations)
+        server, schema, allow_mutations=allow_mutations,
+        registered_names=registered_names,
+    )
 
     return server
 
@@ -838,22 +935,29 @@ def add_tools_from_schema_with_remote(
         When forward_bearer_token=True, client bearer tokens will be sent to the
         remote GraphQL server. Only enable this if you trust the remote server.
     """
+    registered_names: set = set()
+
     # Process mutations first (if allowed), then queries
     if allow_mutations and schema.mutation_type:
         _add_tools_from_fields_remote(
             server, schema, schema.mutation_type.fields, remote_client,
-            is_mutation=True, forward_bearer_token=forward_bearer_token
+            is_mutation=True, forward_bearer_token=forward_bearer_token,
+            registered_names=registered_names,
         )
 
     if schema.query_type:
         _add_tools_from_fields_remote(
             server, schema, schema.query_type.fields, remote_client,
-            is_mutation=False, forward_bearer_token=forward_bearer_token
+            is_mutation=False, forward_bearer_token=forward_bearer_token,
+            registered_names=registered_names,
         )
 
     # Add nested tools for remote schema
     _add_nested_tools_from_schema_remote(
-        server, schema, remote_client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
+        server, schema, remote_client, allow_mutations=allow_mutations,
+        forward_bearer_token=forward_bearer_token,
+        registered_names=registered_names,
+    )
 
     return server
 
@@ -863,6 +967,7 @@ def _create_tool_function(
     field: GraphQLField,
     schema: GraphQLSchema,
     is_mutation: bool = False,
+    field_cfg: Optional[MCPConfig] = None,
 ) -> Callable:
     """
     Creates a function for LOCAL GraphQL schema execution.
@@ -876,19 +981,29 @@ def _create_tool_function(
         field: GraphQL field definition
         schema: GraphQL schema
         is_mutation: Whether this is a mutation
+        field_cfg: Resolved @mcp directive options for this field
     """
+    if field_cfg is None:
+        field_cfg = _get_mcp_config(field)
+
     parameters = []
     arg_defs = []
     annotations = {}
+    # Map MCP-exposed arg name -> original GraphQL arg name (for translation
+    # before building the outbound GraphQL query).
+    arg_name_map: dict = {}
     for arg_name, arg_def in field.args.items():
+        arg_cfg = _get_mcp_config(arg_def)
         # Skip hidden arguments - they won't be exposed to MCP
-        # Check for @mcpHidden directive on the argument
-        if _is_arg_hidden(arg_def):
+        if arg_cfg.hidden:
             continue
 
         arg_def: GraphQLArgument
         python_type = _map_graphql_type_to_python_type(arg_def.type)
-        annotations[arg_name] = python_type
+        mcp_arg_name = arg_cfg.name or arg_name
+        arg_name_map[mcp_arg_name] = arg_name
+        annotation_type = _apply_arg_description(python_type, arg_cfg.description)
+        annotations[mcp_arg_name] = annotation_type
         # GraphQL uses Undefined for arguments without defaults
         # For required (non-null) arguments, we should not set a default
         from graphql.pyutils import Undefined
@@ -898,12 +1013,16 @@ def _create_tool_function(
             default = arg_def.default_value
         kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
         parameters.append(
-            inspect.Parameter(arg_name, kind, default=default,
-                              annotation=python_type)
+            inspect.Parameter(mcp_arg_name, kind, default=default,
+                              annotation=annotation_type)
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
     async def wrapper(**kwargs):
+        # Translate any MCP-exposed arg names back to the original GraphQL
+        # arg names so the outbound query builds correctly.
+        if arg_name_map:
+            kwargs = {arg_name_map.get(k, k): v for k, v in kwargs.items()}
         # Convert enums to their values for graphql_sync
         processed_kwargs = {}
         for k, v in kwargs.items():
@@ -1245,8 +1364,8 @@ def _create_tool_function(
     # Create signature with return annotation
     signature = inspect.Signature(parameters, return_annotation=return_type)
     wrapper.__signature__ = signature
-    wrapper.__doc__ = field.description
-    wrapper.__name__ = _to_snake_case(field_name)
+    wrapper.__doc__ = field_cfg.description or field.description
+    wrapper.__name__ = field_cfg.name or _to_snake_case(field_name)
     wrapper.__annotations__ = annotations
 
     return wrapper
@@ -1436,7 +1555,7 @@ def _create_recursive_tool_function(
 
     for idx, (field_name, field_def) in enumerate(path):
         for arg_name, arg_def in field_def.args.items():
-            # Skip hidden arguments - check for @mcpHidden directive
+            # Skip hidden arguments - check for @mcp(hidden: true) directive
             if _is_arg_hidden(arg_def):
                 continue
 
@@ -1469,7 +1588,7 @@ def _create_recursive_tool_function(
         if field_def.args:
             arg_str_parts = []
             for arg_name, arg_def in field_def.args.items():
-                # Skip hidden arguments - check for @mcpHidden directive
+                # Skip hidden arguments - check for @mcp(hidden: true) directive
                 if _is_arg_hidden(arg_def):
                     continue
 
@@ -1611,7 +1730,12 @@ def _create_recursive_tool_function(
     return tool_name, wrapper
 
 
-def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema, allow_mutations: bool = True):
+def _add_nested_tools_from_schema(
+    server: FastMCP,
+    schema: GraphQLSchema,
+    allow_mutations: bool = True,
+    registered_names: Optional[set] = None,
+):
     """Recursively registers tools for any nested field chain that includes arguments."""
 
     visited_types: set[str] = set()
@@ -1624,6 +1748,10 @@ def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema, allow_
             visited_types.add(type_name)
 
         for field_name, field_def in parent_type.fields.items():
+            # Prune hidden branches: if a field is @mcp(hidden: true),
+            # skip it and anything nested under it.
+            if _get_mcp_config(field_def).hidden:
+                continue
             named_type = get_named_type(field_def.type)
             new_path = path + [(field_name, field_def)]
 
@@ -1631,6 +1759,12 @@ def _add_nested_tools_from_schema(server: FastMCP, schema: GraphQLSchema, allow_
                 # Register tool for paths with depth >=2
                 tool_name, tool_func = _create_recursive_tool_function(
                     new_path, operation_type, schema)
+                if registered_names is not None:
+                    if tool_name in registered_names:
+                        # Auto-derived name collision — preserve legacy behavior
+                        # (silently re-register / overwrite).
+                        pass
+                    registered_names.add(tool_name)
                 server.tool(name=tool_name)(tool_func)
 
             if isinstance(named_type, GraphQLObjectType):
@@ -1655,20 +1789,36 @@ def _add_tools_from_fields_remote(
     remote_client: RemoteGraphQLClient,
     is_mutation: bool,
     forward_bearer_token: bool = False,
+    registered_names: Optional[set] = None,
 ):
     """Add tools from fields that execute against a remote GraphQL server."""
     for field_name, field in fields.items():
+        field_cfg = _get_mcp_config(field)
+        if field_cfg.hidden:
+            continue
+
         # Check all arguments for hidden status and validate defaults
         for arg_name, arg_def in field.args.items():
             if _is_arg_hidden(arg_def):
                 _validate_hidden_arg_has_default(field_name, arg_name, arg_def)
 
-        snake_case_name = _to_snake_case(field_name)
+        tool_name = field_cfg.name or _to_snake_case(field_name)
+        if registered_names is not None and field_cfg.name is not None:
+            if tool_name in registered_names:
+                raise ValueError(
+                    f"Duplicate MCP tool name '{tool_name}' from @mcp(name: ...) rename "
+                    f"on field '{field_name}'. Another tool is already registered "
+                    f"with this name."
+                )
+        if registered_names is not None:
+            registered_names.add(tool_name)
+
         tool_func = _create_remote_tool_function(
             field_name, field, schema, remote_client, is_mutation=is_mutation,
-            forward_bearer_token=forward_bearer_token
+            forward_bearer_token=forward_bearer_token,
+            field_cfg=field_cfg,
         )
-        tool_decorator = server.tool(name=snake_case_name)
+        tool_decorator = server.tool(name=tool_name)
         tool_decorator(tool_func)
 
 
@@ -1679,6 +1829,7 @@ def _create_remote_tool_function(
     remote_client: RemoteGraphQLClient,
     is_mutation: bool = False,
     forward_bearer_token: bool = False,
+    field_cfg: Optional[MCPConfig] = None,
 ) -> Callable:
     """
     Creates a function for REMOTE GraphQL server execution.
@@ -1689,19 +1840,27 @@ def _create_remote_tool_function(
 
     :param forward_bearer_token: Whether to extract bearer token from MCP request
                                context and forward it to the remote server.
+    :param field_cfg: Resolved @mcp directive options for this field.
     """
+    if field_cfg is None:
+        field_cfg = _get_mcp_config(field)
+
     parameters = []
     arg_defs = []
     annotations = {}
+    arg_name_map: dict = {}
 
     for arg_name, arg_def in field.args.items():
-        # Skip hidden arguments - check for @mcpHidden directive
-        if _is_arg_hidden(arg_def):
+        arg_cfg = _get_mcp_config(arg_def)
+        if arg_cfg.hidden:
             continue
 
         arg_def: GraphQLArgument
         python_type = _map_graphql_type_to_python_type(arg_def.type)
-        annotations[arg_name] = python_type
+        mcp_arg_name = arg_cfg.name or arg_name
+        arg_name_map[mcp_arg_name] = arg_name
+        annotation_type = _apply_arg_description(python_type, arg_cfg.description)
+        annotations[mcp_arg_name] = annotation_type
 
         from graphql.pyutils import Undefined
         if arg_def.default_value is Undefined:
@@ -1711,12 +1870,15 @@ def _create_remote_tool_function(
 
         kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
         parameters.append(
-            inspect.Parameter(arg_name, kind, default=default,
-                              annotation=python_type)
+            inspect.Parameter(mcp_arg_name, kind, default=default,
+                              annotation=annotation_type)
         )
         arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
 
     async def wrapper(ctx: Optional[Context] = None, **kwargs):
+        # Translate any MCP-exposed arg names back to the original GraphQL arg names.
+        if arg_name_map:
+            kwargs = {arg_name_map.get(k, k): v for k, v in kwargs.items()}
         # Extract bearer token from context (only if configured to forward)
         bearer_token = _extract_bearer_token_from_context(
             ctx) if forward_bearer_token else None
@@ -1803,8 +1965,8 @@ def _create_remote_tool_function(
     # so the full GraphQL type cannot be used as an output schema for validation)
     signature = inspect.Signature(parameters)
     wrapper.__signature__ = signature
-    wrapper.__doc__ = field.description
-    wrapper.__name__ = _to_snake_case(field_name)
+    wrapper.__doc__ = field_cfg.description or field.description
+    wrapper.__name__ = field_cfg.name or _to_snake_case(field_name)
     wrapper.__annotations__ = annotations
 
     return wrapper
@@ -1833,7 +1995,7 @@ def _create_recursive_remote_tool_function(
 
     for idx, (field_name, field_def) in enumerate(path):
         for arg_name, arg_def in field_def.args.items():
-            # Skip hidden arguments - check for @mcpHidden directive
+            # Skip hidden arguments - check for @mcp(hidden: true) directive
             if _is_arg_hidden(arg_def):
                 continue
 
@@ -1864,7 +2026,7 @@ def _create_recursive_remote_tool_function(
         if field_def.args:
             arg_str_parts: list[str] = []
             for arg_name, arg_def in field_def.args.items():
-                # Skip hidden arguments - check for @mcpHidden directive
+                # Skip hidden arguments - check for @mcp(hidden: true) directive
                 if _is_arg_hidden(arg_def):
                     continue
 
@@ -2002,7 +2164,8 @@ def _add_nested_tools_from_schema_remote(
     schema: GraphQLSchema,
     remote_client: RemoteGraphQLClient,
     allow_mutations: bool = True,
-    forward_bearer_token: bool = False
+    forward_bearer_token: bool = False,
+    registered_names: Optional[set] = None,
 ):
     """Recursively registers tools for nested fields that execute against a remote server."""
 
@@ -2016,6 +2179,9 @@ def _add_nested_tools_from_schema_remote(
             visited_types.add(type_name)
 
         for field_name, field_def in parent_type.fields.items():
+            # Prune hidden branches
+            if _get_mcp_config(field_def).hidden:
+                continue
             named_type = get_named_type(field_def.type)
             new_path = path + [(field_name, field_def)]
 
@@ -2024,6 +2190,8 @@ def _add_nested_tools_from_schema_remote(
                 tool_name, tool_func = _create_recursive_remote_tool_function(
                     new_path, operation_type, schema, remote_client, forward_bearer_token=forward_bearer_token
                 )
+                if registered_names is not None:
+                    registered_names.add(tool_name)
                 server.tool(name=tool_name)(tool_func)
 
             if isinstance(named_type, GraphQLObjectType):

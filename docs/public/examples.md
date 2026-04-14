@@ -84,13 +84,13 @@ class TaskManagerAPI:
 
 ## Nested API
 
-Nested tools, `@mcpHidden` directive, Pydantic models, and async resolvers.
+Nested tools, `@mcp` directive, Pydantic models, and async resolvers.
 
 [Source](https://github.com/parob/graphql-mcp/tree/main/examples/nested_api.py) · [Live demo](https://examples.graphql-mcp.com/nested-api/)
 
 Demonstrates:
 - Nested query paths that auto-generate MCP tools (`category` → `category_articles`)
-- `@mcpHidden` directive to hide arguments from MCP tools
+- `@mcp(hidden=True)` to hide arguments from MCP tools
 - Pydantic `BaseModel` types as GraphQL object types
 - Async resolvers
 - Separate `query_type` / `mutation_type` pattern
@@ -103,19 +103,20 @@ class Category:
     async def articles(
         self,
         tag: Optional[str] = None,
-        internal_score: Annotated[Optional[int], mcp_hidden] = None,
+        internal_score: Annotated[Optional[int], mcp(hidden=True)] = None,
     ) -> list[Article]:
         """List articles in this category, optionally filtered by tag.
 
-        The internal_score argument is hidden from MCP tools via @mcpHidden
-        but remains accessible through the GraphQL API directly.
+        The internal_score argument is hidden from MCP tools via
+        @mcp(hidden: true) but remains accessible through the GraphQL
+        API directly.
         """
         ...
 ```
 
 The `internal_score` parameter is visible in GraphiQL but hidden from MCP tools — useful for internal debugging arguments that AI agents shouldn't use.
 
-The `Annotated[..., mcp_hidden]` syntax shown here is graphql-api-specific. Users of Ariadne or `graphql.build_schema` apply the same directive inline in their SDL — see [Configuration → mcp_hidden](/configuration#mcp-hidden) for the per-library form.
+The `Annotated[..., mcp(hidden=True)]` syntax shown here is graphql-api-specific. Users of Ariadne or `graphql.build_schema` apply the same directive inline in their SDL — see [Configuration → @mcp directive](/configuration#mcp-directive) for the per-library form.
 
 ## Remote API
 

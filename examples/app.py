@@ -25,7 +25,7 @@ EXAMPLES = [
      "Full CRUD with enums, mutations, UUID/datetime scalars, and in-memory state.",
      "task_manager.py"),
     ("/nested-api", nested_api_app, "Nested API",
-     "Nested tools, @mcpHidden directive, Pydantic models, and async resolvers.",
+     "Nested tools, @mcp directive, Pydantic models, and async resolvers.",
      "nested_api.py"),
     ("/remote-api", remote_api_app, "Remote API",
      "Wraps a public GraphQL API (Countries) as MCP tools via from_remote_url().",

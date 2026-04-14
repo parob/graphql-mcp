@@ -92,7 +92,7 @@ app = server.http_app()
 :::
 
 ::: tip graphql-api has the tightest integration
-Use `GraphQLMCP.from_api(api)` instead of passing the schema directly. This enables automatic schema extraction, custom scalar support (UUID, DateTime, etc.), and the `Annotated[T, mcp_hidden]` Python shorthand. The `@mcpHidden` directive itself is library-agnostic — any schema built from SDL (Ariadne, `graphql.build_schema`) can use it inline. See [Configuration → mcp_hidden](/configuration#mcp-hidden).
+Use `GraphQLMCP.from_api(api)` instead of passing the schema directly. This enables automatic schema extraction, custom scalar support (UUID, DateTime, etc.), and the `Annotated[T, mcp(hidden=True)]` Python shorthand. The `@mcp` directive itself is library-agnostic — any schema built from SDL (Ariadne, `graphql.build_schema`) can use it inline. See [Configuration → @mcp directive](/configuration#mcp-directive).
 :::
 
 ::: info Schema access for Strawberry and Graphene

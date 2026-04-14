@@ -153,7 +153,7 @@ The [`examples/`](examples/) directory contains four runnable servers:
 |---------|---------------------|------|
 | [Hello World](examples/hello_world.py) | Minimal MCP server with a single query | [Try it](https://examples.graphql-mcp.com/hello-world/) |
 | [Task Manager](examples/task_manager.py) | CRUD, enums, mutations, UUID/datetime scalars | [Try it](https://examples.graphql-mcp.com/task-manager/) |
-| [Nested API](examples/nested_api.py) | Nested tools, @mcpHidden, Pydantic models, async resolvers | [Try it](https://examples.graphql-mcp.com/nested-api/) |
+| [Nested API](examples/nested_api.py) | Nested tools, `@mcp` directive, Pydantic models, async resolvers | [Try it](https://examples.graphql-mcp.com/nested-api/) |
 | [Remote API](examples/remote_api.py) | Wrap a public GraphQL API via `from_remote_url()` | [Try it](https://examples.graphql-mcp.com/remote-api/) |
 
 See the [examples documentation](https://graphql-mcp.com/examples) for detailed walkthroughs.
@@ -178,7 +178,75 @@ GraphQL MCP automatically:
 - Maps GraphQL types to MCP tool schemas
 - Converts naming to `snake_case` (e.g., `addBook` → `add_book`)
 - Preserves all documentation and type information
-- Supports `@mcpHidden` directive to hide arguments from MCP tools
+- Supports the `@mcp` directive to customize how fields and arguments
+  are exposed to MCP — see below
+
+## Customizing MCP Exposure with `@mcp`
+
+A unified `@mcp` directive lets schema authors override how each field or
+argument surfaces as an MCP tool. It accepts three optional arguments:
+
+| Arg | Type | Effect |
+|-----|------|--------|
+| `name` | `String` | Override the MCP tool/argument name (replaces the default `snake_case` derivation). |
+| `description` | `String` | Override the MCP description (replaces the GraphQL field/argument description). |
+| `hidden` | `Boolean` | When `true`, skip the field or argument from MCP registration entirely. |
+
+Valid on `FIELD_DEFINITION` and `ARGUMENT_DEFINITION`.
+
+### SDL example
+
+```graphql
+directive @mcp(
+  name: String
+  description: String
+  hidden: Boolean
+) on FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+type Query {
+  getUserById(
+    userId: ID! @mcp(name: "id", description: "User UUID")
+    debugToken: String @mcp(hidden: true)
+  ): User @mcp(name: "fetch_user", description: "Fetch a user by ID.")
+
+  internalMetrics: Metrics @mcp(hidden: true)
+}
+```
+
+### Python (graphql-api) example
+
+```python
+from typing import Annotated
+from graphql_api import GraphQLAPI, field
+from graphql_mcp import GraphQLMCP, mcp
+
+class API:
+    @field
+    @mcp(name="fetch_user", description="Fetch a user by ID.")
+    def get_user_by_id(
+        self,
+        user_id: Annotated[str, mcp(name="id", description="User UUID")],
+        debug_token: Annotated[str, mcp(hidden=True)] = "",
+    ) -> str:
+        return f"user:{user_id}"
+
+    @field
+    @mcp(hidden=True)
+    def internal_metrics(self) -> str:
+        return "secret"
+
+api = GraphQLAPI(root_type=API, directives=[mcp])
+server = GraphQLMCP.from_api(api)
+```
+
+When an argument is renamed, the MCP tool exposes the new name but the
+outbound GraphQL query still uses the original argument name — translation
+happens automatically. Two fields renamed to the same MCP name will raise a
+`ValueError` at registration time.
+
+> **Migrating from `@mcpHidden`:** the previous `mcp_hidden` directive has
+> been removed. Replace `@mcpHidden` with `@mcp(hidden: true)` and the
+> `mcp_hidden` Python export with `mcp(hidden=True)`.
 
 ## MCP Inspector
 

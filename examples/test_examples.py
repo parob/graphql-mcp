@@ -136,7 +136,7 @@ class TestNestedAPI:
             assert "add_article" in names
 
     async def test_hidden_arg_not_exposed(self, server):
-        """@mcpHidden argument should not appear in the MCP tool schema."""
+        """@mcp(hidden: true) argument should not appear in the MCP tool schema."""
         async with Client(server) as client:
             tools = await client.list_tools()
             articles_tool = next(t for t in tools if t.name == "category_articles")

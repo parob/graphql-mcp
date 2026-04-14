@@ -118,7 +118,7 @@ Requires the remote API to have introspection enabled.
 
 <a class="hero-card" href="/configuration">
 <h3>Configuration</h3>
-<p>Transports, authentication, mcp_hidden, mutations, middleware.</p>
+<p>Transports, authentication, the @mcp directive, mutations, middleware.</p>
 </a>
 
 <a class="hero-card" href="/examples">

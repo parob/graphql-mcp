@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import docstring_parser
 
-from graphql_mcp import GraphQLMCP, mcp_hidden
+from graphql_mcp import GraphQLMCP, mcp
 from graphql_mcp.server import (
     add_tools_from_schema,
     add_tools_from_schema_with_remote,
@@ -562,19 +562,23 @@ def generate() -> str:
     sections.append(_render_method(
         GraphQLMCP.http_app, "GraphQLMCP", "http_app"))
 
-    # mcp_hidden
+    # mcp directive
     sections.append(textwrap.dedent("""\
-        ## `mcp_hidden`
+        ## `mcp`
 
         ```python
-        from graphql_mcp import mcp_hidden
+        from graphql_mcp import mcp
         ```
 
-        A `SchemaDirective` that marks GraphQL arguments as hidden from MCP tools. The argument remains visible in the GraphQL schema but is not exposed as an MCP tool parameter.
+        A `SchemaDirective` that customizes how a GraphQL field or argument surfaces as an MCP tool. Accepts three optional arguments:
 
-        Requires `graphql-api` to be installed. When `graphql-api` is not available, `mcp_hidden` is `None`.
+        - `name: String` — override the MCP tool/argument name (replaces the default `snake_case` derivation).
+        - `description: String` — override the MCP description.
+        - `hidden: Boolean` — when `true`, skip the field or argument from MCP registration entirely.
 
-        See [Configuration](/configuration#mcp-hidden) for usage examples.
+        Valid on `FIELD_DEFINITION` and `ARGUMENT_DEFINITION`. Requires `graphql-api` to be installed. When `graphql-api` is not available, `mcp` is `None`.
+
+        See [Configuration](/configuration#mcp-directive) for usage examples.
     """).rstrip())
 
     # Low-Level API
