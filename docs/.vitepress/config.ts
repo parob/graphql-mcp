@@ -34,6 +34,7 @@ export default defineConfig({
             { text: 'Python Libraries', link: '/python-libraries' },
             { text: 'Remote APIs', link: '/existing-apis' },
             { text: 'Configuration', link: '/configuration' },
+            { text: 'Strawberry & Graphene', link: '/strawberry-graphene' },
           ]
         },
         {

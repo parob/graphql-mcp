@@ -7,6 +7,7 @@ from graphql import (
     GraphQLString,
 )
 
+from graphql_mcp.overrides import apply_mcp
 from graphql_mcp.server import GraphQLMCP
 
 # Import SchemaDirective from graphql-api if available
@@ -37,4 +38,4 @@ except ImportError:
     # graphql-api not installed - `mcp` won't be available as a directive builder
     mcp = None  # type: ignore
 
-__all__ = ["GraphQLMCP", "mcp"]
+__all__ = ["GraphQLMCP", "apply_mcp", "mcp"]

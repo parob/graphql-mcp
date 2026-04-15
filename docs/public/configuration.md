@@ -97,10 +97,7 @@ server = GraphQLMCP(schema=schema)
 The MCP tool exposes only non-hidden fields and arguments. Overridden names replace the default `snake_case` derivation. When an argument is renamed, the outbound GraphQL query still uses the original argument name — translation happens automatically inside the tool wrapper.
 
 ::: warning Strawberry and Graphene
-Strawberry and Graphene don't attach directive information to the graphql-core argument's `ast_node`, so `@mcp` applied through their Python APIs isn't currently picked up by graphql-mcp. If you need directive-based control with these libraries, either:
-
-- Print your schema to SDL (`str(schema)`) and rebuild it with `graphql.build_schema` (you'll need to re-attach resolvers via `assign_resolver` helpers or by using `ariadne.make_executable_schema`), or
-- Restructure the resolver so the hidden value is read from context rather than an argument.
+Strawberry and Graphene don't attach directive information to the graphql-core argument's `ast_node`, so `@mcp` applied through their Python APIs isn't currently picked up by graphql-mcp. See [Strawberry & Graphene](/strawberry-graphene) for three supported workarounds (rebuild + copy resolvers, rebuild via Ariadne, or context-based hiding).
 :::
 
 ::: warning

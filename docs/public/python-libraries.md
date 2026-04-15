@@ -97,6 +97,8 @@ Use `GraphQLMCP.from_api(api)` instead of passing the schema directly. This enab
 
 ::: info Schema access for Strawberry and Graphene
 Strawberry wraps the graphql-core schema — access it via `schema._schema`. Graphene wraps it via `schema.graphql_schema`. Ariadne's `make_executable_schema` returns a graphql-core schema directly.
+
+To apply the [`@mcp` directive](/configuration#mcp-directive) when using Strawberry or Graphene, see [Strawberry & Graphene](/strawberry-graphene).
 :::
 
 ## Schema Design for MCP

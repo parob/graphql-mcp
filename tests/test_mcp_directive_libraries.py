@@ -318,34 +318,169 @@ class TestStrawberryNoOp:
             assert 'hello' in names
 
     @pytest.mark.asyncio
-    async def test_strawberry_via_sdl_rebuild_supports_mcp(self):
-        """Users can work around the Strawberry limitation by printing to SDL
-        and rebuilding with graphql.build_schema — our directive then works."""
+    async def test_strawberry_workaround_rebuild_and_copy_resolvers(self):
+        """Workaround A from docs/public/configuration.md:
+
+            1. Print the Strawberry schema to SDL.
+            2. Prepend the @mcp directive definition and patch the directive
+               onto the fields/args you care about.
+            3. Rebuild with graphql.build_schema.
+            4. Copy the resolvers across from the Strawberry schema.
+        """
         try:
-            import strawberry  # noqa: F401
+            import strawberry
         except ImportError:
             pytest.skip("strawberry not installed")
 
-        # Use SDL directly (what a Strawberry user would do after `str(schema)`
-        # + adding the directive inline).
-        from graphql import build_schema
+        from graphql import build_schema, print_schema
         from graphql_mcp import GraphQLMCP
 
-        schema = build_schema(MCP_DIRECTIVE_SDL + """
-            type Query {
-                hello(name: String = "World"): String @mcp(name: "greet")
-            }
-        """)
-        schema.query_type.fields['hello'].resolve = (
-            lambda root, info, name="World": f"Hello, {name}!"
+        @strawberry.type
+        class Query:
+            @strawberry.field
+            def greet(self, name: str) -> str:
+                return f"Hello, {name}!"
+
+        sb_schema = strawberry.Schema(query=Query)
+
+        # 1+2. SDL with the @mcp directive prepended + applied inline.
+        sdl = MCP_DIRECTIVE_SDL + print_schema(sb_schema._schema).replace(
+            "greet(name: String!): String!",
+            'greet(name: String! @mcp(name: "user_name")): String!'
+            ' @mcp(name: "say_hi", description: "Friendly greeting.")',
         )
 
-        server = GraphQLMCP(schema=schema, name="Strawberry-rebuilt")
+        # 3. Rebuild with graphql-core.
+        rebuilt = build_schema(sdl)
+
+        # 4. Copy resolvers from the Strawberry schema.
+        for field_name, sb_field in sb_schema._schema.query_type.fields.items():
+            if field_name in rebuilt.query_type.fields:
+                rebuilt.query_type.fields[field_name].resolve = sb_field.resolve
+
+        server = GraphQLMCP(schema=rebuilt, name="Strawberry-rebuilt")
         async with Client(server) as client:
             tools = await client.list_tools()
             names = {t.name for t in tools}
-            assert 'greet' in names
-            assert 'hello' not in names
+            assert 'say_hi' in names
+            assert 'greet' not in names
+
+            tool = next(t for t in tools if t.name == 'say_hi')
+            assert tool.description == "Friendly greeting."
+            props = tool.inputSchema.get('properties', {})
+            assert 'user_name' in props
+            assert 'name' not in props
+
+            result = await client.call_tool('say_hi', {'user_name': 'World'})
+            assert get_result_text(result) == 'Hello, World!'
+
+    @pytest.mark.asyncio
+    async def test_strawberry_native_schema_directive_via_sdl_rebuild(self):
+        """Strawberry's own @schema_directive support round-trips through
+        ``str(schema)`` → ``build_schema``. No string manipulation needed."""
+        try:
+            import strawberry
+            from strawberry.schema_directive import Location
+        except ImportError:
+            pytest.skip("strawberry not installed")
+
+        from typing import Annotated
+        from graphql import build_schema
+        from graphql_mcp import GraphQLMCP
+
+        @strawberry.schema_directive(
+            locations=[Location.FIELD_DEFINITION, Location.ARGUMENT_DEFINITION]
+        )
+        class Mcp:
+            name: str = ""
+            description: str = ""
+            hidden: bool = False
+
+        @strawberry.type
+        class Query:
+            @strawberry.field(
+                directives=[Mcp(name="say_hi", description="Friendly greeting.")]
+            )
+            def greet(
+                self,
+                name: Annotated[
+                    str, strawberry.argument(directives=[Mcp(name="user_name")])
+                ],
+            ) -> str:
+                return f"Hello, {name}!"
+
+        sb_schema = strawberry.Schema(query=Query)
+        # The key move: str(sb_schema) includes the directive definitions.
+        rebuilt = build_schema(str(sb_schema))
+        for fname, sb_field in sb_schema._schema.query_type.fields.items():
+            if fname in rebuilt.query_type.fields:
+                rebuilt.query_type.fields[fname].resolve = sb_field.resolve
+
+        server = GraphQLMCP(schema=rebuilt, name="Strawberry-native")
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            names = {t.name for t in tools}
+            assert 'say_hi' in names
+            assert 'greet' not in names
+
+            tool = next(t for t in tools if t.name == 'say_hi')
+            assert tool.description == 'Friendly greeting.'
+            props = tool.inputSchema.get('properties', {})
+            assert 'user_name' in props
+            assert 'name' not in props
+
+            result = await client.call_tool('say_hi', {'user_name': 'Native'})
+            assert get_result_text(result) == 'Hello, Native!'
+
+    @pytest.mark.asyncio
+    async def test_strawberry_workaround_via_ariadne(self):
+        """Workaround B from docs/public/configuration.md:
+
+            1. Print the Strawberry schema to SDL.
+            2. Prepend the @mcp directive definition and patch the directive
+               onto the fields/args you care about.
+            3. Hand the SDL + Ariadne resolvers to make_executable_schema.
+        """
+        try:
+            import strawberry
+            from ariadne import QueryType, make_executable_schema
+        except ImportError:
+            pytest.skip("strawberry or ariadne not installed")
+
+        from graphql import print_schema
+        from graphql_mcp import GraphQLMCP
+
+        @strawberry.type
+        class Query:
+            @strawberry.field
+            def greet(self, name: str) -> str:
+                return f"Hello, {name}!"
+
+        sb_schema = strawberry.Schema(query=Query)
+
+        type_defs = MCP_DIRECTIVE_SDL + print_schema(sb_schema._schema).replace(
+            "greet(name: String!): String!",
+            'greet(name: String! @mcp(name: "user_name")): String!'
+            ' @mcp(name: "say_hi")',
+        )
+
+        q = QueryType()
+
+        @q.field("greet")
+        def resolve_greet(_, info, name):
+            return f"Hello, {name}!"
+
+        schema = make_executable_schema(type_defs, q)
+
+        server = GraphQLMCP(schema=schema, name="Strawberry-via-Ariadne")
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            names = {t.name for t in tools}
+            assert 'say_hi' in names
+            assert 'greet' not in names
+
+            result = await client.call_tool('say_hi', {'user_name': 'Ariadne'})
+            assert get_result_text(result) == 'Hello, Ariadne!'
 
 
 class TestGrapheneNoOp:
@@ -370,6 +505,93 @@ class TestGrapheneNoOp:
             tools = await client.list_tools()
             names = {t.name for t in tools}
             assert 'hello' in names
+
+    @pytest.mark.asyncio
+    async def test_graphene_workaround_rebuild_and_copy_resolvers(self):
+        """Workaround A applied to a Graphene schema."""
+        try:
+            import graphene
+        except ImportError:
+            pytest.skip("graphene not installed")
+
+        from graphql import build_schema, print_schema
+        from graphql_mcp import GraphQLMCP
+
+        class Query(graphene.ObjectType):
+            greet = graphene.String(name=graphene.String(required=True))
+
+            def resolve_greet(self, info, name):
+                return f"Hello, {name}!"
+
+        g_schema = graphene.Schema(query=Query)
+        core_schema = g_schema.graphql_schema
+
+        sdl = MCP_DIRECTIVE_SDL + print_schema(core_schema).replace(
+            "greet(name: String!): String",
+            'greet(name: String! @mcp(name: "user_name")): String'
+            ' @mcp(name: "say_hi")',
+        )
+
+        rebuilt = build_schema(sdl)
+        for field_name, g_field in core_schema.query_type.fields.items():
+            if field_name in rebuilt.query_type.fields:
+                rebuilt.query_type.fields[field_name].resolve = g_field.resolve
+
+        server = GraphQLMCP(schema=rebuilt, name="Graphene-rebuilt")
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            names = {t.name for t in tools}
+            assert 'say_hi' in names
+            assert 'greet' not in names
+
+            tool = next(t for t in tools if t.name == 'say_hi')
+            props = tool.inputSchema.get('properties', {})
+            assert 'user_name' in props
+            assert 'name' not in props
+
+            result = await client.call_tool('say_hi', {'user_name': 'World'})
+            assert get_result_text(result) == 'Hello, World!'
+
+    @pytest.mark.asyncio
+    async def test_graphene_workaround_via_ariadne(self):
+        """Workaround B applied to a Graphene schema."""
+        try:
+            import graphene
+            from ariadne import QueryType, make_executable_schema
+        except ImportError:
+            pytest.skip("graphene or ariadne not installed")
+
+        from graphql import print_schema
+        from graphql_mcp import GraphQLMCP
+
+        class Query(graphene.ObjectType):
+            greet = graphene.String(name=graphene.String(required=True))
+
+            def resolve_greet(self, info, name):
+                return f"Hello, {name}!"
+
+        g_schema = graphene.Schema(query=Query)
+        type_defs = MCP_DIRECTIVE_SDL + print_schema(g_schema.graphql_schema).replace(
+            "greet(name: String!): String",
+            'greet(name: String! @mcp(name: "user_name")): String'
+            ' @mcp(name: "say_hi")',
+        )
+
+        q = QueryType()
+
+        @q.field("greet")
+        def resolve_greet(_, info, name):
+            return f"Hello, {name}!"
+
+        schema = make_executable_schema(type_defs, q)
+        server = GraphQLMCP(schema=schema, name="Graphene-via-Ariadne")
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            names = {t.name for t in tools}
+            assert 'say_hi' in names
+
+            result = await client.call_tool('say_hi', {'user_name': 'Graphene'})
+            assert get_result_text(result) == 'Hello, Graphene!'
 
 
 # ---------------------------------------------------------------------------
