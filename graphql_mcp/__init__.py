@@ -26,12 +26,20 @@ try:
             "name": GraphQLArgument(GraphQLString),
             "description": GraphQLArgument(GraphQLString),
             "hidden": GraphQLArgument(GraphQLBoolean),
+            # MCP tool annotation hints (see spec). Defaults are inferred:
+            # queries default to readOnly: true; mutations use spec defaults.
+            "readOnly": GraphQLArgument(GraphQLBoolean),
+            "destructive": GraphQLArgument(GraphQLBoolean),
+            "idempotent": GraphQLArgument(GraphQLBoolean),
+            "openWorld": GraphQLArgument(GraphQLBoolean),
         },
         description=(
             "Customize how this field or argument is exposed as an MCP tool. "
-            "Use `name` to override the MCP-exposed name, `description` to override "
-            "the MCP description, and `hidden: true` to skip the field or argument "
-            "from MCP registration entirely."
+            "`name` / `description` override the MCP-exposed name and description; "
+            "`hidden: true` skips MCP registration; "
+            "`readOnly` / `destructive` / `idempotent` / `openWorld` set MCP tool "
+            "annotation hints (`destructive` and `idempotent` are meaningful only "
+            "when `readOnly: false`)."
         ),
     )
 except ImportError:

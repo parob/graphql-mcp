@@ -21,7 +21,17 @@ from typing import Any, Dict, Optional
 from graphql import GraphQLSchema
 
 
-_ALLOWED_KEYS = frozenset({"name", "description", "hidden"})
+_ALLOWED_KEYS = frozenset({
+    "name", "description", "hidden",
+    # MCP tool annotation hints (snake_case, Pythonic). Also accepted in
+    # camelCase for parity with the SDL directive (readOnly/openWorld).
+    "read_only", "destructive", "idempotent", "open_world",
+    "readOnly", "openWorld",
+})
+
+
+# Normalise camelCase hint keys to snake_case before attaching.
+_HINT_ALIASES = {"readOnly": "read_only", "openWorld": "open_world"}
 
 
 @dataclass(frozen=True)
@@ -50,7 +60,12 @@ def _validate_config(path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
             f"Unknown @mcp keys for '{path}': {sorted(unknown)}. "
             f"Supported keys: {sorted(_ALLOWED_KEYS)}"
         )
-    return cfg
+    # Normalise camelCase → snake_case for the attached entry so _get_mcp_config
+    # (which checks both) always finds a consistent shape.
+    normalised = {}
+    for k, v in cfg.items():
+        normalised[_HINT_ALIASES.get(k, k)] = v
+    return normalised
 
 
 def _attach(node: Any, cfg: Dict[str, Any]) -> None:

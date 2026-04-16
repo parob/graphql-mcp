@@ -671,10 +671,20 @@ def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0, 
 
 @dataclass
 class MCPConfig:
-    """Resolved @mcp directive options for a field or argument."""
+    """Resolved @mcp directive options for a field or argument.
+
+    The four *Hint fields map to MCP's standard tool annotations. ``None``
+    means "not set by the user" — inference defaults then apply based on
+    whether the field is a query (→ ``read_only=True``) or mutation
+    (→ ``destructive=True``).
+    """
     name: Optional[str] = None
     description: Optional[str] = None
     hidden: bool = False
+    read_only: Optional[bool] = None
+    destructive: Optional[bool] = None
+    idempotent: Optional[bool] = None
+    open_world: Optional[bool] = None
 
 
 def _extract_ast_directive_value(value_node) -> Any:
@@ -704,6 +714,16 @@ def _get_mcp_config(node: Any) -> MCPConfig:
         from the directive, or their defaults if the directive isn't present.
     """
     cfg = MCPConfig()
+    # Bool hint SDL arg names → MCPConfig attr. We accept both camelCase
+    # (SDL-native) and snake_case (Pythonic) when reading via
+    # _applied_directives, because Python users writing
+    # ``mcp(read_only=True)`` would otherwise be silently ignored.
+    _BOOL_HINTS = [
+        ('readOnly', 'read_only'),
+        ('destructive', 'destructive'),
+        ('idempotent', 'idempotent'),
+        ('openWorld', 'open_world'),
+    ]
 
     # 1. graphql-api's _applied_directives
     applied_directives = getattr(node, '_applied_directives', []) or []
@@ -718,6 +738,15 @@ def _get_mcp_config(node: Any) -> MCPConfig:
             cfg.description = args['description']
         if args.get('hidden'):
             cfg.hidden = True
+        for sdl_key, attr in _BOOL_HINTS:
+            if getattr(cfg, attr) is not None:
+                continue
+            # Accept both camelCase (SDL) and snake_case (Python) keys.
+            value = args.get(sdl_key)
+            if value is None:
+                value = args.get(attr)
+            if value is not None:
+                setattr(cfg, attr, bool(value))
 
     # 2. SDL ast_node.directives
     ast_node = getattr(node, 'ast_node', None)
@@ -740,8 +769,44 @@ def _get_mcp_config(node: Any) -> MCPConfig:
                     cfg.description = value
                 elif arg_name == 'hidden' and value:
                     cfg.hidden = True
+                else:
+                    for sdl_key, attr in _BOOL_HINTS:
+                        if arg_name == sdl_key and value is not None:
+                            if getattr(cfg, attr) is None:
+                                setattr(cfg, attr, bool(value))
+                            break
 
     return cfg
+
+
+def _compute_tool_annotations(cfg: MCPConfig, is_mutation: bool) -> Any:
+    """Build a ``ToolAnnotations`` from resolved ``MCPConfig`` + inference.
+
+    Inference (applied only when the user hasn't specified the hint):
+    - GraphQL queries → ``readOnlyHint=True``.
+    - Mutations → nothing: the MCP spec's "hint absent" defaults
+      (destructive=true, idempotent=false, openWorld=true) already match
+      normal mutation semantics.
+
+    All other hints pass through verbatim from ``cfg``. We don't silently
+    drop "contradictory" combinations (e.g. readOnly=true + destructive=true)
+    — the user set them, clients interpret per spec.
+    """
+    try:
+        from mcp.types import ToolAnnotations
+    except ImportError:  # pragma: no cover — mcp is a hard dep via fastmcp
+        return None
+
+    read_only = cfg.read_only
+    if read_only is None and not is_mutation:
+        read_only = True
+
+    return ToolAnnotations(
+        readOnlyHint=read_only,
+        destructiveHint=cfg.destructive,
+        idempotentHint=cfg.idempotent,
+        openWorldHint=cfg.open_world,
+    )
 
 
 def _is_arg_hidden(arg_def: GraphQLArgument) -> bool:
@@ -829,7 +894,8 @@ def _add_tools_from_fields(
             field_name, field, schema, is_mutation=is_mutation,
             field_cfg=field_cfg,
         )
-        tool_decorator = server.tool(name=tool_name)
+        annotations = _compute_tool_annotations(field_cfg, is_mutation)
+        tool_decorator = server.tool(name=tool_name, annotations=annotations)
         tool_decorator(tool_func)
 
 
@@ -1765,7 +1831,12 @@ def _add_nested_tools_from_schema(
                         # (silently re-register / overwrite).
                         pass
                     registered_names.add(tool_name)
-                server.tool(name=tool_name)(tool_func)
+                # Inherit annotations from the leaf field's @mcp config.
+                leaf_cfg = _get_mcp_config(new_path[-1][1])
+                annotations = _compute_tool_annotations(
+                    leaf_cfg, is_mutation=(operation_type == "mutation")
+                )
+                server.tool(name=tool_name, annotations=annotations)(tool_func)
 
             if isinstance(named_type, GraphQLObjectType):
                 recurse(named_type, operation_type, new_path)
@@ -1818,7 +1889,8 @@ def _add_tools_from_fields_remote(
             forward_bearer_token=forward_bearer_token,
             field_cfg=field_cfg,
         )
-        tool_decorator = server.tool(name=tool_name)
+        annotations = _compute_tool_annotations(field_cfg, is_mutation)
+        tool_decorator = server.tool(name=tool_name, annotations=annotations)
         tool_decorator(tool_func)
 
 
@@ -2192,7 +2264,11 @@ def _add_nested_tools_from_schema_remote(
                 )
                 if registered_names is not None:
                     registered_names.add(tool_name)
-                server.tool(name=tool_name)(tool_func)
+                leaf_cfg = _get_mcp_config(new_path[-1][1])
+                annotations = _compute_tool_annotations(
+                    leaf_cfg, is_mutation=(operation_type == "mutation")
+                )
+                server.tool(name=tool_name, annotations=annotations)(tool_func)
 
             if isinstance(named_type, GraphQLObjectType):
                 recurse(named_type, operation_type, new_path)
