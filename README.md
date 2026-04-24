@@ -12,6 +12,8 @@
 
 GraphQL MCP works with **any** Python GraphQL library—Strawberry, Ariadne, Graphene, graphql-core, or [graphql-api](https://graphql-api.parob.com/). If you already have a GraphQL API, you can expose it as MCP tools in minutes.
 
+> **Don't want to run anything?** [**Bridge**](https://graphql-mcp.com/bridge) is a hosted MCP proxy built on graphql-mcp. Paste any public GraphQL URL into your MCP client and every query and mutation shows up as a tool — no code, no deploy.
+
 ## Features
 
 - **Universal Compatibility** - Works with any GraphQL library that produces a `graphql-core` schema

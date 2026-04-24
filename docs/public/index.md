@@ -20,6 +20,23 @@ hero:
 
 Install graphql-mcp, point it at a graphql-core schema or a remote endpoint, and get a running MCP server. Works with Strawberry, Ariadne, Graphene, graphql-api, or any GraphQL API over HTTP.
 
+## Try it with zero setup — Bridge
+
+Don't want to run anything? **[Bridge](/bridge)** is the hosted version of graphql-mcp. Paste any public GraphQL URL into your MCP client, attach your own auth headers, and every query and mutation shows up as a tool.
+
+```json
+{
+  "mcpServers": {
+    "countries": {
+      "url": "https://bridge.graphql-mcp.com/mcp/https%3A%2F%2Fcountries.trevorblades.com%2Fgraphql"
+    }
+  }
+}
+```
+
+<a href="/bridge">How Bridge works &rarr;</a>
+
+
 ## Your schema becomes AI tools
 
 <div class="before-after">

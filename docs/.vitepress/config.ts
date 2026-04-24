@@ -17,6 +17,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
+      { text: 'Bridge', link: '/bridge' },
       { text: 'Guides', link: '/python-libraries' },
       { text: 'Reference', link: '/api-reference' },
     ],
@@ -26,6 +27,14 @@ export default defineConfig({
           text: 'Getting Started',
           items: [
             { text: 'Quick Start', link: '/getting-started' },
+          ]
+        },
+        {
+          text: 'Bridge (hosted)',
+          items: [
+            { text: 'Introduction', link: '/bridge' },
+            { text: 'Security & Privacy', link: '/bridge-security' },
+            { text: 'Self-hosting', link: '/bridge-self-hosting' },
           ]
         },
         {
