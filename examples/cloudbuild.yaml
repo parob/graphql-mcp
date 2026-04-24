@@ -5,7 +5,7 @@ substitutions:
   _AR_REPO: "graphql-mcp"
   _IMAGE_NAME: "graphql-mcp-examples"
   _SERVICE_NAME: graphql-mcp-examples
-  _PROJECT_ID: parob-297412
+  _PROJECT_ID: graphql-mcp
   _DEPLOY_REGION: europe-west1
 
 options:
