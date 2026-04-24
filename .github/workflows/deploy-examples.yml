@@ -1,0 +1,41 @@
+name: Deploy examples to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - "graphql_mcp/**"
+      - ".github/workflows/deploy-examples.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-examples
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: graphql-mcp
+  REGION: europe-west1
+  SERVICE: graphql-mcp-examples
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy
+        working-directory: examples
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --source . \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --allow-unauthenticated \
+            --max-instances=100 \
+            --set-env-vars=COMMIT_SHA=${{ github.sha }} \
+            --quiet
