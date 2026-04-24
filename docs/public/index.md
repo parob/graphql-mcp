@@ -28,7 +28,7 @@ Don't want to run anything? **[Bridge](/bridge)** is the hosted version of graph
 {
   "mcpServers": {
     "countries": {
-      "url": "https://bridge.graphql-mcp.com/mcp/https%3A%2F%2Fcountries.trevorblades.com%2Fgraphql"
+      "url": "https://bridge.graphql-mcp.com/mcp/aHR0cHM6Ly9jb3VudHJpZXMudHJldm9yYmxhZGVzLmNvbS9ncmFwaHFs"
     }
   }
 }

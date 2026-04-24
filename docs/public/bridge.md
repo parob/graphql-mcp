@@ -4,10 +4,155 @@ Bridge is the hosted companion to graphql-mcp. Paste any GraphQL endpoint into y
 
 It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speaking client — and a zero-effort demo of what graphql-mcp does under the hood.
 
+## Generate your MCP URL
+
+<div class="bridge-url-generator">
+  <label for="bridge-upstream"><strong>GraphQL endpoint</strong></label>
+  <input id="bridge-upstream" type="url" placeholder="https://api.example.com/graphql" autocomplete="off" spellcheck="false" />
+  <label for="bridge-output"><strong>MCP URL</strong> (paste this into your MCP client)</label>
+  <div class="bridge-output-row">
+    <input id="bridge-output" type="text" readonly />
+    <button id="bridge-copy" type="button">Copy</button>
+  </div>
+  <p class="bridge-hint">The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.</p>
+</div>
+
+<style>
+.bridge-url-generator {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0 1.5rem;
+  background: var(--vp-c-bg-soft);
+}
+.bridge-url-generator label {
+  display: block;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0.25rem;
+  color: var(--vp-c-text-2);
+}
+.bridge-url-generator input[type="url"],
+.bridge-url-generator input[type="text"] {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+.bridge-url-generator input[readonly] {
+  background: var(--vp-c-bg-alt);
+}
+.bridge-output-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.bridge-output-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bridge-url-generator button {
+  padding: 0 1rem;
+  border: 1px solid var(--vp-c-brand-1);
+  border-radius: 6px;
+  background: var(--vp-c-brand-1);
+  color: var(--vp-c-white);
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.bridge-url-generator button:hover {
+  background: var(--vp-c-brand-2);
+  border-color: var(--vp-c-brand-2);
+}
+.bridge-url-generator button.copied {
+  background: var(--vp-c-green-1);
+  border-color: var(--vp-c-green-1);
+}
+.bridge-hint {
+  font-size: 0.8rem;
+  color: var(--vp-c-text-2);
+  margin: 0.5rem 0 0;
+}
+.bridge-hint code {
+  font-size: 0.8rem;
+}
+</style>
+
+<script>
+(() => {
+  if (typeof window === 'undefined') return;
+  const BRIDGE_BASE = 'https://bridge.graphql-mcp.com/mcp/';
+  const EXAMPLE = 'https://countries.trevorblades.com/graphql';
+
+  const toBase64Url = (value) => {
+    // btoa only accepts latin-1; UTF-8 URLs are rare but safe to support
+    const bytes = new TextEncoder().encode(value);
+    let binary = '';
+    bytes.forEach((b) => { binary += String.fromCharCode(b); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  };
+
+  const attach = () => {
+    const input = document.getElementById('bridge-upstream');
+    const output = document.getElementById('bridge-output');
+    const copyBtn = document.getElementById('bridge-copy');
+    if (!input || !output || !copyBtn) return;
+
+    const render = () => {
+      const raw = (input.value || '').trim() || EXAMPLE;
+      try {
+        const u = new URL(raw);
+        if (!(u.protocol === 'http:' || u.protocol === 'https:')) {
+          output.value = '';
+          return;
+        }
+      } catch {
+        output.value = '';
+        return;
+      }
+      output.value = BRIDGE_BASE + toBase64Url(raw);
+    };
+
+    input.addEventListener('input', render);
+    copyBtn.addEventListener('click', async () => {
+      if (!output.value) return;
+      try {
+        await navigator.clipboard.writeText(output.value);
+        copyBtn.classList.add('copied');
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyBtn.textContent = 'Copy';
+        }, 1200);
+      } catch {
+        output.select();
+      }
+    });
+
+    input.placeholder = EXAMPLE;
+    render();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attach);
+  } else {
+    attach();
+  }
+})();
+</script>
+
 ## One-line setup
 
+Bridge accepts **either** a base64url-encoded upstream (the form the generator above produces) or a standard URL-encoded upstream:
+
 ```text
-https://bridge.graphql-mcp.com/mcp/<url-encoded GraphQL endpoint>
+https://bridge.graphql-mcp.com/mcp/<base64url upstream>        ← cleaner
+https://bridge.graphql-mcp.com/mcp/<url-encoded upstream>      ← also works
 ```
 
 For example, to expose the public [Countries API](https://countries.trevorblades.com):
@@ -16,7 +161,7 @@ For example, to expose the public [Countries API](https://countries.trevorblades
 {
   "mcpServers": {
     "countries": {
-      "url": "https://bridge.graphql-mcp.com/mcp/https%3A%2F%2Fcountries.trevorblades.com%2Fgraphql"
+      "url": "https://bridge.graphql-mcp.com/mcp/aHR0cHM6Ly9jb3VudHJpZXMudHJldm9yYmxhZGVzLmNvbS9ncmFwaHFs"
     }
   }
 }
@@ -32,7 +177,7 @@ Pass your upstream credentials via your MCP client's headers. Bridge forwards `A
 {
   "mcpServers": {
     "github": {
-      "url": "https://bridge.graphql-mcp.com/mcp/https%3A%2F%2Fapi.github.com%2Fgraphql",
+      "url": "https://bridge.graphql-mcp.com/mcp/aHR0cHM6Ly9hcGkuZ2l0aHViLmNvbS9ncmFwaHFs",
       "headers": {
         "Authorization": "Bearer ghp_yourtoken"
       }
