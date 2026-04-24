@@ -8,7 +8,7 @@ import threading
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Callable, Literal, Tuple, Optional, Dict
+from typing import Any, Callable, List, Literal, Tuple, Optional, Dict, Union
 
 from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
@@ -88,6 +88,78 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     return None
 
 
+# Hop-by-hop and framing headers that must never be forwarded upstream.
+# Everything here is lowercased for case-insensitive matching.
+_HEADER_FORWARD_DENY = frozenset({
+    "host",
+    "content-length",
+    "content-type",
+    "connection",
+    "transfer-encoding",
+    "upgrade",
+    "keep-alive",
+    "proxy-authorization",
+    "proxy-connection",
+    "te",
+    "trailer",
+    "expect",
+    "accept-encoding",
+})
+
+
+def _extract_forwarded_headers_from_context(
+    ctx: Optional[Context],
+    forward_headers: Optional[Union[List[str], Literal["*"]]],
+) -> Dict[str, str]:
+    """
+    Extract a subset of headers from the live MCP HTTP request context,
+    for forwarding to a REMOTE GraphQL server.
+
+    Args:
+        ctx: FastMCP Context object.
+        forward_headers: Either a list of header names to forward (case-insensitive),
+            the literal string "*" to forward every header except a hop-by-hop
+            denylist, or None/empty to forward nothing.
+
+    Returns:
+        A dict of lowercased header names to values. Empty if no context, no
+        HTTP request, or forwarding is disabled.
+
+    Security Note:
+        Only enable forwarding when you trust the upstream GraphQL server.
+        Hop-by-hop / framing headers (Host, Content-Length, etc.) are always
+        stripped. When forward_headers="*", every other request header flows
+        through — use a named allowlist if that's too broad.
+    """
+    if not forward_headers:
+        return {}
+
+    try:
+        request = _get_http_request() if _get_http_request else None
+        if not request or not hasattr(request, "headers"):
+            return {}
+
+        # Starlette Headers is case-insensitive; iterate as lowercased names.
+        normalized: Dict[str, str] = {}
+        for k, v in request.headers.items():
+            normalized[k.lower()] = v
+
+        if forward_headers == "*":
+            return {
+                k: v for k, v in normalized.items()
+                if k not in _HEADER_FORWARD_DENY
+            }
+
+        allow = {h.lower() for h in forward_headers}
+        return {
+            k: v for k, v in normalized.items()
+            if k in allow and k not in _HEADER_FORWARD_DENY
+        }
+    except Exception as e:
+        logger.debug(f"Failed to extract forwarded headers from context: {e}")
+        return {}
+
+
 class GraphQLMCP(FastMCP):  # type: ignore
 
     @classmethod
@@ -101,6 +173,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         graphql_http_kwargs: Optional[Dict[str, Any]] = None,
         allow_mutations: bool = True,
         forward_bearer_token: bool = False,
+        forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
         verify_ssl: bool = True,
         *args,
         **kwargs
@@ -119,6 +192,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
             forward_bearer_token: Whether to forward bearer tokens from MCP
                 requests to the remote GraphQL server (default: False).
                 Only enable if you trust the remote server. Use HTTPS.
+            forward_headers: Headers to forward from the inbound MCP request to
+                the upstream GraphQL server. Either a list of header names
+                (case-insensitive) or the literal "*" to forward all safe
+                headers. Hop-by-hop / framing headers are always stripped.
+                Defaults to None (no extra forwarding).
             verify_ssl: Whether to verify SSL certificates (default: True).
                 Set to False only for development with self-signed certs.
             *args: Additional arguments to pass to FastMCP
@@ -127,33 +205,20 @@ class GraphQLMCP(FastMCP):  # type: ignore
         Returns:
             GraphQLMCP: A server instance with tools generated from the remote schema
         """
-        from graphql_mcp.remote import fetch_remote_schema_sync, RemoteGraphQLClient
-
-        # Prepare headers with bearer token if provided
-        request_headers = headers.copy() if headers else {}
-        if bearer_token:
-            request_headers["Authorization"] = f"Bearer {bearer_token}"
-
-        # Fetch the schema from the remote server
-        schema = fetch_remote_schema_sync(url, request_headers, timeout)
-
-        # Create a FastMCP server instance
-        instance = GraphQLMCP(
-            schema=schema, graphql_http=graphql_http, graphql_http_kwargs=graphql_http_kwargs, allow_mutations=allow_mutations, *args, **kwargs
+        return build_remote_mcp(
+            url,
+            bearer_token=bearer_token,
+            headers=headers,
+            timeout=timeout,
+            graphql_http=graphql_http,
+            graphql_http_kwargs=graphql_http_kwargs,
+            allow_mutations=allow_mutations,
+            forward_bearer_token=forward_bearer_token,
+            forward_headers=forward_headers,
+            verify_ssl=verify_ssl,
+            *args,
+            **kwargs,
         )
-
-        # Create a remote client for executing queries
-        client = RemoteGraphQLClient(
-            url, request_headers, timeout, bearer_token=bearer_token, verify_ssl=verify_ssl)
-
-        # Store remote client for GraphQL HTTP proxy
-        instance.remote_client = client
-
-        # Add tools from schema with remote client
-        add_tools_from_schema_with_remote(
-            schema, instance, client, allow_mutations=allow_mutations, forward_bearer_token=forward_bearer_token)
-
-        return instance
 
     def __init__(
         self, schema: GraphQLSchema, graphql_http: bool = True,
@@ -973,12 +1038,81 @@ def add_tools_from_schema(
     return server
 
 
+def build_remote_mcp(
+    url: str,
+    bearer_token: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 30,
+    graphql_http: bool = True,
+    graphql_http_kwargs: Optional[Dict[str, Any]] = None,
+    allow_mutations: bool = True,
+    forward_bearer_token: bool = False,
+    forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
+    verify_ssl: bool = True,
+    *args,
+    **kwargs,
+) -> "GraphQLMCP":
+    """
+    Build a GraphQLMCP instance for a remote GraphQL endpoint.
+
+    This is the pure function that backs ``GraphQLMCP.from_remote_url()``.
+    It is exposed separately so callers (e.g. a multi-tenant proxy) can
+    introspect an upstream once and cache the resulting instance without
+    going through the classmethod.
+
+    See ``GraphQLMCP.from_remote_url`` for argument semantics. In particular,
+    ``forward_bearer_token`` forwards the Authorization bearer from the MCP
+    request context, and ``forward_headers`` forwards an explicit set of
+    additional headers (or all safe headers when set to "*").
+
+    Returns:
+        GraphQLMCP: A server instance with tools generated from the remote
+        schema. ``instance.remote_client`` is set to the underlying
+        ``RemoteGraphQLClient`` for optional GraphQL HTTP proxy use.
+    """
+    from graphql_mcp.remote import fetch_remote_schema_sync, RemoteGraphQLClient
+
+    # Prepare headers with bearer token if provided
+    request_headers = headers.copy() if headers else {}
+    if bearer_token:
+        request_headers["Authorization"] = f"Bearer {bearer_token}"
+
+    # Fetch the schema from the remote server
+    schema = fetch_remote_schema_sync(url, request_headers, timeout)
+
+    instance = GraphQLMCP(
+        schema=schema,
+        graphql_http=graphql_http,
+        graphql_http_kwargs=graphql_http_kwargs,
+        allow_mutations=allow_mutations,
+        *args,
+        **kwargs,
+    )
+
+    client = RemoteGraphQLClient(
+        url, request_headers, timeout,
+        bearer_token=bearer_token, verify_ssl=verify_ssl,
+    )
+
+    instance.remote_client = client
+
+    add_tools_from_schema_with_remote(
+        schema, instance, client,
+        allow_mutations=allow_mutations,
+        forward_bearer_token=forward_bearer_token,
+        forward_headers=forward_headers,
+    )
+
+    return instance
+
+
 def add_tools_from_schema_with_remote(
     schema: GraphQLSchema,
     server: FastMCP,
     remote_client: RemoteGraphQLClient,
     allow_mutations: bool = True,
-    forward_bearer_token: bool = False
+    forward_bearer_token: bool = False,
+    forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
 ) -> FastMCP:
     """
     Populates a FastMCP server with tools for REMOTE GraphQL server execution.
@@ -995,11 +1129,16 @@ def add_tools_from_schema_with_remote(
                                 to the remote server (default: False). Only relevant
                                 for remote servers - local schemas get token context
                                 automatically through FastMCP.
+    :param forward_headers: Headers to forward from the MCP request context to
+                           the upstream GraphQL server. Either a list of header
+                           names (case-insensitive) or the literal "*" for all
+                           safe headers. Defaults to None (no extra forwarding).
     :return: The populated FastMCP server instance
 
     Security Note:
-        When forward_bearer_token=True, client bearer tokens will be sent to the
-        remote GraphQL server. Only enable this if you trust the remote server.
+        When forward_bearer_token=True or forward_headers is set, client headers
+        are sent to the remote GraphQL server. Only enable this if you trust the
+        remote server.
     """
     registered_names: set = set()
 
@@ -1008,6 +1147,7 @@ def add_tools_from_schema_with_remote(
         _add_tools_from_fields_remote(
             server, schema, schema.mutation_type.fields, remote_client,
             is_mutation=True, forward_bearer_token=forward_bearer_token,
+            forward_headers=forward_headers,
             registered_names=registered_names,
         )
 
@@ -1015,6 +1155,7 @@ def add_tools_from_schema_with_remote(
         _add_tools_from_fields_remote(
             server, schema, schema.query_type.fields, remote_client,
             is_mutation=False, forward_bearer_token=forward_bearer_token,
+            forward_headers=forward_headers,
             registered_names=registered_names,
         )
 
@@ -1022,6 +1163,7 @@ def add_tools_from_schema_with_remote(
     _add_nested_tools_from_schema_remote(
         server, schema, remote_client, allow_mutations=allow_mutations,
         forward_bearer_token=forward_bearer_token,
+        forward_headers=forward_headers,
         registered_names=registered_names,
     )
 
@@ -1860,6 +2002,7 @@ def _add_tools_from_fields_remote(
     remote_client: RemoteGraphQLClient,
     is_mutation: bool,
     forward_bearer_token: bool = False,
+    forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
     registered_names: Optional[set] = None,
 ):
     """Add tools from fields that execute against a remote GraphQL server."""
@@ -1887,6 +2030,7 @@ def _add_tools_from_fields_remote(
         tool_func = _create_remote_tool_function(
             field_name, field, schema, remote_client, is_mutation=is_mutation,
             forward_bearer_token=forward_bearer_token,
+            forward_headers=forward_headers,
             field_cfg=field_cfg,
         )
         annotations = _compute_tool_annotations(field_cfg, is_mutation)
@@ -1901,6 +2045,7 @@ def _create_remote_tool_function(
     remote_client: RemoteGraphQLClient,
     is_mutation: bool = False,
     forward_bearer_token: bool = False,
+    forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
     field_cfg: Optional[MCPConfig] = None,
 ) -> Callable:
     """
@@ -1954,6 +2099,8 @@ def _create_remote_tool_function(
         # Extract bearer token from context (only if configured to forward)
         bearer_token = _extract_bearer_token_from_context(
             ctx) if forward_bearer_token else None
+        extra_headers = _extract_forwarded_headers_from_context(
+            ctx, forward_headers)
 
         # Process arguments
         processed_kwargs = {}
@@ -2016,7 +2163,9 @@ def _create_remote_tool_function(
         # Execute against remote server with optional bearer token override
         try:
             result = await remote_client.execute_with_token(
-                query_str, processed_kwargs, bearer_token_override=bearer_token
+                query_str, processed_kwargs,
+                bearer_token_override=bearer_token,
+                extra_headers=extra_headers or None,
             )
             return result.get(field_name) if result else None
         except Exception as e:
@@ -2050,6 +2199,7 @@ def _create_recursive_remote_tool_function(
     schema: GraphQLSchema,
     remote_client: RemoteGraphQLClient,
     forward_bearer_token: bool = False,
+    forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
 ) -> Tuple[str, Callable]:
     """Builds a FastMCP tool that resolves a nested field chain against a remote server.
 
@@ -2124,6 +2274,8 @@ def _create_recursive_remote_tool_function(
         # Extract bearer token from context (only if configured to forward)
         bearer_token = _extract_bearer_token_from_context(
             ctx) if forward_bearer_token else None
+        extra_headers = _extract_forwarded_headers_from_context(
+            ctx, forward_headers)
 
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
@@ -2192,7 +2344,9 @@ def _create_recursive_remote_tool_function(
         # Execute against remote server with optional bearer token override
         try:
             result = await remote_client.execute_with_token(
-                query_str, processed_kwargs, bearer_token_override=bearer_token
+                query_str, processed_kwargs,
+                bearer_token_override=bearer_token,
+                extra_headers=extra_headers or None,
             )
 
             # Walk down the path to extract the nested value
@@ -2237,6 +2391,7 @@ def _add_nested_tools_from_schema_remote(
     remote_client: RemoteGraphQLClient,
     allow_mutations: bool = True,
     forward_bearer_token: bool = False,
+    forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
     registered_names: Optional[set] = None,
 ):
     """Recursively registers tools for nested fields that execute against a remote server."""
@@ -2260,7 +2415,9 @@ def _add_nested_tools_from_schema_remote(
             if len(new_path) > 1 and field_def.args:
                 # Register tool for paths with depth >=2
                 tool_name, tool_func = _create_recursive_remote_tool_function(
-                    new_path, operation_type, schema, remote_client, forward_bearer_token=forward_bearer_token
+                    new_path, operation_type, schema, remote_client,
+                    forward_bearer_token=forward_bearer_token,
+                    forward_headers=forward_headers,
                 )
                 if registered_names is not None:
                     registered_names.add(tool_name)

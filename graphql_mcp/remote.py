@@ -627,17 +627,28 @@ class RemoteGraphQLClient:
         variables: Optional[Dict[str, Any]] = None,
         operation_name: Optional[str] = None,
         retry_on_auth_error: bool = True,
-        bearer_token_override: Optional[str] = None
+        bearer_token_override: Optional[str] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
-        Execute a GraphQL query with an optional bearer token override.
+        Execute a GraphQL query with an optional bearer token override and
+        optional extra per-request headers (e.g. forwarded from an MCP client).
+
+        Merge order (later wins):
+            1. self.headers (base headers configured at client construction)
+            2. extra_headers (forwarded from the live MCP request context)
+            3. bearer_token_override (legacy single-bearer forwarding path)
 
         Args:
             query: The GraphQL query string
             variables: Optional variables for the query
             operation_name: Optional operation name
             retry_on_auth_error: Whether to retry with refreshed token on 401/403
-            bearer_token_override: Optional bearer token to use instead of the client's token
+            bearer_token_override: Optional bearer token to use instead of the
+                client's token. Takes precedence over extra_headers["Authorization"].
+            extra_headers: Optional per-request headers to merge on top of the
+                client's base headers. Typical use: headers forwarded from an
+                inbound MCP request in a multi-tenant proxy.
 
         Returns:
             The GraphQL response data
@@ -645,8 +656,10 @@ class RemoteGraphQLClient:
         Raises:
             Exception: If the query fails
         """
-        # Prepare headers, using override token if provided
+        # Prepare headers, applying forwarded headers then bearer override.
         headers = self.headers.copy()
+        if extra_headers:
+            headers.update(extra_headers)
         if bearer_token_override:
             headers["Authorization"] = f"Bearer {bearer_token_override}"
 

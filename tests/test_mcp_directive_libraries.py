@@ -683,11 +683,14 @@ class _FakeRemoteClient:
         query: str,
         variables: Optional[Dict[str, Any]] = None,
         bearer_token_override: Optional[str] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+        **_kwargs: Any,
     ) -> Dict[str, Any]:
         self.calls.append({
             "query": query,
             "variables": variables or {},
             "bearer_token_override": bearer_token_override,
+            "extra_headers": extra_headers,
         })
         # Return all canned responses; the wrapper picks out its own field.
         return self.responses
