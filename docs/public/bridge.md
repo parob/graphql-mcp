@@ -83,67 +83,62 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
 }
 </style>
 
-<script>
-(() => {
-  if (typeof window === 'undefined') return;
-  const BRIDGE_BASE = 'https://bridge.graphql-mcp.com/mcp/';
-  const EXAMPLE = 'https://countries.trevorblades.com/graphql';
+<script setup>
+import { onMounted } from 'vue';
 
-  const toBase64Url = (value) => {
-    // btoa only accepts latin-1; UTF-8 URLs are rare but safe to support
-    const bytes = new TextEncoder().encode(value);
-    let binary = '';
-    bytes.forEach((b) => { binary += String.fromCharCode(b); });
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  };
+const BRIDGE_BASE = 'https://bridge.graphql-mcp.com/mcp/';
+const EXAMPLE = 'https://countries.trevorblades.com/graphql';
 
-  const attach = () => {
-    const input = document.getElementById('bridge-upstream');
-    const output = document.getElementById('bridge-output');
-    const copyBtn = document.getElementById('bridge-copy');
-    if (!input || !output || !copyBtn) return;
+const toBase64Url = (value) => {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
 
-    const render = () => {
-      const raw = (input.value || '').trim() || EXAMPLE;
-      try {
-        const u = new URL(raw);
-        if (!(u.protocol === 'http:' || u.protocol === 'https:')) {
-          output.value = '';
-          return;
-        }
-      } catch {
+onMounted(() => {
+  const input = document.getElementById('bridge-upstream');
+  const output = document.getElementById('bridge-output');
+  const copyBtn = document.getElementById('bridge-copy');
+  if (!input || !output || !copyBtn) return;
+
+  const render = () => {
+    const raw = (input.value || '').trim() || EXAMPLE;
+    try {
+      const u = new URL(raw);
+      if (!(u.protocol === 'http:' || u.protocol === 'https:')) {
         output.value = '';
         return;
       }
-      output.value = BRIDGE_BASE + toBase64Url(raw);
-    };
-
-    input.addEventListener('input', render);
-    copyBtn.addEventListener('click', async () => {
-      if (!output.value) return;
-      try {
-        await navigator.clipboard.writeText(output.value);
-        copyBtn.classList.add('copied');
-        copyBtn.textContent = 'Copied';
-        setTimeout(() => {
-          copyBtn.classList.remove('copied');
-          copyBtn.textContent = 'Copy';
-        }, 1200);
-      } catch {
-        output.select();
-      }
-    });
-
-    input.placeholder = EXAMPLE;
-    render();
+    } catch {
+      output.value = '';
+      return;
+    }
+    output.value = BRIDGE_BASE + toBase64Url(raw);
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attach);
-  } else {
-    attach();
-  }
-})();
+  input.addEventListener('input', render);
+  input.addEventListener('change', render);
+  input.addEventListener('keyup', render);
+
+  copyBtn.addEventListener('click', async () => {
+    if (!output.value) return;
+    try {
+      await navigator.clipboard.writeText(output.value);
+      copyBtn.classList.add('copied');
+      copyBtn.textContent = 'Copied';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.textContent = 'Copy';
+      }, 1200);
+    } catch {
+      output.select();
+    }
+  });
+
+  input.placeholder = EXAMPLE;
+  render();
+});
 </script>
 
 ## One-line setup
