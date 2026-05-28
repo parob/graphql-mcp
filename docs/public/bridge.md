@@ -117,18 +117,19 @@ onMounted(() => {
     const typed = (input.value || '').trim();
     // Empty: show the default-example URL so the box is never blank.
     const raw = typed || EXAMPLE;
-    // Auto-prepend https:// if the user omitted a scheme (e.g. "api.foo.com/graphql").
-    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    if (!/^https?:\/\//i.test(raw)) {
+      output.value = '';
+      setStatus('URL must start with <code>http://</code> or <code>https://</code>.', true);
+      return;
+    }
     try {
-      const u = new URL(normalized);
+      const u = new URL(raw);
       if (!(u.protocol === 'http:' || u.protocol === 'https:') || !u.hostname) {
         throw new Error('bad url');
       }
-      output.value = BRIDGE_BASE + toBase64Url(normalized);
+      output.value = BRIDGE_BASE + toBase64Url(raw);
       if (!typed) {
         setStatus(DEFAULT_HINT + ' <em>Showing example — paste your endpoint above.</em>', false);
-      } else if (normalized !== raw) {
-        setStatus(`Assumed <code>https://</code>. ${DEFAULT_HINT}`, false);
       } else {
         setStatus(DEFAULT_HINT, false);
       }
