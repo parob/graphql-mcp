@@ -11,10 +11,10 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
   <input id="bridge-upstream" type="url" placeholder="https://api.example.com/graphql" autocomplete="off" spellcheck="false" />
   <label for="bridge-output"><strong>MCP URL</strong> (paste this into your MCP client)</label>
   <div class="bridge-output-row">
-    <input id="bridge-output" type="text" readonly />
+    <input id="bridge-output" type="text" readonly placeholder="Enter a GraphQL endpoint above…" />
     <button id="bridge-copy" type="button">Copy</button>
   </div>
-  <p class="bridge-hint">The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.</p>
+  <p id="bridge-status" class="bridge-hint">The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.</p>
 </div>
 
 <style>
@@ -81,6 +81,9 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
 .bridge-hint code {
   font-size: 0.8rem;
 }
+.bridge-hint.error {
+  color: var(--vp-c-danger-1, #e85a5a);
+}
 </style>
 
 <script setup>
@@ -96,25 +99,43 @@ const toBase64Url = (value) => {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
+const DEFAULT_HINT = 'The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.';
+
 onMounted(() => {
   const input = document.getElementById('bridge-upstream');
   const output = document.getElementById('bridge-output');
   const copyBtn = document.getElementById('bridge-copy');
-  if (!input || !output || !copyBtn) return;
+  const status = document.getElementById('bridge-status');
+  if (!input || !output || !copyBtn || !status) return;
+
+  const setStatus = (html, isError) => {
+    status.innerHTML = html;
+    status.classList.toggle('error', !!isError);
+  };
 
   const render = () => {
-    const raw = (input.value || '').trim() || EXAMPLE;
+    const typed = (input.value || '').trim();
+    // Empty: show the default-example URL so the box is never blank.
+    const raw = typed || EXAMPLE;
+    // Auto-prepend https:// if the user omitted a scheme (e.g. "api.foo.com/graphql").
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
     try {
-      const u = new URL(raw);
-      if (!(u.protocol === 'http:' || u.protocol === 'https:')) {
-        output.value = '';
-        return;
+      const u = new URL(normalized);
+      if (!(u.protocol === 'http:' || u.protocol === 'https:') || !u.hostname) {
+        throw new Error('bad url');
+      }
+      output.value = BRIDGE_BASE + toBase64Url(normalized);
+      if (!typed) {
+        setStatus(DEFAULT_HINT + ' <em>Showing example — paste your endpoint above.</em>', false);
+      } else if (normalized !== raw) {
+        setStatus(`Assumed <code>https://</code>. ${DEFAULT_HINT}`, false);
+      } else {
+        setStatus(DEFAULT_HINT, false);
       }
     } catch {
       output.value = '';
-      return;
+      setStatus('That doesn\'t look like a URL. Try <code>https://api.example.com/graphql</code>.', true);
     }
-    output.value = BRIDGE_BASE + toBase64Url(raw);
   };
 
   input.addEventListener('input', render);
