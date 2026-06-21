@@ -1,5 +1,6 @@
 import enum
 import inspect
+import keyword
 import re
 import uuid
 import json
@@ -619,6 +620,21 @@ def _to_snake_case(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
+def _safe_python_identifier(name: str) -> str:
+    """Returns a valid Python identifier for use as a function parameter name.
+
+    GraphQL allows field/argument names that are not valid Python identifiers,
+    most notably reserved keywords such as ``from``, ``class`` or ``import``.
+    ``inspect.Parameter`` rejects these, so we append a trailing underscore to
+    produce a usable parameter name. The mapping is deterministic so callers
+    can translate the safe name back to the original GraphQL name when building
+    outbound queries.
+    """
+    if keyword.iskeyword(name) or not name.isidentifier():
+        return name + "_"
+    return name
+
+
 def _convert_enum_names_to_values_in_output(data, graphql_return_type):
     """Convert enum names to values in GraphQL output data for MCP validation"""
     if data is None:
@@ -1208,7 +1224,7 @@ def _create_tool_function(
 
         arg_def: GraphQLArgument
         python_type = _map_graphql_type_to_python_type(arg_def.type)
-        mcp_arg_name = arg_cfg.name or arg_name
+        mcp_arg_name = _safe_python_identifier(arg_cfg.name or arg_name)
         arg_name_map[mcp_arg_name] = arg_name
         annotation_type = _apply_arg_description(python_type, arg_cfg.description)
         annotations[mcp_arg_name] = annotation_type
@@ -1760,6 +1776,10 @@ def _create_recursive_tool_function(
     parameters: list[inspect.Parameter] = []
     annotations: dict[str, Any] = {}
     arg_defs: list[str] = []
+    # Map Python-safe parameter name -> GraphQL variable name. Needed because
+    # GraphQL arg names may be Python reserved keywords (e.g. "from") which are
+    # not valid parameter names. The wrapper translates back before executing.
+    param_name_map: dict = {}
 
     for idx, (field_name, field_def) in enumerate(path):
         for arg_name, arg_def in field_def.args.items():
@@ -1770,8 +1790,10 @@ def _create_recursive_tool_function(
             # Use plain arg name for the leaf field to match expectations; prefix for others.
             var_name = arg_name if idx == len(
                 path) - 1 else f"{field_name}_{arg_name}"
+            param_name = _safe_python_identifier(var_name)
+            param_name_map[param_name] = var_name
             python_type = _map_graphql_type_to_python_type(arg_def.type)
-            annotations[var_name] = python_type
+            annotations[param_name] = python_type
             default = (
                 arg_def.default_value
                 if arg_def.default_value is not inspect.Parameter.empty
@@ -1779,7 +1801,7 @@ def _create_recursive_tool_function(
             )
             parameters.append(
                 inspect.Parameter(
-                    var_name,
+                    param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
                     default=default,
                     annotation=python_type,
@@ -1831,6 +1853,9 @@ def _create_recursive_tool_function(
 
     # Tool wrapper
     async def wrapper(**kwargs):
+        # Translate Python-safe parameter names back to GraphQL variable names.
+        if param_name_map:
+            kwargs = {param_name_map.get(k, k): v for k, v in kwargs.items()}
 
         processed_kwargs: dict[str, Any] = {}
         for k, v in kwargs.items():
@@ -2074,7 +2099,7 @@ def _create_remote_tool_function(
 
         arg_def: GraphQLArgument
         python_type = _map_graphql_type_to_python_type(arg_def.type)
-        mcp_arg_name = arg_cfg.name or arg_name
+        mcp_arg_name = _safe_python_identifier(arg_cfg.name or arg_name)
         arg_name_map[mcp_arg_name] = arg_name
         annotation_type = _apply_arg_description(python_type, arg_cfg.description)
         annotations[mcp_arg_name] = annotation_type
@@ -2214,6 +2239,10 @@ def _create_recursive_remote_tool_function(
     parameters: list[inspect.Parameter] = []
     annotations: dict[str, Any] = {}
     arg_defs: list[str] = []
+    # Map Python-safe parameter name -> GraphQL variable name. Needed because
+    # GraphQL arg names may be Python reserved keywords (e.g. "from") which are
+    # not valid parameter names. The wrapper translates back before executing.
+    param_name_map: dict = {}
 
     for idx, (field_name, field_def) in enumerate(path):
         for arg_name, arg_def in field_def.args.items():
@@ -2223,8 +2252,10 @@ def _create_recursive_remote_tool_function(
 
             var_name = arg_name if idx == len(
                 path) - 1 else f"{field_name}_{arg_name}"
+            param_name = _safe_python_identifier(var_name)
+            param_name_map[param_name] = var_name
             python_type = _map_graphql_type_to_python_type(arg_def.type)
-            annotations[var_name] = python_type
+            annotations[param_name] = python_type
             default = (
                 arg_def.default_value
                 if arg_def.default_value is not inspect.Parameter.empty
@@ -2232,7 +2263,7 @@ def _create_recursive_remote_tool_function(
             )
             parameters.append(
                 inspect.Parameter(
-                    var_name,
+                    param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
                     default=default,
                     annotation=python_type,
@@ -2271,6 +2302,9 @@ def _create_recursive_remote_tool_function(
 
     # Tool wrapper
     async def wrapper(ctx: Optional[Context] = None, **kwargs):
+        # Translate Python-safe parameter names back to GraphQL variable names.
+        if param_name_map:
+            kwargs = {param_name_map.get(k, k): v for k, v in kwargs.items()}
         # Extract bearer token from context (only if configured to forward)
         bearer_token = _extract_bearer_token_from_context(
             ctx) if forward_bearer_token else None
