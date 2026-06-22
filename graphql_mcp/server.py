@@ -60,6 +60,29 @@ _TYPE_MAPPING_CACHE: Dict[str, Any] = {}
 _CACHE_LOCK = threading.RLock()
 
 
+def _type_cache_key(prefix: str, graphql_type: Any) -> str:
+    """Build a cache key for an object/input type.
+
+    Keying by ``id(graphql_type)`` alone is unsafe: ``id`` is only unique
+    among live objects, so a garbage-collected type can have its address
+    reused by a differently-shaped type with the same name, yielding a stale
+    cache hit (e.g. a ``User`` with ``{name, age}`` served for a later
+    ``User`` with ``{name, nickname}``). We therefore combine ``id`` with a
+    shallow structural signature of the type's fields (name + ``str(field
+    type)`` for each field). The signature disambiguates reused ids — a
+    reused address with a different shape produces a different key and a
+    correct cache miss — while ``id`` keeps distinct-but-identically-shaped
+    types from different schemas isolated (relevant when one process builds
+    many schemas, e.g. the Bridge). The signature is computed without
+    recursing into nested types, since ``str()`` of a GraphQL type yields its
+    full type expression (e.g. ``"[User!]!"``).
+    """
+    fields = getattr(graphql_type, "fields", {}) or {}
+    signature = ",".join(
+        f"{name}:{field.type}" for name, field in fields.items())
+    return f"{prefix}_{graphql_type.name}({signature})_{id(graphql_type)}"
+
+
 def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     """
     Extract bearer token from MCP request context for REMOTE server forwarding.
@@ -500,8 +523,9 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
 
     if isinstance(graphql_type, GraphQLInputObjectType):
         # Check cache to prevent infinite recursion
-        # Use object id to make cache schema-specific (different schemas with same type name won't conflict)
-        cache_key = f"input_object_{graphql_type.name}_{id(graphql_type)}"
+        # Key by structure (not id) so different schemas with same type name
+        # don't conflict and GC'd-then-reused ids can't cause stale hits.
+        cache_key = _type_cache_key("input_object", graphql_type)
 
         # Thread-safe cache check
         with _CACHE_LOCK:
@@ -558,8 +582,9 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
 
     if isinstance(graphql_type, GraphQLObjectType):
         # Check cache to prevent infinite recursion
-        # Use object id to make cache schema-specific (different schemas with same type name won't conflict)
-        cache_key = f"object_{graphql_type.name}_{id(graphql_type)}"
+        # Key by structure (not id) so different schemas with same type name
+        # don't conflict and GC'd-then-reused ids can't cause stale hits.
+        cache_key = _type_cache_key("object", graphql_type)
 
         # Thread-safe cache check
         with _CACHE_LOCK:
