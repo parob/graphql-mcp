@@ -85,6 +85,16 @@
                 });
                 // Smart MCP URL detection - works with GraphiQL at any path
                 const getDefaultMcpUrl = () => {
+                    // Allow the host page to declare the MCP endpoint explicitly.
+                    // A proxy that serves GraphiQL at a different path than the
+                    // MCP server (e.g. graphql-mcp-bridge) injects this so the
+                    // plugin points at the canonical endpoint instead of
+                    // guessing "<current path>/mcp".
+                    if (typeof window.__GRAPHQL_MCP_URL__ === 'string' &&
+                        window.__GRAPHQL_MCP_URL__) {
+                        return window.__GRAPHQL_MCP_URL__;
+                    }
+
                     const currentUrl = new URL(window.location.href);
                     // Remove any existing query parameters and fragments
                     currentUrl.search = '';
