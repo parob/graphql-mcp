@@ -357,6 +357,13 @@ def _md_inline_to_html(text: str) -> str:
     # Escape HTML first, then convert backtick code spans
     escaped = escape(text)
     escaped = re.sub(r'`([^`]+)`', r'<code>\1</code>', escaped)
+    # Collapse all whitespace (including newlines) to single spaces. A blank
+    # line inside a raw-HTML block terminates that block in markdown, which
+    # leaves the surrounding tag unclosed and breaks the VitePress/Vue
+    # compiler ("Element is missing end tag"). Keeping the content on one
+    # line makes the inlined release text safe regardless of how the upstream
+    # GitHub release body is formatted.
+    escaped = re.sub(r'\s+', ' ', escaped).strip()
     return escaped
 
 
