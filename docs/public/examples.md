@@ -4,7 +4,7 @@ title: "Examples"
 
 # Examples
 
-Four runnable examples ship in the [`examples/`](https://github.com/parob/graphql-mcp/tree/main/examples) directory. Each one is also deployed live at [examples.graphql-mcp.com](https://examples.graphql-mcp.com).
+Runnable examples ship in the [`examples/`](https://github.com/parob/graphql-mcp/tree/main/examples) directory, each also deployed live at [examples.graphql-mcp.com](https://examples.graphql-mcp.com). The first four cover common use cases; a further five — under [GraphQL Library Examples](#graphql-library-examples) — demonstrate the same API across each popular GraphQL library.
 
 ## Hello World
 
@@ -136,12 +136,34 @@ app = server.http_app(transport="streamable-http", stateless_http=True)
 
 That's the entire file. `from_remote_url()` introspects the remote schema and generates read-only MCP tools automatically.
 
+## GraphQL Library Examples
+
+The same small "users" API, exposed through each popular GraphQL library — and each one demonstrating the [`@mcp` directive](/configuration#mcp-directive) (renaming a tool, renaming and hiding an argument, hiding a field). They're handy as copy-paste starting points for your own library.
+
+Every example exposes the same MCP surface:
+- `list_users` — a normal tool
+- `fetch_user` — `getUserById` renamed via `@mcp`, with its `userId` argument exposed as `id`
+- a hidden `internal_metrics` field and a hidden `debugToken` argument
+
+| Library | `@mcp` support | Source | Live demo |
+|---------|----------------|--------|-----------|
+| **graphql-api** | Native — decorator / `Annotated[...]` (recommended) | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_api.py) | [demo](https://examples.graphql-mcp.com/library-graphql-api/) |
+| **graphql-core** | Native — `@mcp` inline in SDL | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_core.py) | [demo](https://examples.graphql-mcp.com/library-graphql-core/) |
+| **Ariadne** | Native — `@mcp` in `type_defs` | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_ariadne.py) | [demo](https://examples.graphql-mcp.com/library-ariadne/) |
+| **Strawberry** | Workaround — `@strawberry.schema_directive` + SDL round-trip | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) | [demo](https://examples.graphql-mcp.com/library-strawberry/) |
+| **Graphene** | Workaround — `apply_mcp()` | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphene.py) | [demo](https://examples.graphql-mcp.com/library-graphene/) |
+
+::: info `@mcp` is native for some libraries, a workaround for others
+The directive is first-class for graphql-api, graphql-core, and Ariadne. Strawberry and Graphene don't carry the directive onto the underlying graphql-core schema, so those examples apply it via a documented workaround. Basic tool exposure works natively everywhere — only `@mcp` customization needs the extra step. See [Strawberry & Graphene](/strawberry-graphene) for the full rundown.
+:::
+
 ## Running Locally
 
 ```bash
 cd examples
 uv sync
-uv run python hello_world.py   # or task_manager.py, nested_api.py, remote_api.py
+uv run python hello_world.py   # or task_manager.py, nested_api.py, remote_api.py,
+                               # or any of the library_*.py examples
 ```
 
 Then open `http://localhost:8002/graphql` (port varies per example) to see GraphiQL and the MCP Inspector.

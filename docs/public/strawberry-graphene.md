@@ -8,6 +8,10 @@ The [`@mcp` directive](/configuration#mcp-directive) relies on graphql-core's `a
 
 There are three supported paths to apply `@mcp` in this situation. **They are alternatives — pick one.** They do not stack.
 
+::: tip Runnable examples
+Copy-paste versions ship in the examples directory: [`library_strawberry.py`](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) (Path A) and [`library_graphene.py`](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphene.py) (Path B). See [Examples → GraphQL Library Examples](/examples#graphql-library-examples).
+:::
+
 ## Picking a path
 
 | Path | Strawberry | Graphene | When to use |
