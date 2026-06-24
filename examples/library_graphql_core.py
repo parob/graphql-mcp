@@ -1,17 +1,10 @@
-"""graphql-core + @mcp — basic exposure and MCP customization.
+"""graphql-core → MCP tools, customized with the @mcp directive.
 
-Demonstrates, for the reference graphql-core library:
-- Basic exposure: every Query/Mutation field becomes an MCP tool.
-- The @mcp directive written directly in SDL, which graphql-core preserves on
-  the schema AST so graphql-mcp can read it:
-    - rename a field's tool  (getUserById → fetch_user)
-    - rename + describe an argument  (userId → id)
-    - hide an argument from MCP  (debugToken)
-    - hide a whole field from MCP  (internalMetrics)
+Exposes a small "users" API and uses @mcp to rename a tool
+(getUserById → fetch_user), rename and describe an argument (userId → id),
+hide an argument (debugToken), and hide a field (internalMetrics).
 
-Because graphql-core is the common denominator every other library compiles
-down to, the @mcp directive "just works" here with no rebuild step — you only
-need to declare the directive in your SDL.
+With graphql-core you declare and apply @mcp inline in your SDL.
 """
 
 from graphql import build_schema

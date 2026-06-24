@@ -1,16 +1,11 @@
-"""graphql-api + @mcp — basic exposure and MCP customization (recommended).
+"""graphql-api → MCP tools, customized with the @mcp directive.
 
-Demonstrates, for the decorator-based graphql-api library:
-- Basic exposure: each @field becomes an MCP tool automatically.
-- The unified @mcp directive, used natively:
-    - rename a field's tool  (get_user_by_id → fetch_user)
-    - rename + describe an argument  (user_id → id)
-    - hide an argument from MCP  (debug_token)
-    - hide a whole field from MCP  (internal_metrics)
+Exposes a small "users" API and uses @mcp to rename a tool
+(get_user_by_id → fetch_user), rename and describe an argument (user_id → id),
+hide an argument (debug_token), and hide a field (internal_metrics).
 
-graphql-api has the tightest integration: import `mcp` from graphql_mcp and
-apply it directly as a decorator (on fields) or inside `Annotated[...]`
-(on arguments). Pass `directives=[mcp]` to GraphQLAPI so it's registered.
+With graphql-api you apply @mcp directly: as a decorator on fields and inside
+Annotated[...] on arguments (and pass directives=[mcp] to GraphQLAPI).
 """
 
 from typing import Annotated, Optional

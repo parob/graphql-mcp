@@ -1,27 +1,12 @@
-"""Graphene + @mcp — basic exposure, plus a WORKAROUND for @mcp.
+"""Graphene → MCP tools, customized with the @mcp directive.
 
-⚠️  @mcp is NOT native to Graphene. Graphene can't express directives in
-Python at all, so a plain Graphene schema carries no @mcp metadata for
-graphql-mcp to read. Basic exposure (every field → an MCP tool) works out of
-the box; @mcp customization requires the workaround below. See the guide:
-https://graphql-mcp.com/strawberry-graphene
+Exposes a small "users" API and uses @mcp to rename a tool
+(get_user_by_id → fetch_user), rename and describe an argument (user_id → id),
+hide an argument (debug_token), and hide a field (internal_metrics).
 
-Demonstrates, for the code-first Graphene library:
-- Basic exposure (native): every Query/Mutation field becomes an MCP tool. If
-  you don't need @mcp, just pass `graphene.Schema(...).graphql_schema` to
-  GraphQLMCP.
-- @mcp customization (WORKAROUND): rename/describe/hide fields and arguments
-  via `apply_mcp()` (Path B in the guide).
-
-Why `apply_mcp` rather than an SDL round-trip? Printing-then-rebuilding the SDL
-would drop Graphene's camelCase→snake_case argument mapping (`out_name`),
-breaking resolvers. `apply_mcp` attaches the @mcp configuration directly onto
-the existing graphql-core schema, keyed by `"Type.field"` / `"Type.field.arg"`,
-so nothing is rebuilt and the mapping is preserved.
-
-Caveat: `apply_mcp` config is private metadata — it shapes MCP exposure but is
-invisible to GraphQL introspection and `str(schema)`. That's fine for MCP, but
-don't rely on it being visible to other schema consumers.
+Note: with Graphene you apply @mcp via `apply_mcp()`, which attaches the config
+to the graphql-core schema directly (keyed by "Type.field" / "Type.field.arg").
+More in the Strawberry & Graphene guide: https://graphql-mcp.com/strawberry-graphene
 """
 
 import graphene
