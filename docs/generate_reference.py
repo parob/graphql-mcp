@@ -326,14 +326,34 @@ def _fetch_releases() -> list[dict] | None:
 
 
 def _clean_release_body(body: str) -> str:
-    """Strip auto-generated 'Full Changelog' boilerplate from release body."""
+    """Normalise a GitHub release body for inline rendering.
+
+    Strips GitHub's auto-generated scaffolding ("## What's Changed" headings
+    and "**Full Changelog**: ..." lines), drops blank lines and leading list
+    markers, and de-duplicates repeated lines (release notes are occasionally
+    pasted in twice). The result is a compact set of lines suitable for a
+    one-line blurb in the release history.
+    """
     if not body:
         return ""
-    # Remove "**Full Changelog**: https://..." lines
-    cleaned = re.sub(
-        r"\*\*Full Changelog\*\*:\s*https://[^\s]+", "", body
-    ).strip()
-    return cleaned
+    lines: list[str] = []
+    seen: set[str] = set()
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # Drop GitHub's auto-generated scaffolding.
+        if re.match(r"#+\s*What'?s Changed", line, flags=re.IGNORECASE):
+            continue
+        if line.lower().startswith("**full changelog**"):
+            continue
+        # Drop leading list markers so the inline blurb reads cleanly.
+        line = re.sub(r"^[*\-]\s+", "", line)
+        if line in seen:
+            continue
+        seen.add(line)
+        lines.append(line)
+    return "\n".join(lines).strip()
 
 
 def _split_highlights(body: str) -> tuple[str, str]:
@@ -357,6 +377,13 @@ def _md_inline_to_html(text: str) -> str:
     # Escape HTML first, then convert backtick code spans
     escaped = escape(text)
     escaped = re.sub(r'`([^`]+)`', r'<code>\1</code>', escaped)
+    # Collapse all whitespace (including newlines) to single spaces. A blank
+    # line inside a raw-HTML block terminates that block in markdown, which
+    # leaves the surrounding tag unclosed and breaks the VitePress/Vue
+    # compiler ("Element is missing end tag"). Keeping the content on one
+    # line makes the inlined release text safe regardless of how the upstream
+    # GitHub release body is formatted.
+    escaped = re.sub(r'\s+', ' ', escaped).strip()
     return escaped
 
 
