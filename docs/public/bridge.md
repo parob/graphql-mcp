@@ -8,13 +8,16 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
 
 <div class="bridge-url-generator">
   <label for="bridge-upstream"><strong>GraphQL endpoint</strong></label>
-  <input id="bridge-upstream" type="url" placeholder="https://api.example.com/graphql" autocomplete="off" spellcheck="false" />
+  <input id="bridge-upstream" v-model="upstream" type="url" :placeholder="EXAMPLE" autocomplete="off" spellcheck="false" />
+  <div class="bridge-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="21"></line><polyline points="6 15 12 21 18 15"></polyline></svg>
+  </div>
   <label for="bridge-output"><strong>MCP URL</strong> (paste this into your MCP client)</label>
   <div class="bridge-output-row">
-    <input id="bridge-output" type="text" readonly placeholder="Enter a GraphQL endpoint above…" />
-    <button id="bridge-copy" type="button">Copy</button>
+    <input id="bridge-output" :value="mcpUrl" type="text" readonly placeholder="Enter a GraphQL endpoint above…" />
+    <button id="bridge-copy" type="button" :class="{ copied }" :disabled="!mcpUrl" @click="copy">{{ copied ? 'Copied!' : 'Copy' }}</button>
   </div>
-  <p id="bridge-status" class="bridge-hint">The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.</p>
+  <p class="bridge-hint" :class="{ error: hint.isError }" v-html="hint.html"></p>
 </div>
 
 <style>
@@ -46,6 +49,13 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
 .bridge-url-generator input[readonly] {
   background: var(--vp-c-bg-alt);
 }
+.bridge-arrow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--vp-c-text-3, var(--vp-c-text-2));
+  margin: 0.4rem 0 0.15rem;
+}
 .bridge-output-row {
   display: flex;
   gap: 0.5rem;
@@ -73,6 +83,10 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
   background: var(--vp-c-green-1);
   border-color: var(--vp-c-green-1);
 }
+.bridge-url-generator button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .bridge-hint {
   font-size: 0.8rem;
   color: var(--vp-c-text-2);
@@ -87,10 +101,14 @@ It is the fastest way to get a GraphQL API into Claude, Cursor, or any MCP-speak
 </style>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, computed } from 'vue';
 
 const BRIDGE_BASE = 'https://bridge.graphql-mcp.com/mcp/';
 const EXAMPLE = 'https://countries.trevorblades.com/graphql';
+const DEFAULT_HINT = 'The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.';
+
+const upstream = ref('');
+const copied = ref(false);
 
 const toBase64Url = (value) => {
   const bytes = new TextEncoder().encode(value);
@@ -99,68 +117,59 @@ const toBase64Url = (value) => {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-const DEFAULT_HINT = 'The upstream URL is base64url-encoded — no tricky <code>%3A%2F</code> characters to escape in your JSON config.';
-
-onMounted(() => {
-  const input = document.getElementById('bridge-upstream');
-  const output = document.getElementById('bridge-output');
-  const copyBtn = document.getElementById('bridge-copy');
-  const status = document.getElementById('bridge-status');
-  if (!input || !output || !copyBtn || !status) return;
-
-  const setStatus = (html, isError) => {
-    status.innerHTML = html;
-    status.classList.toggle('error', !!isError);
-  };
-
-  const render = () => {
-    const typed = (input.value || '').trim();
-    // Empty: show the default-example URL so the box is never blank.
-    const raw = typed || EXAMPLE;
-    if (!/^https?:\/\//i.test(raw)) {
-      output.value = '';
-      setStatus('URL must start with <code>http://</code> or <code>https://</code>.', true);
-      return;
+// Single source of truth: derives the MCP URL and the hint from the input.
+const result = computed(() => {
+  const typed = upstream.value.trim();
+  // Empty: fall back to the example so the box is never blank.
+  const raw = typed || EXAMPLE;
+  if (!/^https?:\/\//i.test(raw)) {
+    return { url: '', html: 'URL must start with <code>http://</code> or <code>https://</code>.', isError: true };
+  }
+  try {
+    const u = new URL(raw);
+    if (!(u.protocol === 'http:' || u.protocol === 'https:') || !u.hostname) {
+      throw new Error('bad url');
     }
-    try {
-      const u = new URL(raw);
-      if (!(u.protocol === 'http:' || u.protocol === 'https:') || !u.hostname) {
-        throw new Error('bad url');
-      }
-      output.value = BRIDGE_BASE + toBase64Url(raw);
-      if (!typed) {
-        setStatus(DEFAULT_HINT + ' <em>Showing example — paste your endpoint above.</em>', false);
-      } else {
-        setStatus(DEFAULT_HINT, false);
-      }
-    } catch {
-      output.value = '';
-      setStatus('That doesn\'t look like a URL. Try <code>https://api.example.com/graphql</code>.', true);
-    }
-  };
-
-  input.addEventListener('input', render);
-  input.addEventListener('change', render);
-  input.addEventListener('keyup', render);
-
-  copyBtn.addEventListener('click', async () => {
-    if (!output.value) return;
-    try {
-      await navigator.clipboard.writeText(output.value);
-      copyBtn.classList.add('copied');
-      copyBtn.textContent = 'Copied';
-      setTimeout(() => {
-        copyBtn.classList.remove('copied');
-        copyBtn.textContent = 'Copy';
-      }, 1200);
-    } catch {
-      output.select();
-    }
-  });
-
-  input.placeholder = EXAMPLE;
-  render();
+    const url = BRIDGE_BASE + toBase64Url(raw);
+    const html = typed
+      ? DEFAULT_HINT
+      : DEFAULT_HINT + ' <em>Showing example — paste your endpoint above.</em>';
+    return { url, html, isError: false };
+  } catch {
+    return { url: '', html: "That doesn't look like a URL. Try <code>https://api.example.com/graphql</code>.", isError: true };
+  }
 });
+
+const mcpUrl = computed(() => result.value.url);
+const hint = computed(() => ({ html: result.value.html, isError: result.value.isError }));
+
+const copy = async () => {
+  if (!mcpUrl.value) return;
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(mcpUrl.value);
+    ok = true;
+  } catch {
+    // Fallback for non-secure contexts / older browsers without the async API.
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = mcpUrl.value;
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch {
+      ok = false;
+    }
+  }
+  if (ok) {
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 1500);
+  }
+};
 </script>
 
 ## One-line setup
