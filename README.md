@@ -254,7 +254,7 @@ happens automatically. Two fields renamed to the same MCP name will raise a
 
 Built-in web interface for testing and debugging MCP tools:
 
-<img src="docs/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
+<img src="docs/.vitepress/public/images/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
 
 The inspector is enabled by default — visit `/graphql` in your browser. See the [MCP Inspector documentation](https://graphql-mcp.com/docs/mcp-inspector/) for details.
 

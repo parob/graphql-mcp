@@ -14,6 +14,12 @@ from task_manager import app as task_manager_app
 from nested_api import app as nested_api_app
 from remote_api import app as remote_api_app
 
+from library_graphql_api import app as library_graphql_api_app
+from library_graphql_core import app as library_graphql_core_app
+from library_ariadne import app as library_ariadne_app
+from library_strawberry import app as library_strawberry_app
+from library_graphene import app as library_graphene_app
+
 EXAMPLES_DIR = Path(__file__).parent
 
 # Registry of all examples: (path, app, title, description, source_file)
@@ -30,6 +36,25 @@ EXAMPLES = [
     ("/remote-api", remote_api_app, "Remote API",
      "Wraps a public GraphQL API (Countries) as MCP tools via from_remote_url().",
      "remote_api.py"),
+    # Per-library examples: the same small "users" API exposed through each
+    # popular GraphQL library, each demonstrating the @mcp directive.
+    ("/library-graphql-api", library_graphql_api_app, "Library: graphql-api",
+     "graphql-api with native @mcp — rename/hide fields and arguments (recommended).",
+     "library_graphql_api.py"),
+    ("/library-graphql-core", library_graphql_core_app, "Library: graphql-core",
+     "graphql-core with the @mcp directive declared inline in SDL.",
+     "library_graphql_core.py"),
+    ("/library-ariadne", library_ariadne_app, "Library: Ariadne",
+     "Schema-first Ariadne with the @mcp directive in type_defs.",
+     "library_ariadne.py"),
+    ("/library-strawberry", library_strawberry_app, "Library: Strawberry",
+     "Strawberry — basic exposure is native; @mcp needs a workaround "
+     "(@strawberry.schema_directive + SDL round-trip).",
+     "library_strawberry.py"),
+    ("/library-graphene", library_graphene_app, "Library: Graphene",
+     "Graphene — basic exposure is native; @mcp isn't expressible in Graphene, "
+     "so it's applied via the apply_mcp() workaround.",
+     "library_graphene.py"),
 ]
 
 

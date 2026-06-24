@@ -248,3 +248,8 @@ class TestCombinedApp:
             assert "/task-manager" in resp.text
             assert "/nested-api" in resp.text
             assert "/remote-api" in resp.text
+            assert "/library-graphql-api" in resp.text
+            assert "/library-graphql-core" in resp.text
+            assert "/library-ariadne" in resp.text
+            assert "/library-strawberry" in resp.text
+            assert "/library-graphene" in resp.text
