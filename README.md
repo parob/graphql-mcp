@@ -256,7 +256,7 @@ Built-in web interface for testing and debugging MCP tools:
 
 <img src="docs/.vitepress/public/images/mcp_inspector.png" alt="MCP Inspector Interface" width="600">
 
-The inspector is enabled by default — visit `/graphql` in your browser. See the [MCP Inspector documentation](https://graphql-mcp.com/docs/mcp-inspector/) for details.
+The inspector is enabled by default — visit `/graphql` in your browser. See the [MCP Inspector documentation](https://graphql-mcp.com/mcp-inspector) for details.
 
 ## Compatibility
 

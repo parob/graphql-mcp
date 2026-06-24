@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Python Libraries', link: '/python-libraries' },
             { text: 'Remote APIs', link: '/existing-apis' },
             { text: 'Configuration', link: '/configuration' },
+            { text: 'MCP Inspector', link: '/mcp-inspector' },
             { text: 'Strawberry & Graphene', link: '/strawberry-graphene' },
           ]
         },
