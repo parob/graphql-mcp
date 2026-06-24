@@ -8,6 +8,12 @@ library, basic exposure works AND the @mcp customizations take effect:
 - fetch_user          -> renamed from get_user_by_id, with arg "id" (was userId)
 - internal_metrics    -> hidden field, not exposed
 - debug_token         -> hidden argument, not exposed
+
+Note: @mcp is native for graphql-api, graphql-core and Ariadne. For Strawberry
+and Graphene it is NOT native — those examples apply @mcp via a documented
+workaround (see https://graphql-mcp.com/strawberry-graphene). These tests
+assert the workarounds produce the same end result, so they double as
+regression guards that the workarounds keep working.
 """
 
 import pytest

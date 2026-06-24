@@ -48,10 +48,12 @@ EXAMPLES = [
      "Schema-first Ariadne with the @mcp directive in type_defs.",
      "library_ariadne.py"),
     ("/library-strawberry", library_strawberry_app, "Library: Strawberry",
-     "Strawberry with @mcp via a native @strawberry.schema_directive.",
+     "Strawberry — basic exposure is native; @mcp needs a workaround "
+     "(@strawberry.schema_directive + SDL round-trip).",
      "library_strawberry.py"),
     ("/library-graphene", library_graphene_app, "Library: Graphene",
-     "Code-first Graphene with @mcp applied programmatically via apply_mcp().",
+     "Graphene — basic exposure is native; @mcp isn't expressible in Graphene, "
+     "so it's applied via the apply_mcp() workaround.",
      "library_graphene.py"),
 ]
 

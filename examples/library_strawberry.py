@@ -1,26 +1,31 @@
-"""Strawberry + @mcp — basic exposure and MCP customization.
+"""Strawberry + @mcp — basic exposure, plus a WORKAROUND for @mcp.
+
+⚠️  @mcp is NOT native to Strawberry. Strawberry builds its own GraphQL types
+and does not carry the @mcp directive onto the underlying graphql-core AST, so
+a plain Strawberry schema loses the directive metadata before graphql-mcp ever
+sees it. Basic exposure (every field → an MCP tool) works out of the box; @mcp
+customization requires one of the workarounds documented in the guide:
+https://graphql-mcp.com/strawberry-graphene
 
 Demonstrates, for the type-hint-based Strawberry library:
-- Basic exposure: every Strawberry field becomes an MCP tool.
-- The @mcp directive expressed as a native `@strawberry.schema_directive`:
-    - rename a field's tool  (getUserById → fetch_user)
-    - rename + describe an argument  (userId → id)
-    - hide an argument from MCP  (debugToken)
-    - hide a whole field from MCP  (internalMetrics)
+- Basic exposure (native): every Strawberry field becomes an MCP tool. If you
+  don't need @mcp, just pass `strawberry.Schema(...)._schema` to GraphQLMCP.
+- @mcp customization (WORKAROUND): rename/describe/hide fields and arguments
+  via Strawberry's own `@schema_directive`, then round-trip through SDL.
 
-Strawberry builds its own GraphQL types, and its Python-level field metadata
-isn't carried onto the underlying graphql-core argument AST. The clean, fully
-native way to apply @mcp is therefore:
+The workaround shown here (Path A in the guide):
 
     1. Declare a `@strawberry.schema_directive` named `Mcp`.
     2. Attach it to fields/arguments via `directives=[...]`.
     3. Round-trip the schema through SDL: `build_schema(str(strawberry_schema))`.
        Strawberry prints the directive into the SDL, so graphql-core preserves
        it on the AST where graphql-mcp can read it.
-    4. Copy the resolvers across from the Strawberry schema.
+    4. Copy the resolvers across — `build_schema` doesn't carry them.
 
-If you don't need @mcp customization, you can skip the round-trip entirely and
-pass `strawberry.Schema(...)._schema` straight to GraphQLMCP.
+Caveats: the resolver-copy step is required, and this only covers top-level
+query/mutation resolvers. For less ceremony, `apply_mcp()` (Path B in the
+guide) attaches the same config directly onto the graphql-core schema — see
+library_graphene.py for that approach.
 """
 
 from typing import Annotated, Optional

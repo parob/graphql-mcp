@@ -1,20 +1,27 @@
-"""Graphene + @mcp — basic exposure and MCP customization.
+"""Graphene + @mcp — basic exposure, plus a WORKAROUND for @mcp.
+
+⚠️  @mcp is NOT native to Graphene. Graphene can't express directives in
+Python at all, so a plain Graphene schema carries no @mcp metadata for
+graphql-mcp to read. Basic exposure (every field → an MCP tool) works out of
+the box; @mcp customization requires the workaround below. See the guide:
+https://graphql-mcp.com/strawberry-graphene
 
 Demonstrates, for the code-first Graphene library:
-- Basic exposure: every Query/Mutation field becomes an MCP tool. If you don't
-  need @mcp customization, just pass `graphene.Schema(...).graphql_schema`
-  straight to GraphQLMCP.
-- The @mcp directive applied programmatically with `apply_mcp`, because
-  Graphene has no native directive support:
-    - rename a field's tool  (getUserById → fetch_user)
-    - rename + describe an argument  (userId → id)
-    - hide an argument from MCP  (debugToken)
-    - hide a whole field from MCP  (internalMetrics)
+- Basic exposure (native): every Query/Mutation field becomes an MCP tool. If
+  you don't need @mcp, just pass `graphene.Schema(...).graphql_schema` to
+  GraphQLMCP.
+- @mcp customization (WORKAROUND): rename/describe/hide fields and arguments
+  via `apply_mcp()` (Path B in the guide).
 
-Graphene can't express directives in Python, and printing-then-rebuilding the
-SDL would drop Graphene's camelCase→snake_case argument mapping. `apply_mcp`
-avoids both problems: it attaches the @mcp configuration directly onto the
-existing graphql-core schema, keyed by `"Type.field"` / `"Type.field.arg"`.
+Why `apply_mcp` rather than an SDL round-trip? Printing-then-rebuilding the SDL
+would drop Graphene's camelCase→snake_case argument mapping (`out_name`),
+breaking resolvers. `apply_mcp` attaches the @mcp configuration directly onto
+the existing graphql-core schema, keyed by `"Type.field"` / `"Type.field.arg"`,
+so nothing is rebuilt and the mapping is preserved.
+
+Caveat: `apply_mcp` config is private metadata — it shapes MCP exposure but is
+invisible to GraphQL introspection and `str(schema)`. That's fine for MCP, but
+don't rely on it being visible to other schema consumers.
 """
 
 import graphene
