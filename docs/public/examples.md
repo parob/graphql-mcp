@@ -145,17 +145,15 @@ Every example exposes the same MCP surface:
 - `fetch_user` — `getUserById` renamed via `@mcp`, with its `userId` argument exposed as `id`
 - a hidden `internal_metrics` field and a hidden `debugToken` argument
 
-| Library | `@mcp` support | Source | Live demo |
-|---------|----------------|--------|-----------|
-| **graphql-api** | Native — decorator / `Annotated[...]` (recommended) | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_api.py) | [demo](https://examples.graphql-mcp.com/library-graphql-api/) |
-| **graphql-core** | Native — `@mcp` inline in SDL | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_core.py) | [demo](https://examples.graphql-mcp.com/library-graphql-core/) |
-| **Ariadne** | Native — `@mcp` in `type_defs` | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_ariadne.py) | [demo](https://examples.graphql-mcp.com/library-ariadne/) |
-| **Strawberry** | Workaround — `@strawberry.schema_directive` + SDL round-trip | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) | [demo](https://examples.graphql-mcp.com/library-strawberry/) |
-| **Graphene** | Workaround — `apply_mcp()` | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphene.py) | [demo](https://examples.graphql-mcp.com/library-graphene/) |
+| Library | Source | Live demo |
+|---------|--------|-----------|
+| **graphql-api** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_api.py) | [demo](https://examples.graphql-mcp.com/library-graphql-api/) |
+| **graphql-core** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_core.py) | [demo](https://examples.graphql-mcp.com/library-graphql-core/) |
+| **Ariadne** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_ariadne.py) | [demo](https://examples.graphql-mcp.com/library-ariadne/) |
+| **Strawberry** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) | [demo](https://examples.graphql-mcp.com/library-strawberry/) |
+| **Graphene** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphene.py) | [demo](https://examples.graphql-mcp.com/library-graphene/) |
 
-::: info `@mcp` is native for some libraries, a workaround for others
-The directive is first-class for graphql-api, graphql-core, and Ariadne. Strawberry and Graphene don't carry the directive onto the underlying graphql-core schema, so those examples apply it via a documented workaround. Basic tool exposure works natively everywhere — only `@mcp` customization needs the extra step. See [Strawberry & Graphene](/strawberry-graphene) for the full rundown.
-:::
+Strawberry and Graphene apply `@mcp` a little differently from the SDL-based libraries — see [Strawberry & Graphene](/strawberry-graphene) if you need the specifics.
 
 ## Running Locally
 

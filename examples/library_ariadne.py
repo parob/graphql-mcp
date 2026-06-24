@@ -1,16 +1,10 @@
-"""Ariadne + @mcp — basic exposure and MCP customization.
+"""Ariadne → MCP tools, customized with the @mcp directive.
 
-Demonstrates, for the schema-first Ariadne library:
-- Basic exposure: every Query/Mutation field becomes an MCP tool.
-- The @mcp directive written directly in the SDL `type_defs`, which Ariadne
-  preserves on the schema AST so graphql-mcp can read it:
-    - rename a field's tool  (getUserById → fetch_user)
-    - rename + describe an argument  (userId → id)
-    - hide an argument from MCP  (debugToken)
-    - hide a whole field from MCP  (internalMetrics)
+Exposes a small "users" API and uses @mcp to rename a tool
+(getUserById → fetch_user), rename and describe an argument (userId → id),
+hide an argument (debugToken), and hide a field (internalMetrics).
 
-Because Ariadne is schema-first, the @mcp directive works natively — just
-declare it in your SDL and apply it inline. No rebuild step required.
+With schema-first Ariadne you declare and apply @mcp inline in your SDL type_defs.
 """
 
 from ariadne import QueryType, make_executable_schema

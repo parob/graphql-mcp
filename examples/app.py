@@ -39,21 +39,19 @@ EXAMPLES = [
     # Per-library examples: the same small "users" API exposed through each
     # popular GraphQL library, each demonstrating the @mcp directive.
     ("/library-graphql-api", library_graphql_api_app, "graphql-api",
-     "graphql-api with native @mcp — rename/hide fields and arguments (recommended).",
+     "Expose a graphql-api app as MCP tools, customized with the @mcp directive.",
      "library_graphql_api.py"),
     ("/library-graphql-core", library_graphql_core_app, "graphql-core",
-     "graphql-core with the @mcp directive declared inline in SDL.",
+     "Expose a graphql-core schema as MCP tools, customized with the @mcp directive.",
      "library_graphql_core.py"),
     ("/library-ariadne", library_ariadne_app, "Ariadne",
-     "Schema-first Ariadne with the @mcp directive in type_defs.",
+     "Expose a schema-first Ariadne API as MCP tools, customized with the @mcp directive.",
      "library_ariadne.py"),
     ("/library-strawberry", library_strawberry_app, "Strawberry",
-     "Strawberry — basic exposure is native; @mcp needs a workaround "
-     "(@strawberry.schema_directive + SDL round-trip).",
+     "Expose a Strawberry API as MCP tools, customized with the @mcp directive.",
      "library_strawberry.py"),
     ("/library-graphene", library_graphene_app, "Graphene",
-     "Graphene — basic exposure is native; @mcp isn't expressible in Graphene, "
-     "so it's applied via the apply_mcp() workaround.",
+     "Expose a Graphene API as MCP tools, customized with the @mcp directive.",
      "library_graphene.py"),
 ]
 
