@@ -1260,7 +1260,13 @@ def _create_tool_function(
             default = inspect.Parameter.empty
         else:
             default = arg_def.default_value
-        kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        # KEYWORD_ONLY (not POSITIONAL_OR_KEYWORD): the wrapper is invoked purely
+        # by keyword (**kwargs), and keyword-only params have no positional
+        # ordering constraint. This lets a GraphQL field legally place an
+        # optional argument (one with a default) before a required one — which
+        # POSITIONAL_OR_KEYWORD forbids ("non-default argument follows default
+        # argument") when reconstructing the signature.
+        kind = inspect.Parameter.KEYWORD_ONLY
         parameters.append(
             inspect.Parameter(mcp_arg_name, kind, default=default,
                               annotation=annotation_type)
@@ -1825,9 +1831,12 @@ def _create_recursive_tool_function(
                 else inspect.Parameter.empty
             )
             parameters.append(
+                # KEYWORD_ONLY: the wrapper is called only by keyword, and this
+                # lifts the positional ordering constraint so an optional arg may
+                # precede a required one without "non-default follows default".
                 inspect.Parameter(
                     param_name,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
                     default=default,
                     annotation=python_type,
                 )
@@ -2135,7 +2144,13 @@ def _create_remote_tool_function(
         else:
             default = arg_def.default_value
 
-        kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        # KEYWORD_ONLY (not POSITIONAL_OR_KEYWORD): the wrapper is invoked purely
+        # by keyword (**kwargs), and keyword-only params have no positional
+        # ordering constraint. This lets a GraphQL field legally place an
+        # optional argument (one with a default) before a required one — which
+        # POSITIONAL_OR_KEYWORD forbids ("non-default argument follows default
+        # argument") when reconstructing the signature.
+        kind = inspect.Parameter.KEYWORD_ONLY
         parameters.append(
             inspect.Parameter(mcp_arg_name, kind, default=default,
                               annotation=annotation_type)
@@ -2287,9 +2302,12 @@ def _create_recursive_remote_tool_function(
                 else inspect.Parameter.empty
             )
             parameters.append(
+                # KEYWORD_ONLY: the wrapper is called only by keyword, and this
+                # lifts the positional ordering constraint so an optional arg may
+                # precede a required one without "non-default follows default".
                 inspect.Parameter(
                     param_name,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
                     default=default,
                     annotation=python_type,
                 )
