@@ -177,7 +177,9 @@ See the [examples documentation](https://graphql-mcp.com/examples) for detailed 
 GraphQL MCP automatically:
 - Analyzes your GraphQL schema
 - Generates MCP tools from queries and mutations
-- Maps GraphQL types to MCP tool schemas
+- Maps GraphQL types to MCP tool schemas: non-null arguments are required,
+  nullable arguments are optional and accept `null`, and an omitted
+  optional argument is left out of the operation so the server default applies
 - Converts naming to `snake_case` (e.g., `addBook` → `add_book`)
 - Preserves all documentation and type information
 - Supports the `@mcp` directive to customize how fields and arguments
