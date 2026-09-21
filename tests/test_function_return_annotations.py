@@ -17,7 +17,19 @@ from graphql import (
     GraphQLNonNull,
 )
 
+from typing import Optional, Union, get_args, get_origin
+
 from graphql_mcp.server import _create_tool_function, _map_graphql_type_to_python_type
+
+
+def _nullable(return_type):
+    """Every field below is built without GraphQLNonNull, so it may resolve to
+    null and its annotation has to say so: Optional[X]. Assert that, and hand
+    back the X the rest of the test is about."""
+    assert get_origin(return_type) is Union, f"a nullable field must be Optional, got {return_type}"
+    args = [a for a in get_args(return_type) if a is not type(None)]
+    assert len(args) == 1 and type(None) in get_args(return_type), return_type
+    return args[0]
 
 
 def test_scalar_return_type_annotation():
@@ -36,7 +48,7 @@ def test_scalar_return_type_annotation():
     annotations = wrapper.__annotations__
     assert 'return' in annotations, "Function should have return annotation"
 
-    return_type = annotations['return']
+    return_type = _nullable(annotations['return'])
     print(f"\nString field return type: {return_type}")
 
     # For GraphQLString, should map to str
@@ -53,7 +65,7 @@ def test_integer_return_type_annotation():
     )
 
     wrapper = _create_tool_function("test", field, schema)
-    return_type = wrapper.__annotations__.get('return')
+    return_type = _nullable(wrapper.__annotations__.get('return'))
 
     print(f"\nInt field return type: {return_type}")
     assert return_type == int
@@ -80,7 +92,7 @@ def test_object_return_type_annotation():
     )
 
     wrapper = _create_tool_function("getUser", field, schema)
-    return_type = wrapper.__annotations__.get('return')
+    return_type = _nullable(wrapper.__annotations__.get('return'))
 
     print(f"\nUser object return type: {return_type}")
     print(f"Return type class: {type(return_type)}")
@@ -120,12 +132,11 @@ def test_list_return_type_annotation():
     )
 
     wrapper = _create_tool_function("test", field, schema)
-    return_type = wrapper.__annotations__.get('return')
+    return_type = _nullable(wrapper.__annotations__.get('return'))
 
     print(f"\nList[String] return type: {return_type}")
 
     # Should be list[str]
-    from typing import get_origin, get_args
     assert get_origin(return_type) == list
     args = get_args(return_type)
     assert len(args) > 0
@@ -150,11 +161,10 @@ def test_list_of_objects_return_type_annotation():
     )
 
     wrapper = _create_tool_function("getItems", field, schema)
-    return_type = wrapper.__annotations__.get('return')
+    return_type = _nullable(wrapper.__annotations__.get('return'))
 
     print(f"\nList[Item] return type: {return_type}")
 
-    from typing import get_origin, get_args
     assert get_origin(return_type) == list
 
     args = get_args(return_type)
@@ -201,7 +211,7 @@ def test_nested_object_return_type_annotation():
     )
 
     wrapper = _create_tool_function("getPerson", field, schema)
-    return_type = wrapper.__annotations__.get('return')
+    return_type = _nullable(wrapper.__annotations__.get('return'))
 
     print(f"\nPerson (with Address) return type: {return_type}")
 
@@ -287,3 +297,16 @@ def test_required_vs_optional_fields():
 
     # Note: Our implementation makes all fields optional with default=None
     # This is mentioned in the code comments
+
+
+def test_non_null_return_stays_bare_and_nullable_becomes_optional():
+    """The one thing the six tests above are really about: nullability is
+    carried on the return annotation, and only when the field has it."""
+    required = GraphQLField(GraphQLNonNull(GraphQLString))
+    optional = GraphQLField(GraphQLString)
+    schema = GraphQLSchema(
+        query=GraphQLObjectType("Query", {"required": required, "optional": optional})
+    )
+
+    assert _create_tool_function("required", required, schema).__annotations__['return'] is str
+    assert _create_tool_function("optional", optional, schema).__annotations__['return'] == Optional[str]

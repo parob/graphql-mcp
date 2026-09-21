@@ -640,6 +640,23 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
     return Any
 
 
+def _return_annotation_for(graphql_type: Any) -> Any:
+    """The return annotation a tool declares for a field of this type.
+
+    The mapper hands back the bare Python type and leaves nullability to the
+    caller — nested object fields and arguments already wrap a non-NonNull
+    type in Optional. The two tool builders did not, so a field declared
+    `Optional[T]` reached FastMCP annotated as `T`: an output schema null
+    could never satisfy, and a resolver returning None became
+    "Output validation error: outputSchema defined but no structured output
+    returned" instead of the null the API defines.
+    """
+    python_type = _map_graphql_type_to_python_type(graphql_type)
+    if isinstance(graphql_type, GraphQLNonNull):
+        return python_type
+    return Optional[python_type]
+
+
 def _to_snake_case(name: str) -> str:
     """Converts a camelCase string to snake_case."""
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
@@ -1613,7 +1630,7 @@ def _create_tool_function(
         return None
 
     # Add return type annotation for FastMCP schema generation
-    return_type = _map_graphql_type_to_python_type(field.type)
+    return_type = _return_annotation_for(field.type)
     annotations['return'] = return_type
 
     # Create signature with return annotation
@@ -1984,7 +2001,7 @@ def _create_recursive_tool_function(
     tool_name = _to_snake_case("_".join(name for name, _ in path))
 
     # Add return type annotation for FastMCP schema generation
-    return_type = _map_graphql_type_to_python_type(path[-1][1].type)
+    return_type = _return_annotation_for(path[-1][1].type)
     annotations['return'] = return_type
 
     # Create signature with return annotation
