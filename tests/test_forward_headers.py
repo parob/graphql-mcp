@@ -225,3 +225,33 @@ def test_from_remote_url_delegates_to_build_remote_mcp():
     assert kwargs["bearer_token"] == "tok"
     assert kwargs["forward_headers"] == "*"
     assert kwargs["graphql_http"] is False
+
+
+def test_build_remote_mcp_introspection_headers_used_once():
+    """Introspection-only headers reach the schema fetch but are not stored
+    on the remote client, so they cannot leak into later calls."""
+    schema = _simple_schema()
+    with patch("graphql_mcp.remote.fetch_remote_schema_sync", return_value=schema) as fetch:
+        instance = build_remote_mcp(
+            "http://example.com/graphql",
+            headers={"X-Static": "1"},
+            introspection_headers={"Authorization": "Bearer caller-token"},
+            graphql_http=False,
+        )
+    fetch.assert_called_once()
+    sent = fetch.call_args.args[1]
+    assert sent == {"X-Static": "1", "Authorization": "Bearer caller-token"}
+    assert instance.remote_client.headers == {"X-Static": "1"}
+
+
+def test_select_forward_headers_applies_allowlist_and_denylist():
+    from graphql_mcp.server import select_forward_headers
+
+    headers = {"Authorization": "Bearer t", "X-Api-Key": "k", "Host": "h",
+               "Content-Length": "3", "X-Other": "o"}
+    assert select_forward_headers(headers, None) == {}
+    assert select_forward_headers(headers, ["authorization", "X-API-KEY"]) == {
+        "authorization": "Bearer t", "x-api-key": "k"}
+    everything = select_forward_headers(headers.items(), "*")
+    assert "host" not in everything and "content-length" not in everything
+    assert everything["x-other"] == "o"

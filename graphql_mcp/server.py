@@ -1,5 +1,6 @@
 import enum
 import inspect
+import warnings
 import keyword
 import re
 import uuid
@@ -48,6 +49,8 @@ from graphql import (
     is_leaf_type,
     GraphQLObjectType,
 )
+from graphql.pyutils import Undefined
+from pydantic.json_schema import PydanticJsonSchemaWarning
 
 from graphql_mcp.remote import RemoteGraphQLClient
 
@@ -162,26 +165,48 @@ def _extract_forwarded_headers_from_context(
         request = _get_http_request() if _get_http_request else None
         if not request or not hasattr(request, "headers"):
             return {}
-
-        # Starlette Headers is case-insensitive; iterate as lowercased names.
-        normalized: Dict[str, str] = {}
-        for k, v in request.headers.items():
-            normalized[k.lower()] = v
-
-        if forward_headers == "*":
-            return {
-                k: v for k, v in normalized.items()
-                if k not in _HEADER_FORWARD_DENY
-            }
-
-        allow = {h.lower() for h in forward_headers}
-        return {
-            k: v for k, v in normalized.items()
-            if k in allow and k not in _HEADER_FORWARD_DENY
-        }
+        return select_forward_headers(request.headers.items(), forward_headers)
     except Exception as e:
         logger.debug(f"Failed to extract forwarded headers from context: {e}")
         return {}
+
+
+def select_forward_headers(
+    headers: Any,
+    forward_headers: Optional[Union[List[str], Literal["*"]]],
+) -> Dict[str, str]:
+    """
+    Pick the request headers that may be forwarded to an upstream GraphQL server.
+
+    This is the rule behind ``forward_headers`` on ``from_remote_url`` /
+    ``build_remote_mcp``, exposed so a proxy can apply the same allowlist to
+    a request it handles itself (for example to fetch the schema with the
+    caller's credentials via ``introspection_headers``).
+
+    Args:
+        headers: A mapping, or an iterable of ``(name, value)`` pairs, such as
+            ``request.headers`` or ``request.headers.items()``.
+        forward_headers: A list of header names (case-insensitive), the
+            literal "*" for every header except the hop-by-hop denylist, or
+            None/empty to forward nothing.
+
+    Returns:
+        Lowercased header names to values.
+    """
+    if not forward_headers:
+        return {}
+    items = headers.items() if hasattr(headers, "items") else headers
+    normalized: Dict[str, str] = {str(k).lower(): v for k, v in items}
+    if forward_headers == "*":
+        return {
+            k: v for k, v in normalized.items()
+            if k not in _HEADER_FORWARD_DENY
+        }
+    allow = {h.lower() for h in forward_headers}
+    return {
+        k: v for k, v in normalized.items()
+        if k in allow and k not in _HEADER_FORWARD_DENY
+    }
 
 
 class GraphQLMCP(FastMCP):  # type: ignore
@@ -199,6 +224,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         forward_bearer_token: bool = False,
         forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
         verify_ssl: bool = True,
+        introspection_headers: Optional[Dict[str, str]] = None,
         *args,
         **kwargs
     ):
@@ -223,6 +249,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
                 Defaults to None (no extra forwarding).
             verify_ssl: Whether to verify SSL certificates (default: True).
                 Set to False only for development with self-signed certs.
+            introspection_headers: Headers sent only with the introspection
+                request that fetches the schema, on top of ``headers``. Use
+                this for credentials that should unlock introspection but
+                must not be baked into the server for every later call (a
+                proxy forwarding one caller's Authorization, for example).
             *args: Additional arguments to pass to FastMCP
             **kwargs: Additional keyword arguments to pass to FastMCP
 
@@ -240,6 +271,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
             forward_bearer_token=forward_bearer_token,
             forward_headers=forward_headers,
             verify_ssl=verify_ssl,
+            introspection_headers=introspection_headers,
             *args,
             **kwargs,
         )
@@ -248,7 +280,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         self, schema: GraphQLSchema, graphql_http: bool = True,
         graphql_http_kwargs: Optional[Dict[str, Any]] = None,
         allow_mutations: bool = True,
-        *args, **kwargs
+        *args, register_tools: bool = True, **kwargs
     ):
         """
         Initialize GraphQLMCP server.
@@ -258,6 +290,10 @@ class GraphQLMCP(FastMCP):  # type: ignore
             graphql_http: Whether to enable GraphQL HTTP endpoint
             graphql_http_kwargs: Additional kwargs for GraphQL HTTP
             allow_mutations: Whether to expose mutations as tools
+            register_tools: Register local-execution tools for the schema
+                (default). ``build_remote_mcp`` passes False because it
+                registers remote-execution tools itself; registering both
+                would add every tool twice.
         """
         self.schema = schema
         self.graphql_http = graphql_http
@@ -265,7 +301,8 @@ class GraphQLMCP(FastMCP):  # type: ignore
         self.allow_mutations = allow_mutations
 
         super().__init__(*args, **kwargs)
-        add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
+        if register_tools:
+            add_tools_from_schema(self.schema, self, allow_mutations=allow_mutations)
 
     def http_app(
         self,
@@ -981,6 +1018,49 @@ def _validate_hidden_arg_has_default(
         )
 
 
+def _register_tool(server: FastMCP, tool_name: str, annotations: Any, tool_func: Callable) -> None:
+    """Register ``tool_func`` on ``server``, building its input schema.
+
+    Nullable arguments without a default use ``Undefined`` as their signature
+    default (see ``_argument_default``). Pydantic cannot serialize that into
+    the JSON schema and warns; leaving the default out of the schema is exactly
+    what we want, so the warning carries no information and is silenced here.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Default value Undefined is not JSON serializable",
+            category=PydanticJsonSchemaWarning,
+        )
+        server.tool(name=tool_name, annotations=annotations)(tool_func)
+
+
+def _argument_python_type(arg_def: GraphQLArgument) -> Any:
+    """Annotation for a tool argument: nullable GraphQL arguments accept
+    ``null``, so their annotation is ``Optional[...]``."""
+    python_type = _map_graphql_type_to_python_type(arg_def.type)
+    if isinstance(arg_def.type, GraphQLNonNull):
+        return python_type
+    return Optional[python_type]
+
+
+def _argument_default(arg_def: GraphQLArgument) -> Any:
+    """The Python-signature default for a GraphQL argument.
+
+    * Explicit GraphQL default -> that value.
+    * Non-null with no default   -> no default (the MCP tool requires it).
+    * Nullable with no default   -> ``Undefined``, so the tool marks it
+      optional and the wrapper omits it from the operation when the caller
+      leaves it out. Marking it required would force clients to invent a
+      value (typically ``""`` or ``null``) for every optional argument.
+    """
+    if arg_def.default_value is not Undefined:
+        return arg_def.default_value
+    if isinstance(arg_def.type, GraphQLNonNull):
+        return inspect.Parameter.empty
+    return Undefined
+
+
 def _add_tools_from_fields(
     server: FastMCP,
     schema: GraphQLSchema,
@@ -1018,8 +1098,7 @@ def _add_tools_from_fields(
             field_cfg=field_cfg,
         )
         annotations = _compute_tool_annotations(field_cfg, is_mutation)
-        tool_decorator = server.tool(name=tool_name, annotations=annotations)
-        tool_decorator(tool_func)
+        _register_tool(server, tool_name, annotations, tool_func)
 
 
 def add_query_tools_from_schema(
@@ -1107,6 +1186,7 @@ def build_remote_mcp(
     forward_bearer_token: bool = False,
     forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
     verify_ssl: bool = True,
+    introspection_headers: Optional[Dict[str, str]] = None,
     *args,
     **kwargs,
 ) -> "GraphQLMCP":
@@ -1122,6 +1202,8 @@ def build_remote_mcp(
     ``forward_bearer_token`` forwards the Authorization bearer from the MCP
     request context, and ``forward_headers`` forwards an explicit set of
     additional headers (or all safe headers when set to "*").
+    ``introspection_headers`` are sent only with the schema-fetching
+    introspection request and never stored on the returned instance.
 
     Returns:
         GraphQLMCP: A server instance with tools generated from the remote
@@ -1135,15 +1217,23 @@ def build_remote_mcp(
     if bearer_token:
         request_headers["Authorization"] = f"Bearer {bearer_token}"
 
-    # Fetch the schema from the remote server
-    schema = fetch_remote_schema_sync(url, request_headers, timeout)
+    # Fetch the schema from the remote server. Introspection-only headers are
+    # layered on top for this one request and deliberately not kept.
+    schema = fetch_remote_schema_sync(
+        url, {**request_headers, **(introspection_headers or {})}, timeout,
+        verify_ssl=verify_ssl,
+    )
 
+    # Tools are registered below against the remote client; skip the local
+    # execution tools the constructor would otherwise add (they would be
+    # replaced one by one, each with a "Component already exists" warning).
     instance = GraphQLMCP(
         schema=schema,
         graphql_http=graphql_http,
         graphql_http_kwargs=graphql_http_kwargs,
         allow_mutations=allow_mutations,
         *args,
+        register_tools=False,
         **kwargs,
     )
 
@@ -1253,7 +1343,7 @@ def _create_tool_function(
         field_cfg = _get_mcp_config(field)
 
     parameters = []
-    arg_defs = []
+    arg_defs: dict[str, str] = {}
     annotations = {}
     # Map MCP-exposed arg name -> original GraphQL arg name (for translation
     # before building the outbound GraphQL query).
@@ -1265,18 +1355,12 @@ def _create_tool_function(
             continue
 
         arg_def: GraphQLArgument
-        python_type = _map_graphql_type_to_python_type(arg_def.type)
+        python_type = _argument_python_type(arg_def)
         mcp_arg_name = _safe_python_identifier(arg_cfg.name or arg_name)
         arg_name_map[mcp_arg_name] = arg_name
         annotation_type = _apply_arg_description(python_type, arg_cfg.description)
         annotations[mcp_arg_name] = annotation_type
-        # GraphQL uses Undefined for arguments without defaults
-        # For required (non-null) arguments, we should not set a default
-        from graphql.pyutils import Undefined
-        if arg_def.default_value is Undefined:
-            default = inspect.Parameter.empty
-        else:
-            default = arg_def.default_value
+        default = _argument_default(arg_def)
         # KEYWORD_ONLY (not POSITIONAL_OR_KEYWORD): the wrapper is invoked purely
         # by keyword (**kwargs), and keyword-only params have no positional
         # ordering constraint. This lets a GraphQL field legally place an
@@ -1288,9 +1372,12 @@ def _create_tool_function(
             inspect.Parameter(mcp_arg_name, kind, default=default,
                               annotation=annotation_type)
         )
-        arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
+        arg_defs[arg_name] = f"${arg_name}: {_get_graphql_type_name(arg_def.type)}"
 
     async def wrapper(**kwargs):
+        # Optional arguments the caller left out arrive as Undefined (their
+        # signature default); drop them so they never reach the operation.
+        kwargs = {k: v for k, v in kwargs.items() if v is not Undefined}
         # Translate any MCP-exposed arg names back to the original GraphQL
         # arg names so the outbound query builds correctly.
         if arg_name_map:
@@ -1585,11 +1672,15 @@ def _create_tool_function(
                         # Keep original value
 
         operation_type = "mutation" if is_mutation else "query"
+        # Only declare and pass the arguments the caller supplied; an omitted
+        # nullable argument is left out of the operation entirely so the
+        # schema default applies (and "omitted" stays distinct from "null").
         arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
+        used_arg_defs = [arg_defs[name] for name in kwargs]
         selection_set = _build_selection_set(field.type)
 
-        query_str = f"{operation_type} ({', '.join(arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
-        if not arg_defs:
+        query_str = f"{operation_type} ({', '.join(used_arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
+        if not used_arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
         try:
@@ -2054,7 +2145,7 @@ def _add_nested_tools_from_schema(
                 annotations = _compute_tool_annotations(
                     leaf_cfg, is_mutation=(operation_type == "mutation")
                 )
-                server.tool(name=tool_name, annotations=annotations)(tool_func)
+                _register_tool(server, tool_name, annotations, tool_func)
 
             if isinstance(named_type, GraphQLObjectType):
                 recurse(named_type, operation_type, new_path)
@@ -2110,8 +2201,7 @@ def _add_tools_from_fields_remote(
             field_cfg=field_cfg,
         )
         annotations = _compute_tool_annotations(field_cfg, is_mutation)
-        tool_decorator = server.tool(name=tool_name, annotations=annotations)
-        tool_decorator(tool_func)
+        _register_tool(server, tool_name, annotations, tool_func)
 
 
 def _create_remote_tool_function(
@@ -2139,7 +2229,7 @@ def _create_remote_tool_function(
         field_cfg = _get_mcp_config(field)
 
     parameters = []
-    arg_defs = []
+    arg_defs: dict[str, str] = {}
     annotations = {}
     arg_name_map: dict = {}
 
@@ -2149,17 +2239,13 @@ def _create_remote_tool_function(
             continue
 
         arg_def: GraphQLArgument
-        python_type = _map_graphql_type_to_python_type(arg_def.type)
+        python_type = _argument_python_type(arg_def)
         mcp_arg_name = _safe_python_identifier(arg_cfg.name or arg_name)
         arg_name_map[mcp_arg_name] = arg_name
         annotation_type = _apply_arg_description(python_type, arg_cfg.description)
         annotations[mcp_arg_name] = annotation_type
 
-        from graphql.pyutils import Undefined
-        if arg_def.default_value is Undefined:
-            default = inspect.Parameter.empty
-        else:
-            default = arg_def.default_value
+        default = _argument_default(arg_def)
 
         # KEYWORD_ONLY (not POSITIONAL_OR_KEYWORD): the wrapper is invoked purely
         # by keyword (**kwargs), and keyword-only params have no positional
@@ -2172,9 +2258,12 @@ def _create_remote_tool_function(
             inspect.Parameter(mcp_arg_name, kind, default=default,
                               annotation=annotation_type)
         )
-        arg_defs.append(f"${arg_name}: {_get_graphql_type_name(arg_def.type)}")
+        arg_defs[arg_name] = f"${arg_name}: {_get_graphql_type_name(arg_def.type)}"
 
     async def wrapper(ctx: Optional[Context] = None, **kwargs):
+        # Optional arguments the caller left out arrive as Undefined (their
+        # signature default); drop them so they never reach the operation.
+        kwargs = {k: v for k, v in kwargs.items() if v is not Undefined}
         # Translate any MCP-exposed arg names back to the original GraphQL arg names.
         if arg_name_map:
             kwargs = {arg_name_map.get(k, k): v for k, v in kwargs.items()}
@@ -2231,15 +2320,15 @@ def _create_remote_tool_function(
                                     except Exception:
                                         continue
 
-        # Build GraphQL query (only include variables that are not Undefined)
-        from graphql.pyutils import Undefined
+        # Only declare and pass the arguments the caller supplied; an omitted
+        # nullable argument is left out of the operation entirely so the
+        # upstream default applies (and "omitted" stays distinct from "null").
         operation_type = "mutation" if is_mutation else "query"
-        arg_str = ", ".join(
-            f"{name}: ${name}" for name, value in processed_kwargs.items() if value is not Undefined
-        )
+        arg_str = ", ".join(f"{name}: ${name}" for name in processed_kwargs)
+        used_arg_defs = [arg_defs[name] for name in processed_kwargs]
         selection_set = _build_selection_set(field.type, max_depth=2)
-        query_str = f"{operation_type} ({', '.join(arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
-        if not arg_defs:
+        query_str = f"{operation_type} ({', '.join(used_arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
+        if not used_arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
         # Execute against remote server with optional bearer token override
@@ -2519,7 +2608,7 @@ def _add_nested_tools_from_schema_remote(
                 annotations = _compute_tool_annotations(
                     leaf_cfg, is_mutation=(operation_type == "mutation")
                 )
-                server.tool(name=tool_name, annotations=annotations)(tool_func)
+                _register_tool(server, tool_name, annotations, tool_func)
 
             if isinstance(named_type, GraphQLObjectType):
                 recurse(named_type, operation_type, new_path)
