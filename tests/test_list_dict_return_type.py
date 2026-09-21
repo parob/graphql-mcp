@@ -26,14 +26,14 @@ async def test_list_dict_return_type():
     that can be directly used without additional JSON parsing.
     """
     from app_graphql_api import server
+    from fastmcp.client import Client
 
     # Call the messages tool which returns List[Dict]
-    result = await server._call_tool_mcp('messages', arguments={})
+    async with Client(server) as client:
+        result = await client.call_tool('messages', {})
 
-    # Result is a tuple of (content_list, raw_result)
-    content_list, raw_result = result
-
-    # The raw_result should have the actual data
+    # The structured content should have the actual data
+    raw_result = result.structured_content
     assert isinstance(raw_result, dict)
     assert 'result' in raw_result
     messages_result = raw_result['result']
@@ -79,10 +79,12 @@ async def test_list_dict_in_text_content():
     Test that TextContent contains properly formatted JSON for List[Dict].
     """
     from app_graphql_api import server
+    from fastmcp.client import Client
     from mcp.types import TextContent
 
-    result = await server._call_tool_mcp('messages', arguments={})
-    content_list, _ = result
+    async with Client(server) as client:
+        result = await client.call_tool('messages', {})
+    content_list = result.content
 
     assert len(content_list) == 1
     text_content = content_list[0]

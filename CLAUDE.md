@@ -34,7 +34,7 @@ uv run flake8 graphql_mcp tests
 - Tool names use snake_case (converted from camelCase field names)
 - Unified `@mcp` directive customizes how fields/arguments are exposed (`name`, `description`, `hidden`) — replaces the previous `@mcpHidden`
 - HTTP app: `server.http_app(transport="streamable-http", stateless_http=True)`
-- Built on `fastmcp` (>=3.0, <4)
+- Built on `fastmcp` (>=3.0, <5; the lock resolves to fastmcp 4 / mcp 2)
 
 ## Releasing
 

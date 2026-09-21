@@ -41,8 +41,8 @@ async def test_graphql_generated_tool_schema_matches_direct_tool_schema():
         assert "set_preference_test" in tool_map
         assert "set_preference" in tool_map
 
-        t_graphql = tool_map["set_preference_test"].model_dump()
-        t_direct = tool_map["set_preference"].model_dump()
+        t_graphql = tool_map["set_preference_test"].model_dump(by_alias=True)
+        t_direct = tool_map["set_preference"].model_dump(by_alias=True)
 
         # Both should define an enum schema for the key parameter
         def assert_has_enum_schema(tool_dump: dict):

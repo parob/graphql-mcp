@@ -1,22 +1,23 @@
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
+from starlette.routing import Route
 from starlette.testclient import TestClient
 
 
 def create_app():
     """Creates a minimal Starlette application instrumented with the middleware."""
-    app = Starlette()
-
-    @app.route("/mcp/")
     async def mcp_endpoint(request):  # type: ignore
         # Return the path seen by the endpoint so we can assert the rewrite happened.
         return PlainTextResponse(request.url.path)
 
     # Additional route to test nested path behaviour.
-    @app.route("/prefix/mcp/")
     async def prefixed_mcp_endpoint(request):  # type: ignore
         return PlainTextResponse(request.url.path)
-    return app
+
+    return Starlette(routes=[
+        Route("/mcp/", mcp_endpoint),
+        Route("/prefix/mcp/", prefixed_mcp_endpoint),
+    ])
 
 
 def test_mcp_redirect_rewrites_to_trailing_slash():
