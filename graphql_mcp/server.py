@@ -165,26 +165,48 @@ def _extract_forwarded_headers_from_context(
         request = _get_http_request() if _get_http_request else None
         if not request or not hasattr(request, "headers"):
             return {}
-
-        # Starlette Headers is case-insensitive; iterate as lowercased names.
-        normalized: Dict[str, str] = {}
-        for k, v in request.headers.items():
-            normalized[k.lower()] = v
-
-        if forward_headers == "*":
-            return {
-                k: v for k, v in normalized.items()
-                if k not in _HEADER_FORWARD_DENY
-            }
-
-        allow = {h.lower() for h in forward_headers}
-        return {
-            k: v for k, v in normalized.items()
-            if k in allow and k not in _HEADER_FORWARD_DENY
-        }
+        return select_forward_headers(request.headers.items(), forward_headers)
     except Exception as e:
         logger.debug(f"Failed to extract forwarded headers from context: {e}")
         return {}
+
+
+def select_forward_headers(
+    headers: Any,
+    forward_headers: Optional[Union[List[str], Literal["*"]]],
+) -> Dict[str, str]:
+    """
+    Pick the request headers that may be forwarded to an upstream GraphQL server.
+
+    This is the rule behind ``forward_headers`` on ``from_remote_url`` /
+    ``build_remote_mcp``, exposed so a proxy can apply the same allowlist to
+    a request it handles itself (for example to fetch the schema with the
+    caller's credentials via ``introspection_headers``).
+
+    Args:
+        headers: A mapping, or an iterable of ``(name, value)`` pairs, such as
+            ``request.headers`` or ``request.headers.items()``.
+        forward_headers: A list of header names (case-insensitive), the
+            literal "*" for every header except the hop-by-hop denylist, or
+            None/empty to forward nothing.
+
+    Returns:
+        Lowercased header names to values.
+    """
+    if not forward_headers:
+        return {}
+    items = headers.items() if hasattr(headers, "items") else headers
+    normalized: Dict[str, str] = {str(k).lower(): v for k, v in items}
+    if forward_headers == "*":
+        return {
+            k: v for k, v in normalized.items()
+            if k not in _HEADER_FORWARD_DENY
+        }
+    allow = {h.lower() for h in forward_headers}
+    return {
+        k: v for k, v in normalized.items()
+        if k in allow and k not in _HEADER_FORWARD_DENY
+    }
 
 
 class GraphQLMCP(FastMCP):  # type: ignore
