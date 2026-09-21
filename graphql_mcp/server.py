@@ -202,6 +202,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
         forward_bearer_token: bool = False,
         forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
         verify_ssl: bool = True,
+        introspection_headers: Optional[Dict[str, str]] = None,
         *args,
         **kwargs
     ):
@@ -226,6 +227,11 @@ class GraphQLMCP(FastMCP):  # type: ignore
                 Defaults to None (no extra forwarding).
             verify_ssl: Whether to verify SSL certificates (default: True).
                 Set to False only for development with self-signed certs.
+            introspection_headers: Headers sent only with the introspection
+                request that fetches the schema, on top of ``headers``. Use
+                this for credentials that should unlock introspection but
+                must not be baked into the server for every later call (a
+                proxy forwarding one caller's Authorization, for example).
             *args: Additional arguments to pass to FastMCP
             **kwargs: Additional keyword arguments to pass to FastMCP
 
@@ -243,6 +249,7 @@ class GraphQLMCP(FastMCP):  # type: ignore
             forward_bearer_token=forward_bearer_token,
             forward_headers=forward_headers,
             verify_ssl=verify_ssl,
+            introspection_headers=introspection_headers,
             *args,
             **kwargs,
         )
@@ -1157,6 +1164,7 @@ def build_remote_mcp(
     forward_bearer_token: bool = False,
     forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
     verify_ssl: bool = True,
+    introspection_headers: Optional[Dict[str, str]] = None,
     *args,
     **kwargs,
 ) -> "GraphQLMCP":
@@ -1172,6 +1180,8 @@ def build_remote_mcp(
     ``forward_bearer_token`` forwards the Authorization bearer from the MCP
     request context, and ``forward_headers`` forwards an explicit set of
     additional headers (or all safe headers when set to "*").
+    ``introspection_headers`` are sent only with the schema-fetching
+    introspection request and never stored on the returned instance.
 
     Returns:
         GraphQLMCP: A server instance with tools generated from the remote
@@ -1185,8 +1195,12 @@ def build_remote_mcp(
     if bearer_token:
         request_headers["Authorization"] = f"Bearer {bearer_token}"
 
-    # Fetch the schema from the remote server
-    schema = fetch_remote_schema_sync(url, request_headers, timeout)
+    # Fetch the schema from the remote server. Introspection-only headers are
+    # layered on top for this one request and deliberately not kept.
+    schema = fetch_remote_schema_sync(
+        url, {**request_headers, **(introspection_headers or {})}, timeout,
+        verify_ssl=verify_ssl,
+    )
 
     # Tools are registered below against the remote client; skip the local
     # execution tools the constructor would otherwise add (they would be

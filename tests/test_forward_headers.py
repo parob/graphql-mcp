@@ -225,3 +225,20 @@ def test_from_remote_url_delegates_to_build_remote_mcp():
     assert kwargs["bearer_token"] == "tok"
     assert kwargs["forward_headers"] == "*"
     assert kwargs["graphql_http"] is False
+
+
+def test_build_remote_mcp_introspection_headers_used_once():
+    """Introspection-only headers reach the schema fetch but are not stored
+    on the remote client, so they cannot leak into later calls."""
+    schema = _simple_schema()
+    with patch("graphql_mcp.remote.fetch_remote_schema_sync", return_value=schema) as fetch:
+        instance = build_remote_mcp(
+            "http://example.com/graphql",
+            headers={"X-Static": "1"},
+            introspection_headers={"Authorization": "Bearer caller-token"},
+            graphql_http=False,
+        )
+    fetch.assert_called_once()
+    sent = fetch.call_args.args[1]
+    assert sent == {"X-Static": "1", "Authorization": "Bearer caller-token"}
+    assert instance.remote_client.headers == {"X-Static": "1"}
