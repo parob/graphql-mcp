@@ -961,12 +961,14 @@ def _compute_tool_annotations(cfg: MCPConfig, is_mutation: bool) -> Any:
     if read_only is None and not is_mutation:
         read_only = True
 
-    return ToolAnnotations(
-        readOnlyHint=read_only,
-        destructiveHint=cfg.destructive,
-        idempotentHint=cfg.idempotent,
-        openWorldHint=cfg.open_world,
-    )
+    # Wire-format (camelCase) names: mcp 1.x uses them as field names and
+    # mcp 2.x as aliases, so validating from a dict works on both.
+    return ToolAnnotations.model_validate({
+        "readOnlyHint": read_only,
+        "destructiveHint": cfg.destructive,
+        "idempotentHint": cfg.idempotent,
+        "openWorldHint": cfg.open_world,
+    })
 
 
 def _is_arg_hidden(arg_def: GraphQLArgument) -> bool:
