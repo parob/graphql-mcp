@@ -2164,6 +2164,28 @@ def _add_nested_tools_from_schema(
 # ---------------------------------------------------------------------------
 
 
+def _remote_tool_error(tool_name: str, error: Exception) -> ToolError:
+    """Log a failed remote tool call and map it to the ToolError the caller sees.
+
+    The log line carries the upstream's full message. fastmcp logs a raised
+    ToolError only as "Error calling tool '<name>'", so without this the
+    reason (a GraphQL error, an HTTP status) never reaches the server logs.
+    """
+    message = str(error)
+    logger.warning("Remote tool %r failed: %s", tool_name, message[:2000])
+    lower = message.lower()
+    if "timed out" in lower or "504" in lower:
+        return ToolError(
+            "The remote GraphQL endpoint timed out. Try again or narrow the request.")
+    if "unavailable" in lower or "503" in lower or "502" in lower:
+        return ToolError(
+            "The remote GraphQL endpoint is temporarily unavailable. Please try again.")
+    if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
+        return ToolError(
+            "Authentication failed for the remote GraphQL endpoint.")
+    return ToolError(f"Remote GraphQL execution failed: {message}")
+
+
 def _add_tools_from_fields_remote(
     server: FastMCP,
     schema: GraphQLSchema,
@@ -2342,18 +2364,7 @@ def _create_remote_tool_function(
             )
             return result.get(field_name) if result else None
         except Exception as e:
-            message = str(e)
-            lower = message.lower()
-            if "timed out" in lower or "504" in lower:
-                raise ToolError(
-                    "The remote GraphQL endpoint timed out. Try again or narrow the request.")
-            if "unavailable" in lower or "503" in lower or "502" in lower:
-                raise ToolError(
-                    "The remote GraphQL endpoint is temporarily unavailable. Please try again.")
-            if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
-                raise ToolError(
-                    "Authentication failed for the remote GraphQL endpoint.")
-            raise ToolError(f"Remote GraphQL execution failed: {message}")
+            raise _remote_tool_error(field_cfg.name or _to_snake_case(field_name), e) from e
 
     # Create signature (no return annotation — remote queries fetch a subset of fields,
     # so the full GraphQL type cannot be used as an output schema for validation)
@@ -2544,18 +2555,8 @@ def _create_recursive_remote_tool_function(
 
             return data_cursor
         except Exception as e:
-            message = str(e)
-            lower = message.lower()
-            if "timed out" in lower or "504" in lower:
-                raise ToolError(
-                    "The remote GraphQL endpoint timed out. Try again or narrow the request.")
-            if "unavailable" in lower or "503" in lower or "502" in lower:
-                raise ToolError(
-                    "The remote GraphQL endpoint is temporarily unavailable. Please try again.")
-            if "unauthorized" in lower or "forbidden" in lower or "401" in lower or "403" in lower:
-                raise ToolError(
-                    "Authentication failed for the remote GraphQL endpoint.")
-            raise ToolError(f"Remote GraphQL execution failed: {message}")
+            raise _remote_tool_error(
+                _to_snake_case("_".join(name for name, _ in path)), e) from e
 
     tool_name = _to_snake_case("_".join(name for name, _ in path))
 

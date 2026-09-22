@@ -141,3 +141,23 @@ def test_graphql_mcp_registers_local_tools_by_default():
     with patch.object(server_module, "add_tools_from_schema") as local_add:
         GraphQLMCP(schema=_schema({}), graphql_http=False)
     local_add.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_remote_tool_failure_is_logged_with_upstream_message(caplog):
+    """fastmcp logs a ToolError without its message, so the remote wrapper
+    logs the upstream's reason itself."""
+    import logging
+
+    instance = _remote_instance()
+    boom = AsyncMock(side_effect=Exception(
+        "GraphQL errors: [{'message': 'channel_slug cannot be empty'}]"))
+    with patch.object(instance.remote_client, "execute_with_token", boom):
+        async with Client(instance) as client:
+            with caplog.at_level(logging.WARNING, logger="graphql_mcp.server"):
+                result = await client.call_tool(
+                    "search", {"strict": True}, raise_on_error=False)
+    assert result.is_error
+    assert "channel_slug cannot be empty" in result.content[0].text
+    logged = [r.getMessage() for r in caplog.records if r.name == "graphql_mcp.server"]
+    assert any("'search'" in m and "channel_slug cannot be empty" in m for m in logged)
