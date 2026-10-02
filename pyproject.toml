@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A framework for building Python GraphQL MCP servers."
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 authors = [
     {name = "Robert Parker", email = "rob@parob.com"}
 ]
@@ -76,4 +76,3 @@ ignore = [
     "W504",  # line break after binary operator (conflicts with W503)
     "E402",  # module level import not at top of file (sometimes needed)
 ]
-
