@@ -76,3 +76,4 @@ ignore = [
     "W504",  # line break after binary operator (conflicts with W503)
     "E402",  # module level import not at top of file (sometimes needed)
 ]
+
