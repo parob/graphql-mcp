@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A framework for building Python GraphQL MCP servers."
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 authors = [
     {name = "Robert Parker", email = "rob@parob.com"}
 ]
@@ -13,14 +13,19 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
     "graphql-core",
     "fastmcp>=3.0,<5",
-    "graphql-api>=1.6.7",
-    "graphql-http>=2.3.1",
+    "graphql-api>=1.7.0",
+    "graphql-http>=2.5.0",
     "aiohttp",
 ]
 
@@ -65,7 +70,6 @@ version = {file = "VERSION"}
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:PYTEST_DONT_REWRITE:DeprecationWarning",
-    "ignore:ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead:DeprecationWarning:docstring_parser.attrdoc"
 ]
 
 [tool.flake8]
