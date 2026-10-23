@@ -70,7 +70,6 @@ version = {file = "VERSION"}
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:PYTEST_DONT_REWRITE:DeprecationWarning",
-    "ignore:ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead:DeprecationWarning:docstring_parser.attrdoc"
 ]
 
 [tool.flake8]
