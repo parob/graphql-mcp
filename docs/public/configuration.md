@@ -118,8 +118,8 @@ MCP tools can carry four standard annotation hints that tell clients (and LLMs) 
 
 | Key | Type | Meaning when `true` | Default applied by graphql-mcp |
 |-----|------|---------------------|-------------------------------|
-| `readOnly` | `Boolean` | The tool does not modify its environment. | **Queries: `true`**. Mutations: unset. |
-| `destructive` | `Boolean` | May perform destructive updates (vs. additive-only). Meaningful only when `readOnly` is `false`. | Unset (MCP clients assume `true`). |
+| `readOnly` | `Boolean` | The tool does not modify its environment. | **Queries: `true`**. **Mutations: `false`**. |
+| `destructive` | `Boolean` | May perform destructive updates (vs. additive-only). Meaningful only when `readOnly` is `false`. | **Mutations: `true`**. Queries: unset (MCP clients assume `true`). |
 | `idempotent` | `Boolean` | Calling repeatedly with the same arguments has no additional effect. Meaningful only when `readOnly` is `false`. | Unset (MCP clients assume `false`). |
 | `openWorld` | `Boolean` | Interacts with an "open world" of external entities (web search, third-party APIs). | Unset (MCP clients assume `true`). |
 
@@ -129,7 +129,7 @@ These flow through to the standard MCP `readOnlyHint` / `destructiveHint` / `ide
 Most users never write these — graphql-mcp infers the safe, common case:
 
 - **GraphQL queries → `readOnly: true`** (standard GraphQL semantics: queries don't modify state).
-- **Mutations** get no inference — the MCP spec's "assume destructive, assume not idempotent" defaults already match normal mutation semantics.
+- **Mutations → `readOnly: false`, `destructive: true`**. These match the MCP spec's defaults for absent hints, but some hosts don't apply those defaults and leave a tool that states neither in an "other tools" bucket. A mutation you mark `readOnly: true` doesn't get `destructive: true`.
 
 You only need to write annotations for the *exceptions*: a query that has a side effect, a mutation that's idempotent, a field that does or doesn't hit an external service.
 :::

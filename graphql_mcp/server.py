@@ -857,7 +857,7 @@ class MCPConfig:
     The four *Hint fields map to MCP's standard tool annotations. ``None``
     means "not set by the user" — inference defaults then apply based on
     whether the field is a query (→ ``read_only=True``) or mutation
-    (→ ``destructive=True``).
+    (→ ``read_only=False``, ``destructive=True``).
     """
     name: Optional[str] = None
     description: Optional[str] = None
@@ -965,9 +965,10 @@ def _compute_tool_annotations(cfg: MCPConfig, is_mutation: bool) -> Any:
 
     Inference (applied only when the user hasn't specified the hint):
     - GraphQL queries → ``readOnlyHint=True``.
-    - Mutations → nothing: the MCP spec's "hint absent" defaults
-      (destructive=true, idempotent=false, openWorld=true) already match
-      normal mutation semantics.
+    - Mutations → ``readOnlyHint=False`` and, unless the user marked the
+      mutation read-only, ``destructiveHint=True``. Those match the spec's
+      "hint absent" defaults, but hosts that don't apply the defaults leave a
+      tool that states neither unclassified.
 
     All other hints pass through verbatim from ``cfg``. We don't silently
     drop "contradictory" combinations (e.g. readOnly=true + destructive=true)
@@ -979,14 +980,17 @@ def _compute_tool_annotations(cfg: MCPConfig, is_mutation: bool) -> Any:
         return None
 
     read_only = cfg.read_only
-    if read_only is None and not is_mutation:
-        read_only = True
+    if read_only is None:
+        read_only = not is_mutation
+    destructive = cfg.destructive
+    if destructive is None and is_mutation and not read_only:
+        destructive = True
 
     # Wire-format (camelCase) names: mcp 1.x uses them as field names and
     # mcp 2.x as aliases, so validating from a dict works on both.
     return ToolAnnotations.model_validate({
         "readOnlyHint": read_only,
-        "destructiveHint": cfg.destructive,
+        "destructiveHint": destructive,
         "idempotentHint": cfg.idempotent,
         "openWorldHint": cfg.open_world,
     })
