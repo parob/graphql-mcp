@@ -1,7 +1,8 @@
 """Tests for MCP tool annotation hints via the @mcp directive.
 
 Covers:
-- Inference defaults (queries → readOnly=True, mutations → spec defaults).
+- Inference defaults (queries → readOnly=True, mutations → readOnly=False
+  and destructive=True).
 - Explicit overrides via @mcp SDL, @mcp(...) Python decorator, and apply_mcp.
 - End-to-end: annotations surface on the MCP tool listing.
 - Interaction cases (user-set readOnly + destructive both go through verbatim).
@@ -54,8 +55,8 @@ class TestInferenceDefaults:
         assert a.openWorldHint is None
 
     @pytest.mark.asyncio
-    async def test_mutation_has_no_inferred_hints(self):
-        """Spec defaults already match mutation semantics, so we set nothing."""
+    async def test_mutation_states_read_only_and_destructive(self):
+        """Hosts that don't apply the spec's defaults still classify it as a write."""
         from graphql import build_schema
         from graphql_mcp import GraphQLMCP
 
@@ -66,10 +67,25 @@ class TestInferenceDefaults:
         server = GraphQLMCP(schema=schema)
 
         a = await _annotations_for(server, "do_stuff")
-        assert a.readOnlyHint is None
-        assert a.destructiveHint is None
+        assert a.readOnlyHint is False
+        assert a.destructiveHint is True
         assert a.idempotentHint is None
         assert a.openWorldHint is None
+
+    @pytest.mark.asyncio
+    async def test_read_only_mutation_is_not_marked_destructive(self):
+        from graphql import build_schema
+        from graphql_mcp import GraphQLMCP
+
+        schema = build_schema(MCP_DIRECTIVE_SDL + """
+            type Query { ping: String }
+            type Mutation { refreshCache: String @mcp(readOnly: true) }
+        """)
+        server = GraphQLMCP(schema=schema)
+
+        a = await _annotations_for(server, "refresh_cache")
+        assert a.readOnlyHint is True
+        assert a.destructiveHint is None
 
 
 # ---------------------------------------------------------------------------
@@ -114,10 +130,9 @@ class TestSdlOverrides:
 
         a = await _annotations_for(server, "set_status")
         assert a.idempotentHint is True
-        # readOnly is not forced on mutations.
-        assert a.readOnlyHint is None
-        # destructive left to spec default.
-        assert a.destructiveHint is None
+        # The other mutation defaults still apply.
+        assert a.readOnlyHint is False
+        assert a.destructiveHint is True
 
     @pytest.mark.asyncio
     async def test_non_destructive_mutation(self):
@@ -377,3 +392,20 @@ class TestRemotePath:
         # Query inference still applies to the remote path.
         assert a.readOnlyHint is True
         assert a.openWorldHint is True
+
+    @pytest.mark.asyncio
+    async def test_remote_mutation_states_read_only_and_destructive(self):
+        from graphql import build_schema
+        from fastmcp import FastMCP
+        from graphql_mcp.server import add_tools_from_schema_with_remote
+
+        schema = build_schema("""
+            type Query { ping: String }
+            type Mutation { closeIssue(id: ID!): String }
+        """)
+        server = FastMCP(name="remote")
+        add_tools_from_schema_with_remote(schema, server, _FakeRemoteClient({}))
+
+        a = await _annotations_for(server, "close_issue")
+        assert a.readOnlyHint is False
+        assert a.destructiveHint is True
