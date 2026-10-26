@@ -184,7 +184,7 @@ Parent field arguments are automatically prefixed (`user_id`) to avoid collision
 
 ### Shape Return Types for MCP
 
-graphql-mcp auto-builds selection sets that include scalar fields up to 5 levels deep. Flatten your return types to ensure the AI agent gets the data it needs:
+graphql-mcp auto-builds selection sets that include scalar fields up to 5 levels deep. It skips fields that take a required argument and deprecated fields. Flatten your return types to ensure the AI agent gets the data it needs:
 
 ```python
 @dataclass
