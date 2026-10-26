@@ -7,7 +7,7 @@ hide an argument (debug_token), and hide a field (internal_metrics).
 Note: with Strawberry you declare @mcp as a `@strawberry.schema_directive` and
 round-trip the schema through SDL (`build_schema(str(schema))`) so the directive
 reaches the graphql-core AST, then copy resolvers across. Other approaches (e.g.
-`apply_mcp()`) are in the Strawberry & Graphene guide:
+`apply_mcp()`) are in the Strawberry guide:
 https://graphql-mcp.com/strawberry-graphene
 """
 

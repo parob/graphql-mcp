@@ -87,7 +87,7 @@ app = server.http_app()
 
 ### With Graphene
 
-Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x, or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`.
+Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x: ask for Graphene 3 explicitly, e.g. `pip install graphql-mcp "graphene>=3"`, which resolves to graphql-mcp 2.4. With an unpinned `graphene`, pip picks Graphene 2.0 instead, which doesn't work. Or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`.
 
 ### With graphql-api (Recommended)
 
