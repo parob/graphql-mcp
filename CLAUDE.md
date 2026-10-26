@@ -3,7 +3,7 @@
 > Compatibility note: `AGENTS.md` and `CLAUDE.md` are both supported in this repo.
 > Keep these files identical. Any change in one must be mirrored in the other.
 
-MCP server framework built on GraphQL — automatically exposes GraphQL operations as MCP tools. Published on [PyPI](https://pypi.org/project/graphql-mcp/). Works with any Python GraphQL library (Strawberry, Ariadne, Graphene, graphql-api, graphql-core).
+MCP server framework built on GraphQL — automatically exposes GraphQL operations as MCP tools. Published on [PyPI](https://pypi.org/project/graphql-mcp/). Works with any Python GraphQL library built on graphql-core 3.3 (Strawberry, Ariadne, graphql-api, graphql-core). Graphene pins graphql-core <3.3, so it isn't supported from 3.0.
 
 ## Project Structure
 

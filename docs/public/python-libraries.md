@@ -6,7 +6,11 @@ title: "Python GraphQL Libraries"
 
 GraphQL MCP works alongside your existing Python GraphQL library. You keep your library for schema definition and resolvers — graphql-mcp adds MCP tool generation on top.
 
-Any library that produces a `graphql-core` schema is supported.
+Any library that produces a `graphql-core` 3.3 schema is supported.
+
+::: warning Graphene
+Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x, or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`.
+:::
 
 ## Library Setup
 
@@ -74,31 +78,16 @@ schema = make_executable_schema(type_defs, query)
 server = GraphQLMCP(schema=schema, name="Hello")  # [!code highlight]
 app = server.http_app()
 ```
-
-```python [Graphene]
-import graphene
-from graphql_mcp import GraphQLMCP
-
-class Query(graphene.ObjectType):
-    hello = graphene.String(name=graphene.String(default_value="World"))
-
-    def resolve_hello(self, info, name):
-        return f"Hello, {name}!"
-
-schema = graphene.Schema(query=Query)
-server = GraphQLMCP(schema=schema.graphql_schema, name="Hello")  # [!code highlight]
-app = server.http_app()
-```
 :::
 
 ::: tip graphql-api has the tightest integration
 Use `GraphQLMCP.from_api(api)` instead of passing the schema directly. This enables automatic schema extraction, custom scalar support (UUID, DateTime, etc.), and the `Annotated[T, mcp(hidden=True)]` Python shorthand. The `@mcp` directive itself is library-agnostic — any schema built from SDL (Ariadne, `graphql.build_schema`) can use it inline. See [Configuration → @mcp directive](/configuration#mcp-directive).
 :::
 
-::: info Schema access for Strawberry and Graphene
-Strawberry wraps the graphql-core schema — access it via `schema._schema`. Graphene wraps it via `schema.graphql_schema`. Ariadne's `make_executable_schema` returns a graphql-core schema directly.
+::: info Schema access for Strawberry
+Strawberry wraps the graphql-core schema — access it via `schema._schema`. Ariadne's `make_executable_schema` returns a graphql-core schema directly.
 
-To apply the [`@mcp` directive](/configuration#mcp-directive) when using Strawberry or Graphene, see [Strawberry & Graphene](/strawberry-graphene).
+To apply the [`@mcp` directive](/configuration#mcp-directive) when using Strawberry, see [Strawberry](/strawberry-graphene).
 :::
 
 ## Schema Design for MCP

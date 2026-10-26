@@ -151,9 +151,8 @@ Every example exposes the same MCP surface:
 | **graphql-core** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphql_core.py) | [demo](https://examples.graphql-mcp.com/library-graphql-core/) |
 | **Ariadne** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_ariadne.py) | [demo](https://examples.graphql-mcp.com/library-ariadne/) |
 | **Strawberry** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) | [demo](https://examples.graphql-mcp.com/library-strawberry/) |
-| **Graphene** | [source](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphene.py) | [demo](https://examples.graphql-mcp.com/library-graphene/) |
 
-Strawberry and Graphene apply `@mcp` a little differently from the SDL-based libraries — see [Strawberry & Graphene](/strawberry-graphene) if you need the specifics.
+Strawberry applies `@mcp` a little differently from the SDL-based libraries — see [Strawberry](/strawberry-graphene) if you need the specifics.
 
 ## Running Locally
 

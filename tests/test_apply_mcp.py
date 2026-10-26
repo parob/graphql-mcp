@@ -233,38 +233,6 @@ class TestEndToEnd:
             result = await client.call_tool("say_hi", {"user_name": "World"})
             assert get_result_text(result) == "Hello, World!"
 
-    @pytest.mark.asyncio
-    async def test_graphene_end_to_end(self):
-        try:
-            import graphene
-        except ImportError:
-            pytest.skip("graphene not installed")
-
-        from graphql_mcp import GraphQLMCP, apply_mcp
-
-        class Query(graphene.ObjectType):
-            greet = graphene.String(name=graphene.String(required=True))
-
-            def resolve_greet(self, info, name):
-                return f"Hello, {name}!"
-
-        g_schema = graphene.Schema(query=Query)
-        # Graphene uses the Query class name as the type name by default.
-        apply_mcp(
-            g_schema.graphql_schema,
-            fields={"Query.greet": {"name": "say_hi"}},
-            args={"Query.greet.name": {"name": "user_name"}},
-        )
-
-        server = GraphQLMCP(schema=g_schema.graphql_schema)
-        async with Client(server) as client:
-            tools = await client.list_tools()
-            names = {t.name for t in tools}
-            assert "say_hi" in names
-
-            result = await client.call_tool("say_hi", {"user_name": "Graphene"})
-            assert get_result_text(result) == "Hello, Graphene!"
-
 
 # ---------------------------------------------------------------------------
 # Validation: strict errors on bad paths / unknown keys.

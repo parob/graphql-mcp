@@ -2,7 +2,7 @@
 
 ``apply_mcp()`` attaches the same metadata that an SDL ``@mcp(...)``
 directive would produce, directly onto a graphql-core schema's field and
-argument objects. It's intended for GraphQL libraries (notably Graphene)
+argument objects. It's intended for GraphQL libraries (such as Strawberry)
 whose Python APIs don't propagate directive information through to
 graphql-core, and as a shorter alternative to the full SDL-rebuild
 workaround.

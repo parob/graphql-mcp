@@ -10,7 +10,7 @@
 
 **Instantly expose any GraphQL API as MCP tools for AI agents and LLMs.**
 
-GraphQL MCP works with **any** Python GraphQL library—Strawberry, Ariadne, Graphene, graphql-core, or [graphql-api](https://graphql-api.parob.com/). If you already have a GraphQL API, you can expose it as MCP tools in minutes.
+GraphQL MCP works with **any** Python GraphQL library built on graphql-core 3.3—Strawberry, Ariadne, graphql-core, or [graphql-api](https://graphql-api.parob.com/). If you already have a GraphQL API, you can expose it as MCP tools in minutes.
 
 > **Don't want to run anything?** [**Bridge**](https://graphql-mcp.com/bridge) is a hosted MCP proxy built on graphql-mcp. Paste any public GraphQL URL into your MCP client and every query and mutation shows up as a tool — no code, no deploy.
 
@@ -87,24 +87,7 @@ app = server.http_app()
 
 ### With Graphene
 
-[Graphene](https://graphene-python.org/) user? Works seamlessly:
-
-```python
-import graphene
-from graphql_mcp.server import GraphQLMCP
-
-class Query(graphene.ObjectType):
-    hello = graphene.String(name=graphene.String(default_value="World"))
-
-    def resolve_hello(self, info, name):
-        return f"Hello, {name}!"
-
-schema = graphene.Schema(query=Query)
-
-# Expose as MCP tools
-server = GraphQLMCP(schema=schema.graphql_schema, name="My API")
-app = server.http_app()
-```
+Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x, or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`.
 
 ### With graphql-api (Recommended)
 
@@ -266,7 +249,6 @@ GraphQL MCP works with any Python GraphQL library that produces a `graphql-core`
 
 - **[Strawberry](https://strawberry.rocks/)** - Modern, type-hint based GraphQL
 - **[Ariadne](https://ariadnegraphql.org/)** - Schema-first GraphQL
-- **[Graphene](https://graphene-python.org/)** - Code-first GraphQL
 - **[graphql-api](https://graphql-api.parob.com/)** - Decorator-based GraphQL (recommended)
 - **[graphql-core](https://github.com/graphql-python/graphql-core)** - Reference implementation
 - **Any GraphQL library** using graphql-core schemas
