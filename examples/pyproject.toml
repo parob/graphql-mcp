@@ -9,7 +9,6 @@ dependencies = [
     "graphql-api",
     "strawberry-graphql",
     "ariadne",
-    "graphene",
     "pydantic",
     "starlette",
     "uvicorn",

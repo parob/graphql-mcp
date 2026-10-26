@@ -252,4 +252,3 @@ class TestCombinedApp:
             assert "/library-graphql-core" in resp.text
             assert "/library-ariadne" in resp.text
             assert "/library-strawberry" in resp.text
-            assert "/library-graphene" in resp.text

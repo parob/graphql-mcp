@@ -18,7 +18,6 @@ from library_graphql_api import app as library_graphql_api_app
 from library_graphql_core import app as library_graphql_core_app
 from library_ariadne import app as library_ariadne_app
 from library_strawberry import app as library_strawberry_app
-from library_graphene import app as library_graphene_app
 
 EXAMPLES_DIR = Path(__file__).parent
 
@@ -50,9 +49,6 @@ EXAMPLES = [
     ("/library-strawberry", library_strawberry_app, "Strawberry",
      "Expose a Strawberry API as MCP tools, customized with the @mcp directive.",
      "library_strawberry.py"),
-    ("/library-graphene", library_graphene_app, "Graphene",
-     "Expose a Graphene API as MCP tools, customized with the @mcp directive.",
-     "library_graphene.py"),
 ]
 
 

@@ -33,7 +33,6 @@ LIBRARIES = [
     "library_graphql_core",
     "library_ariadne",
     "library_strawberry",
-    "library_graphene",
 ]
 
 
