@@ -132,6 +132,17 @@ server = GraphQLMCP.from_remote_url(
 Client authentication tokens are shared with the remote server. Only enable `forward_bearer_token` if you trust the remote server completely. Always use HTTPS.
 :::
 
+## Fields the Token Cannot Read
+
+Remote tools choose the returned object's fields themselves, two levels deep. Some APIs restrict fields by permission. GitHub, for example, rejects the whole query when the token lacks the scope for a single selected field (`email` needs `user:email`).
+
+graphql-mcp handles errors that point at those chosen fields:
+
+- If the tool's object came back, the tool returns it, with the failed fields set to `null`.
+- If it didn't, the tool drops the rejected fields and retries, up to 10 times. A mutation is retried only when the server rejected it before running it (the response had no `data`).
+
+Errors anywhere else, such as an argument or the tool's own field, still fail the call. Each retry costs a round trip, so a token with the right scopes is faster. On GitHub, `repository` with a token missing `read:project` takes one retry. `organization` for a member who isn't an owner takes up to nine, because GitHub reports the fields it forbids a few at a time.
+
 ## Timeout and SSL
 
 ### Timeout

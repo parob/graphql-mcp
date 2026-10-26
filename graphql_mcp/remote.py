@@ -21,6 +21,25 @@ from graphql.pyutils import Undefined
 logger = logging.getLogger(__name__)
 
 
+class RemoteGraphQLError(Exception):
+    """The remote server answered with GraphQL errors.
+
+    Carries what a caller needs to recover from them. ``data`` is whatever
+    came back alongside the errors. ``executed`` is whether the response had
+    a ``data`` entry at all: under the GraphQL spec a request error (one that
+    rejects the whole document) leaves it out, so nothing ran. ``query`` is
+    the query as sent, after the client's cleanup; error locations point into
+    it.
+    """
+
+    def __init__(self, errors: Any, data: Any, executed: bool, query: str):
+        super().__init__(f"GraphQL errors: {errors}")
+        self.errors = errors
+        self.data = data
+        self.executed = executed
+        self.query = query
+
+
 async def fetch_remote_schema(
     url: str,
     headers: Optional[Dict[str, str]] = None,
@@ -846,7 +865,13 @@ DEBUG: GraphQL Request Processing:
                                 headers=headers  # Use the updated headers with new token
                             )
 
-                    raise Exception(f"GraphQL errors: {result['errors']}")
+                    data = result.get("data")
+                    if data is not None:
+                        await self._introspect_schema()
+                        data = self._transform_null_arrays(
+                            data, type_context="Query")
+                    raise RemoteGraphQLError(
+                        result["errors"], data, "data" in result, cleaned_query)
 
                 # Ensure schema is introspected before transforming data
                 await self._introspect_schema()

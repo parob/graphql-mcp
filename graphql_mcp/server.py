@@ -9,7 +9,7 @@ import logging
 import threading
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any, Callable, List, Literal, Optional, Dict, Union
 
@@ -45,17 +45,30 @@ from graphql import (
     GraphQLFloat,
     GraphQLBoolean,
     GraphQLID,
+    GraphQLError,
     get_named_type,
     graphql,
     is_leaf_type,
     is_required_argument,
     GraphQLObjectType,
 )
+from graphql.language import (
+    REMOVE,
+    FieldNode,
+    NameNode,
+    OperationDefinitionNode,
+    SelectionSetNode,
+    Visitor,
+    get_location,
+    parse,
+    print_ast,
+    visit,
+)
 from graphql.pyutils import Undefined
 from graphql.utilities.coerce_input_value import coerce_default_value
 from pydantic.json_schema import PydanticJsonSchemaWarning
 
-from graphql_mcp.remote import RemoteGraphQLClient
+from graphql_mcp.remote import RemoteGraphQLClient, RemoteGraphQLError
 
 
 logger = logging.getLogger(__name__)
@@ -2256,6 +2269,145 @@ def _remote_tool_error(tool_name: str, error: Exception) -> ToolError:
     return ToolError(f"Remote GraphQL execution failed: {message}")
 
 
+# Retries after dropping generated fields the upstream rejected. Each one sends
+# a strictly smaller query; the cap bounds latency. GitHub names every field a
+# token lacks the scope for in one response, but forbids others at run time a
+# few per response: organization takes 7-9 retries for a member who isn't an
+# owner.
+_MAX_SELECTION_RETRIES = 10
+
+
+async def _execute_generated_operation(
+    remote_client: RemoteGraphQLClient,
+    query: str,
+    variables: dict[str, Any],
+    *,
+    tool_name: str,
+    field_path: list[str],
+    is_mutation: bool,
+    bearer_token: Optional[str],
+    extra_headers: Optional[Dict[str, str]],
+) -> Any:
+    """Run a remote tool's operation without letting a generated field fail it.
+
+    The tool's own field chain is ``field_path``; the selection set below it is
+    graphql-mcp's guess at what is useful, and the caller can't change it. An
+    upstream may refuse a field the caller can't see: GitHub rejects the whole
+    query when the token lacks one field's scope, and fails others while
+    resolving the rest. When every error points at a generated field:
+
+    - if the tool's value came back, return it, with the failed fields null;
+    - otherwise retry without those fields, unless it is a mutation that ran.
+
+    Any other error (the operation, an argument, the tool's own fields) fails
+    the call as before. Returns the data, as ``execute_with_token`` does.
+    """
+    for attempt in range(_MAX_SELECTION_RETRIES + 1):
+        try:
+            return await remote_client.execute_with_token(
+                query, variables,
+                bearer_token_override=bearer_token,
+                extra_headers=extra_headers,
+            )
+        except RemoteGraphQLError as error:
+            failed = _generated_fields_in_errors(error.query, error.errors, len(field_path))
+            if failed is None:
+                raise
+            failed_names = ", ".join(sorted(".".join(path) for path in failed))
+            if _value_at(error.data, field_path) is not None:
+                logger.info(
+                    "Remote tool %r: the upstream failed %s; returning the rest",
+                    tool_name, failed_names)
+                return error.data
+            if attempt == _MAX_SELECTION_RETRIES or (is_mutation and error.executed):
+                raise
+            logger.info(
+                "Remote tool %r: the upstream rejected %s; retrying without them",
+                tool_name, failed_names)
+            query = _without_fields(error.query, failed, len(field_path))
+
+
+def _value_at(data: Any, field_path: list[str]) -> Any:
+    for name in field_path:
+        if not isinstance(data, dict):
+            return None
+        data = data.get(name)
+    return data
+
+
+def _generated_fields_in_errors(
+    query: str, errors: Any, tool_depth: int,
+) -> Optional[set[tuple[str, ...]]]:
+    """The generated fields ``errors`` point at, as paths of field names.
+
+    Fields deeper than ``tool_depth`` (the tool's own field chain) are
+    generated. Returns None when there are no errors or any of them points
+    elsewhere, since dropping fields can't fix those.
+    """
+    if not errors or not isinstance(errors, list):
+        return None
+    try:
+        document = parse(query)
+    except GraphQLError:
+        return None
+
+    # Generated queries never alias, so a path of names identifies a field.
+    fields_at: dict[tuple[int, int], tuple[str, ...]] = {}
+
+    def collect(selection_set: SelectionSetNode, path: tuple[str, ...]) -> None:
+        for selection in selection_set.selections:
+            if not isinstance(selection, FieldNode):
+                continue
+            field_path = path + (selection.name.value,)
+            location = get_location(document.loc.source, selection.loc.start)
+            fields_at[(location.line, location.column)] = field_path
+            if selection.selection_set:
+                collect(selection.selection_set, field_path)
+
+    for definition in document.definitions:
+        if isinstance(definition, OperationDefinitionNode):
+            collect(definition.selection_set, ())
+
+    failed: set[tuple[str, ...]] = set()
+    for error in errors:
+        locations = error.get("locations") if isinstance(error, dict) else None
+        if not locations:
+            return None
+        for location in locations:
+            field_path = fields_at.get((location.get("line"), location.get("column")))
+            if field_path is None or len(field_path) <= tool_depth:
+                return None
+            failed.add(field_path)
+    return failed
+
+
+def _without_fields(query: str, fields: set[tuple[str, ...]], tool_depth: int) -> str:
+    """``query`` without ``fields``, or the objects their removal leaves empty."""
+
+    def field_path(node: FieldNode, ancestors: Any) -> tuple[str, ...]:
+        return tuple(
+            ancestor.name.value for ancestor in ancestors
+            if isinstance(ancestor, FieldNode)
+        ) + (node.name.value,)
+
+    class Pruner(Visitor):
+        def enter_field(self, node, _key, _parent, _path, ancestors):
+            if field_path(node, ancestors) in fields:
+                return REMOVE
+            return None
+
+        def leave_field(self, node, _key, _parent, _path, ancestors):
+            if node.selection_set is None or node.selection_set.selections:
+                return None
+            if len(field_path(node, ancestors)) > tool_depth:
+                return REMOVE
+            # The tool's own field still needs a selection.
+            return replace(node, selection_set=SelectionSetNode(
+                selections=(FieldNode(name=NameNode(value="__typename")),)))
+
+    return print_ast(visit(parse(query), Pruner()))
+
+
 def _add_tools_from_fields_remote(
     server: FastMCP,
     schema: GraphQLSchema,
@@ -2426,15 +2578,19 @@ def _create_remote_tool_function(
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
         # Execute against remote server with optional bearer token override
+        tool_name = field_cfg.name or _to_snake_case(field_name)
         try:
-            result = await remote_client.execute_with_token(
-                query_str, processed_kwargs,
-                bearer_token_override=bearer_token,
+            result = await _execute_generated_operation(
+                remote_client, query_str, processed_kwargs,
+                tool_name=tool_name,
+                field_path=[field_name],
+                is_mutation=is_mutation,
+                bearer_token=bearer_token,
                 extra_headers=extra_headers or None,
             )
             return result.get(field_name) if result else None
         except Exception as e:
-            raise _remote_tool_error(field_cfg.name or _to_snake_case(field_name), e) from e
+            raise _remote_tool_error(tool_name, e) from e
 
     # Create signature (no return annotation — remote queries fetch a subset of fields,
     # so the full GraphQL type cannot be used as an output schema for validation)
@@ -2605,9 +2761,12 @@ def _create_recursive_remote_tool_function(
 
         # Execute against remote server with optional bearer token override
         try:
-            result = await remote_client.execute_with_token(
-                query_str, processed_kwargs,
-                bearer_token_override=bearer_token,
+            result = await _execute_generated_operation(
+                remote_client, query_str, processed_kwargs,
+                tool_name=tool_name,
+                field_path=[name for name, _ in path],
+                is_mutation=operation_type == "mutation",
+                bearer_token=bearer_token,
                 extra_headers=extra_headers or None,
             )
 

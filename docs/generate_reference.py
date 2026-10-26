@@ -559,7 +559,7 @@ def generate() -> str:
 
         **Local** (`GraphQLMCP(schema=...)` or `from_api()`): Tools execute GraphQL directly via graphql-core. Bearer tokens are available through FastMCP's Context.
 
-        **Remote** (`from_remote_url()`): Tools forward queries to the remote server via HTTP. The schema is introspected once at startup. `null` values for array fields are converted to `[]` for MCP validation. Unused variables are removed from queries. Bearer tokens are **not** forwarded unless `forward_bearer_token=True`.
+        **Remote** (`from_remote_url()`): Tools forward queries to the remote server via HTTP. The schema is introspected once at startup. `null` values for array fields are converted to `[]` for MCP validation. Unused variables are removed from queries. Bearer tokens are **not** forwarded unless `forward_bearer_token=True`. An error in a field graphql-mcp selected, rather than one the caller asked for, doesn't fail the call. The tool returns what came back, or retries without the rejected fields (see [Remote GraphQL APIs](/existing-apis#fields-the-token-cannot-read)).
 
         ---
 
