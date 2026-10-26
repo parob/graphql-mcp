@@ -8,9 +8,10 @@ import json
 import logging
 import threading
 
+from collections import deque
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Callable, List, Literal, Tuple, Optional, Dict, Union
+from typing import Any, Callable, List, Literal, Optional, Dict, Union
 
 from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
@@ -1941,7 +1942,7 @@ def _create_recursive_tool_function(
     path: list[tuple[str, GraphQLField]],
     operation_type: str,
     schema: GraphQLSchema,
-) -> Tuple[str, Callable]:
+) -> Callable:
     """Builds a FastMCP tool that resolves an arbitrarily deep field chain.
 
     Args:
@@ -2123,7 +2124,7 @@ def _create_recursive_tool_function(
             data_cursor, path[-1][1].type)
         return processed_data
 
-    tool_name = _to_snake_case("_".join(name for name, _ in path))
+    tool_name = _nested_tool_name(path)
 
     # Add return type annotation for FastMCP schema generation
     return_type = _return_annotation_for(path[-1][1].type)
@@ -2136,7 +2137,74 @@ def _create_recursive_tool_function(
     wrapper.__name__ = tool_name
     wrapper.__annotations__ = annotations
 
-    return tool_name, wrapper
+    return wrapper
+
+
+# SEP-986: tool names are 1-128 characters.
+_MAX_TOOL_NAME_LENGTH = 128
+
+
+def _nested_tool_paths(schema: GraphQLSchema, allow_mutations: bool):
+    """Yield ``(path, operation_type)`` for each nested field chain that gets a tool.
+
+    A chain gets a tool when it is at least two fields deep and its last field
+    takes arguments. Each type is expanded once, across both roots, from the
+    first path that reaches it. The walk is breadth-first so that path is a
+    shortest one: ``repository_issue``, not a tool hanging off
+    ``enterprise_…_edges_node_…`` because a depth-first walk got there first.
+    """
+    visited: set[str] = set()
+    roots = [(schema.query_type, "query")]
+    if allow_mutations:
+        roots.append((schema.mutation_type, "mutation"))
+    for root, operation_type in roots:
+        if root is None or root.name in visited:
+            continue
+        visited.add(root.name)
+        queue: deque = deque([(root, [])])
+        while queue:
+            parent_type, path = queue.popleft()
+            for field_name, field_def in parent_type.fields.items():
+                # Prune hidden branches: if a field is @mcp(hidden: true),
+                # skip it and anything nested under it.
+                if _get_mcp_config(field_def).hidden:
+                    continue
+                new_path = path + [(field_name, field_def)]
+                if len(new_path) > 1 and field_def.args:
+                    yield new_path, operation_type
+                named_type = get_named_type(field_def.type)
+                if isinstance(named_type, GraphQLObjectType) and named_type.name not in visited:
+                    visited.add(named_type.name)
+                    queue.append((named_type, new_path))
+
+
+def _nested_tool_name(path: list[tuple[str, GraphQLField]]) -> str:
+    return _to_snake_case("_".join(name for name, _ in path))
+
+
+def _claim_nested_tool_name(
+    tool_name: str, path: list[tuple[str, GraphQLField]], registered_names: set,
+) -> bool:
+    """Reserve ``tool_name`` for a nested tool, or log why it can't have it.
+
+    A nested tool never replaces a tool already registered: field names joined
+    with underscores can collide (``User.gistComments`` and
+    ``User.gist → Gist.comments`` both give ``user_gist_comments``), and the
+    shorter path, registered first, keeps the name.
+    """
+    chain = ".".join(name for name, _ in path)
+    if len(tool_name) > _MAX_TOOL_NAME_LENGTH:
+        logger.warning(
+            "Skipping nested tool for %s: its name is longer than %d characters",
+            chain, _MAX_TOOL_NAME_LENGTH)
+        return False
+    if tool_name in registered_names:
+        logger.warning(
+            "Skipping nested tool for %s: another tool is already named %r",
+            chain, tool_name)
+        return False
+    registered_names.add(tool_name)
+    return True
 
 
 def _add_nested_tools_from_schema(
@@ -2145,50 +2213,20 @@ def _add_nested_tools_from_schema(
     allow_mutations: bool = True,
     registered_names: Optional[set] = None,
 ):
-    """Recursively registers tools for any nested field chain that includes arguments."""
-
-    visited_types: set[str] = set()
-
-    def recurse(parent_type, operation_type: str, path: list[tuple[str, GraphQLField]]):
-        type_name = parent_type.name if hasattr(parent_type, "name") else None
-        if type_name and type_name in visited_types:
-            return
-        if type_name:
-            visited_types.add(type_name)
-
-        for field_name, field_def in parent_type.fields.items():
-            # Prune hidden branches: if a field is @mcp(hidden: true),
-            # skip it and anything nested under it.
-            if _get_mcp_config(field_def).hidden:
-                continue
-            named_type = get_named_type(field_def.type)
-            new_path = path + [(field_name, field_def)]
-
-            if len(new_path) > 1 and field_def.args:
-                # Register tool for paths with depth >=2
-                tool_name, tool_func = _create_recursive_tool_function(
-                    new_path, operation_type, schema)
-                if registered_names is not None:
-                    if tool_name in registered_names:
-                        # Auto-derived name collision — preserve legacy behavior
-                        # (silently re-register / overwrite).
-                        pass
-                    registered_names.add(tool_name)
-                # Inherit annotations from the leaf field's @mcp config.
-                leaf_cfg = _get_mcp_config(new_path[-1][1])
-                annotations = _compute_tool_annotations(
-                    leaf_cfg, is_mutation=(operation_type == "mutation")
-                )
-                _register_tool(server, tool_name, annotations, tool_func)
-
-            if isinstance(named_type, GraphQLObjectType):
-                recurse(named_type, operation_type, new_path)
-
-    # Start from both query and mutation roots
-    if schema.query_type:
-        recurse(schema.query_type, "query", [])
-    if allow_mutations and schema.mutation_type:
-        recurse(schema.mutation_type, "mutation", [])
+    """Registers tools for nested field chains that include arguments."""
+    if registered_names is None:
+        registered_names = set()
+    for path, operation_type in _nested_tool_paths(schema, allow_mutations):
+        tool_name = _nested_tool_name(path)
+        if not _claim_nested_tool_name(tool_name, path, registered_names):
+            continue
+        tool_func = _create_recursive_tool_function(path, operation_type, schema)
+        # Inherit annotations from the leaf field's @mcp config.
+        leaf_cfg = _get_mcp_config(path[-1][1])
+        annotations = _compute_tool_annotations(
+            leaf_cfg, is_mutation=(operation_type == "mutation")
+        )
+        _register_tool(server, tool_name, annotations, tool_func)
 
 
 # ---------------------------------------------------------------------------
@@ -2416,7 +2454,7 @@ def _create_recursive_remote_tool_function(
     remote_client: RemoteGraphQLClient,
     forward_bearer_token: bool = False,
     forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
-) -> Tuple[str, Callable]:
+) -> Callable:
     """Builds a FastMCP tool that resolves a nested field chain against a remote server.
 
     Args:
@@ -2583,10 +2621,9 @@ def _create_recursive_remote_tool_function(
 
             return data_cursor
         except Exception as e:
-            raise _remote_tool_error(
-                _to_snake_case("_".join(name for name, _ in path)), e) from e
+            raise _remote_tool_error(tool_name, e) from e
 
-    tool_name = _to_snake_case("_".join(name for name, _ in path))
+    tool_name = _nested_tool_name(path)
 
     # Add return type annotation
     # Create signature (no return annotation — remote queries fetch a subset of fields)
@@ -2596,7 +2633,7 @@ def _create_recursive_remote_tool_function(
     wrapper.__name__ = tool_name
     wrapper.__annotations__ = annotations
 
-    return tool_name, wrapper
+    return wrapper
 
 
 def _add_nested_tools_from_schema_remote(
@@ -2608,44 +2645,20 @@ def _add_nested_tools_from_schema_remote(
     forward_headers: Optional[Union[List[str], Literal["*"]]] = None,
     registered_names: Optional[set] = None,
 ):
-    """Recursively registers tools for nested fields that execute against a remote server."""
-
-    visited_types: set[str] = set()
-
-    def recurse(parent_type, operation_type: str, path: list[tuple[str, GraphQLField]]):
-        type_name = parent_type.name if hasattr(parent_type, "name") else None
-        if type_name and type_name in visited_types:
-            return
-        if type_name:
-            visited_types.add(type_name)
-
-        for field_name, field_def in parent_type.fields.items():
-            # Prune hidden branches
-            if _get_mcp_config(field_def).hidden:
-                continue
-            named_type = get_named_type(field_def.type)
-            new_path = path + [(field_name, field_def)]
-
-            if len(new_path) > 1 and field_def.args:
-                # Register tool for paths with depth >=2
-                tool_name, tool_func = _create_recursive_remote_tool_function(
-                    new_path, operation_type, schema, remote_client,
-                    forward_bearer_token=forward_bearer_token,
-                    forward_headers=forward_headers,
-                )
-                if registered_names is not None:
-                    registered_names.add(tool_name)
-                leaf_cfg = _get_mcp_config(new_path[-1][1])
-                annotations = _compute_tool_annotations(
-                    leaf_cfg, is_mutation=(operation_type == "mutation")
-                )
-                _register_tool(server, tool_name, annotations, tool_func)
-
-            if isinstance(named_type, GraphQLObjectType):
-                recurse(named_type, operation_type, new_path)
-
-    # Start from both query and mutation roots
-    if schema.query_type:
-        recurse(schema.query_type, "query", [])
-    if allow_mutations and schema.mutation_type:
-        recurse(schema.mutation_type, "mutation", [])
+    """Registers tools for nested fields that execute against a remote server."""
+    if registered_names is None:
+        registered_names = set()
+    for path, operation_type in _nested_tool_paths(schema, allow_mutations):
+        tool_name = _nested_tool_name(path)
+        if not _claim_nested_tool_name(tool_name, path, registered_names):
+            continue
+        tool_func = _create_recursive_remote_tool_function(
+            path, operation_type, schema, remote_client,
+            forward_bearer_token=forward_bearer_token,
+            forward_headers=forward_headers,
+        )
+        leaf_cfg = _get_mcp_config(path[-1][1])
+        annotations = _compute_tool_annotations(
+            leaf_cfg, is_mutation=(operation_type == "mutation")
+        )
+        _register_tool(server, tool_name, annotations, tool_func)

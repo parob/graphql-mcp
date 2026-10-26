@@ -522,6 +522,8 @@ def generate() -> str:
 
         Beyond top-level fields, tools are also generated for nested field paths that have arguments at depth >= 2. For example, `user(id) { posts(limit) }` produces a `user_posts` tool. Parent field arguments are prefixed: `user_posts(user_id, limit)`.
 
+        Each type's nested tools come from the shortest path that reaches it, and each type is expanded once. A nested tool never replaces another tool: when two paths give the same name, the shorter one keeps it. Names longer than 128 characters (the MCP limit) are skipped. Both cases log a warning.
+
         ### Type Mapping
 
         | GraphQL | Python | Notes |

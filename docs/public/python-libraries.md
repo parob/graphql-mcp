@@ -182,6 +182,8 @@ user_posts(user_id, limit) → [Post]
 
 Parent field arguments are automatically prefixed (`user_id`) to avoid collisions with the child field's own arguments (`limit`).
 
+Each type's nested tools come from the shortest path that reaches it. If `User` is reachable from both `user` and `organization.members`, `posts` gets one tool, `user_posts`, not `organization_members_posts`. A nested tool never replaces another tool. When two paths join to the same name, the shorter one keeps it. Names over MCP's 128-character limit are skipped. Both cases log a warning.
+
 ### Shape Return Types for MCP
 
 graphql-mcp auto-builds selection sets that include scalar fields up to 5 levels deep. It skips fields that take a required argument and deprecated fields. Flatten your return types to ensure the AI agent gets the data it needs:
