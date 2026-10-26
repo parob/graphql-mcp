@@ -95,15 +95,16 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     For local GraphQL schema execution, token context is automatically available
     through FastMCP and no extraction/forwarding is needed.
 
+    The token is read from the live HTTP request, like the forwarded headers.
+    ``ctx`` is not required: the generated tools' signatures don't declare a
+    Context, so FastMCP never passes one and it is always None.
+
     Args:
-        ctx: FastMCP Context object
+        ctx: FastMCP Context object (unused)
 
     Returns:
         Bearer token string if found, None otherwise
     """
-    if not ctx:
-        return None
-
     try:
         request = _get_http_request() if _get_http_request else None
         if request and hasattr(request, 'headers'):
