@@ -47,6 +47,7 @@ from graphql import (
     get_named_type,
     graphql,
     is_leaf_type,
+    is_required_argument,
     GraphQLObjectType,
 )
 from graphql.pyutils import Undefined
@@ -95,15 +96,16 @@ def _extract_bearer_token_from_context(ctx: Optional[Context]) -> Optional[str]:
     For local GraphQL schema execution, token context is automatically available
     through FastMCP and no extraction/forwarding is needed.
 
+    The token is read from the live HTTP request, like the forwarded headers.
+    ``ctx`` is not required: the generated tools' signatures don't declare a
+    Context, so FastMCP never passes one and it is always None.
+
     Args:
-        ctx: FastMCP Context object
+        ctx: FastMCP Context object (unused)
 
     Returns:
         Bearer token string if found, None otherwise
     """
-    if not ctx:
-        return None
-
     try:
         request = _get_http_request() if _get_http_request else None
         if request and hasattr(request, 'headers'):
@@ -639,6 +641,9 @@ def _map_graphql_type_to_python_type(graphql_type: Any, _cache: Optional[Dict[st
             # Build field definitions outside the lock (may recursively call this function)
             field_definitions = {}
             for field_name, field_def in graphql_type.fields.items():
+                # Describe only what the tool's selection set fetches.
+                if not _is_selectable(field_def):
+                    continue
                 field_type = _map_graphql_type_to_python_type(
                     field_def.type, _cache)
 
@@ -794,6 +799,19 @@ def _get_graphql_type_name(graphql_type: Any) -> str:
     return graphql_type.name
 
 
+def _is_selectable(field_def: GraphQLField) -> bool:
+    """Whether generated selection sets (and output schemas) include a field.
+
+    A field with a required argument can't be selected without a value for
+    it, which makes the whole query invalid. A deprecated field may already
+    be gone upstream: GitHub answers its sunset Projects (classic) fields
+    with an error that nulls the parent object.
+    """
+    if field_def.deprecation_reason is not None:
+        return False
+    return not any(is_required_argument(arg) for arg in field_def.args.values())
+
+
 def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0, _seen_types: frozenset = frozenset()) -> str:
     """
     Builds a selection set for a GraphQL type.
@@ -813,6 +831,8 @@ def _build_selection_set(graphql_type: Any, max_depth: int = 5, depth: int = 0, 
     selections = []
     if hasattr(named_type, "fields"):
         for field_name, field_def in named_type.fields.items():
+            if not _is_selectable(field_def):
+                continue
             field_named_type = get_named_type(field_def.type)
             if is_leaf_type(field_named_type):
                 selections.append(field_name)

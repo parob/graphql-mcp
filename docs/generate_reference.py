@@ -549,6 +549,8 @@ def generate() -> str:
         - Only scalar fields are selected
         - Nested objects are traversed up to **5 levels deep** (local) or **2 levels deep** (remote)
         - Circular type references are detected and stopped
+        - Fields that take a required argument are skipped, since the generated query has no value for it
+        - Deprecated fields are skipped, since the server may no longer serve them
         - If an object has no scalar fields, `__typename` is returned
 
         ### Local vs Remote Execution

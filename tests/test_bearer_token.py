@@ -2,9 +2,22 @@
 
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
-from graphql import GraphQLSchema, GraphQLObjectType, GraphQLField, GraphQLString
+from fastmcp import FastMCP
+from fastmcp.client import Client
+from graphql import (
+    GraphQLArgument,
+    GraphQLField,
+    GraphQLID,
+    GraphQLInt,
+    GraphQLList,
+    GraphQLNonNull,
+    GraphQLObjectType,
+    GraphQLSchema,
+    GraphQLString,
+)
 
-from graphql_mcp.server import GraphQLMCP
+from graphql_mcp import server as server_module
+from graphql_mcp.server import GraphQLMCP, add_tools_from_schema_with_remote
 from graphql_mcp.remote import RemoteGraphQLClient
 from mcp.types import TextContent
 from typing import cast
@@ -216,3 +229,54 @@ async def test_no_refresh_without_callback():
     refreshed = await client.refresh_token()
     assert refreshed is False
     assert client.headers["Authorization"] == "Bearer token"  # Unchanged
+
+
+def _schema_with_nested_field():
+    user = GraphQLObjectType("User", {
+        "posts": GraphQLField(
+            GraphQLList(GraphQLString), args={"first": GraphQLArgument(GraphQLInt)}),
+    })
+    return GraphQLSchema(query=GraphQLObjectType("Query", {
+        "hello": GraphQLField(
+            GraphQLString, args={"name": GraphQLArgument(GraphQLString)}),
+        "user": GraphQLField(
+            user, args={"id": GraphQLArgument(GraphQLNonNull(GraphQLID))}),
+    }))
+
+
+class _FakeRequest:
+    def __init__(self, headers):
+        self.headers = headers
+
+
+async def _call_remote_tool(tool, arguments, forward_bearer_token):
+    """Call a remote tool during a request carrying a bearer token; return the token sent upstream."""
+    remote_client = AsyncMock(spec=RemoteGraphQLClient)
+    remote_client.execute_with_token = AsyncMock(return_value={})
+    server = FastMCP(name="TestServer")
+    add_tools_from_schema_with_remote(
+        _schema_with_nested_field(), server, remote_client,
+        forward_bearer_token=forward_bearer_token,
+    )
+
+    request = _FakeRequest({"authorization": "Bearer caller-token"})
+    with patch.object(server_module, "_get_http_request", return_value=request):
+        async with Client(server) as client:
+            await client.call_tool(tool, arguments)
+
+    return remote_client.execute_with_token.call_args.kwargs["bearer_token_override"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool, arguments", [
+    ("hello", {"name": "Ann"}),
+    ("user_posts", {"user_id": "1", "first": 2}),
+])
+async def test_forward_bearer_token_reaches_remote_server(tool, arguments):
+    """The caller's token is forwarded, although generated tools never receive a Context."""
+    assert await _call_remote_tool(tool, arguments, forward_bearer_token=True) == "caller-token"
+
+
+@pytest.mark.asyncio
+async def test_bearer_token_not_forwarded_by_default():
+    assert await _call_remote_tool("hello", {"name": "Ann"}, forward_bearer_token=False) is None
