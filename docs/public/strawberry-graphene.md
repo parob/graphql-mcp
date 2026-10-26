@@ -5,7 +5,7 @@ title: "Strawberry"
 # Strawberry
 
 ::: warning Graphene
-Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x, or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`. The Graphene version of this page is [in the 2.4.0 docs](https://github.com/parob/graphql-mcp/blob/2.4.0/docs/public/strawberry-graphene.md).
+Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x: ask for Graphene 3 explicitly, e.g. `pip install graphql-mcp "graphene>=3"`, which resolves to graphql-mcp 2.4. With an unpinned `graphene`, pip picks Graphene 2.0 instead, which doesn't work. Or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`. The Graphene version of this page is [in the 2.4.0 docs](https://github.com/parob/graphql-mcp/blob/2.4.0/docs/public/strawberry-graphene.md).
 :::
 
 The [`@mcp` directive](/configuration#mcp-directive) relies on graphql-core's `ast_node.directives` or `_applied_directives` to read configuration off a field or argument. Strawberry's Python API doesn't populate those attributes by default, so a plain Strawberry schema loses directive metadata by the time graphql-mcp sees it.
