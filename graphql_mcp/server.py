@@ -50,6 +50,7 @@ from graphql import (
     GraphQLObjectType,
 )
 from graphql.pyutils import Undefined
+from graphql.utilities.coerce_input_value import coerce_default_value
 from pydantic.json_schema import PydanticJsonSchemaWarning
 
 from graphql_mcp.remote import RemoteGraphQLClient
@@ -1010,9 +1011,7 @@ def _validate_hidden_arg_has_default(
     Raises:
         ValueError: If the hidden argument doesn't have a default value
     """
-    from graphql.pyutils import Undefined
-
-    if arg_def.default_value is Undefined:
+    if _graphql_default(arg_def) is Undefined:
         raise ValueError(
             f"Argument '{arg_name}' in field '{field_name}' is marked as @mcp(hidden: true) "
             f"but has no default value. Hidden arguments must have defaults since "
@@ -1046,6 +1045,16 @@ def _argument_python_type(arg_def: GraphQLArgument) -> Any:
     return Optional[python_type]
 
 
+def _graphql_default(arg_def: GraphQLArgument) -> Any:
+    """The argument's GraphQL default as a Python value, or ``Undefined``.
+
+    graphql-core 3.3 stores defaults parsed from SDL or introspection
+    (``build_schema``, ``build_client_schema``) on ``default``, and code-first
+    defaults on the deprecated ``default_value``; this reads either.
+    """
+    return coerce_default_value(arg_def)
+
+
 def _argument_default(arg_def: GraphQLArgument) -> Any:
     """The Python-signature default for a GraphQL argument.
 
@@ -1056,8 +1065,9 @@ def _argument_default(arg_def: GraphQLArgument) -> Any:
       leaves it out. Marking it required would force clients to invent a
       value (typically ``""`` or ``null``) for every optional argument.
     """
-    if arg_def.default_value is not Undefined:
-        return arg_def.default_value
+    default = _graphql_default(arg_def)
+    if default is not Undefined:
+        return default
     if isinstance(arg_def.type, GraphQLNonNull):
         return inspect.Parameter.empty
     return Undefined
@@ -1935,11 +1945,7 @@ def _create_recursive_tool_function(
             param_name_map[param_name] = var_name
             python_type = _map_graphql_type_to_python_type(arg_def.type)
             annotations[param_name] = python_type
-            default = (
-                arg_def.default_value
-                if arg_def.default_value is not inspect.Parameter.empty
-                else inspect.Parameter.empty
-            )
+            default = _graphql_default(arg_def)
             parameters.append(
                 # KEYWORD_ONLY: the wrapper is called only by keyword, and this
                 # lifts the positional ordering constraint so an optional arg may
@@ -2415,11 +2421,7 @@ def _create_recursive_remote_tool_function(
             param_name_map[param_name] = var_name
             python_type = _map_graphql_type_to_python_type(arg_def.type)
             annotations[param_name] = python_type
-            default = (
-                arg_def.default_value
-                if arg_def.default_value is not inspect.Parameter.empty
-                else inspect.Parameter.empty
-            )
+            default = _graphql_default(arg_def)
             parameters.append(
                 # KEYWORD_ONLY: the wrapper is called only by keyword, and this
                 # lifts the positional ordering constraint so an optional arg may
