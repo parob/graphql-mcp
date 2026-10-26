@@ -1,24 +1,28 @@
 ---
-title: "Strawberry & Graphene"
+title: "Strawberry"
 ---
 
-# Strawberry & Graphene
+# Strawberry
 
-The [`@mcp` directive](/configuration#mcp-directive) relies on graphql-core's `ast_node.directives` or `_applied_directives` to read configuration off a field or argument. Strawberry and Graphene's Python APIs don't populate those attributes by default, so a plain Strawberry/Graphene schema loses directive metadata by the time graphql-mcp sees it.
+::: warning Graphene
+Graphene isn't supported from graphql-mcp 3.0: it pins graphql-core below 3.3, which graphql-mcp 3 requires, so the two can't be installed together. With Graphene, use graphql-mcp 2.x, or serve your Graphene API over HTTP and connect to it with `GraphQLMCP.from_remote_url()`. The Graphene version of this page is [in the 2.4.0 docs](https://github.com/parob/graphql-mcp/blob/2.4.0/docs/public/strawberry-graphene.md).
+:::
+
+The [`@mcp` directive](/configuration#mcp-directive) relies on graphql-core's `ast_node.directives` or `_applied_directives` to read configuration off a field or argument. Strawberry's Python API doesn't populate those attributes by default, so a plain Strawberry schema loses directive metadata by the time graphql-mcp sees it.
 
 There are three supported paths to apply `@mcp` in this situation. **They are alternatives — pick one.** They do not stack.
 
 ::: tip Runnable examples
-Copy-paste versions ship in the examples directory: [`library_strawberry.py`](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) (Path A) and [`library_graphene.py`](https://github.com/parob/graphql-mcp/tree/main/examples/library_graphene.py) (Path B). See [Examples → GraphQL Library Examples](/examples#graphql-library-examples).
+Copy-paste versions ship in the examples directory: [`library_strawberry.py`](https://github.com/parob/graphql-mcp/tree/main/examples/library_strawberry.py) (Path A). See [Examples → GraphQL Library Examples](/examples#graphql-library-examples).
 :::
 
 ## Picking a path
 
-| Path | Strawberry | Graphene | When to use |
-|------|:---:|:---:|------|
-| [A. Native Strawberry directive + rebuild](#a-native-strawberry-directive-rebuild) | ✅ | ❌ | You want `@mcp` visible in your schema's SDL and understood by any other tool reading the AST. |
-| [B. `apply_mcp()` helper](#b-apply_mcp-helper) | ✅ | ✅ | You want minimal code. Best default for most projects. |
-| [C. Full SDL rebuild](#c-full-sdl-rebuild-fallback) | ✅ | ✅ | Fallback for edge cases — avoid unless A and B don't fit. |
+| Path | When to use |
+|------|------|
+| [A. Native Strawberry directive + rebuild](#a-native-strawberry-directive-rebuild) | You want `@mcp` visible in your schema's SDL and understood by any other tool reading the AST. |
+| [B. `apply_mcp()` helper](#b-apply_mcp-helper) | You want minimal code. Best default for most projects. |
+| [C. Full SDL rebuild](#c-full-sdl-rebuild-fallback) | Fallback for edge cases — avoid unless A and B don't fit. |
 
 You only need one. Mixing them for the same field is fine (idempotent) but pointless.
 
@@ -72,14 +76,11 @@ server = GraphQLMCP(schema=rebuilt)
 Strawberry stores directive information internally on its own wrapper classes — it doesn't set `ast_node` on the underlying graphql-core fields. `str(sb_schema)` uses Strawberry's printer (which includes the directives), and `build_schema` re-parses that SDL into proper `ast_node.directives`, which graphql-mcp reads.
 :::
 
-Graphene does not have equivalent native directive support, so this path doesn't apply to Graphene.
-
 ## B. `apply_mcp()` helper
 
-`apply_mcp()` attaches the same directive metadata directly onto graphql-core's field and argument objects — no SDL roundtrip, no resolver copying. Works for Strawberry, Graphene, and any other library whose schema is (or wraps) a graphql-core schema.
+`apply_mcp()` attaches the same directive metadata directly onto graphql-core's field and argument objects — no SDL roundtrip, no resolver copying. Works for Strawberry and any other library whose schema is (or wraps) a graphql-core schema.
 
-::: code-group
-```python [Strawberry]
+```python
 import strawberry
 from graphql_mcp import GraphQLMCP, apply_mcp
 
@@ -104,30 +105,6 @@ apply_mcp(
 
 server = GraphQLMCP(schema=sb_schema._schema)
 ```
-
-```python [Graphene]
-import graphene
-from graphql_mcp import GraphQLMCP, apply_mcp
-
-
-class Query(graphene.ObjectType):
-    greet = graphene.String(name=graphene.String(required=True))
-
-    def resolve_greet(self, info, name):
-        return f"Hello, {name}!"
-
-
-g_schema = graphene.Schema(query=Query)
-
-apply_mcp(
-    g_schema.graphql_schema,
-    fields={"Query.greet": {"name": "say_hi"}},
-    args={"Query.greet.name": {"name": "user_name"}},
-)
-
-server = GraphQLMCP(schema=g_schema.graphql_schema)
-```
-:::
 
 ### Path format
 
@@ -154,8 +131,7 @@ Same three as the SDL directive: `name`, `description`, `hidden`. Any other key 
 
 Works but involves the most code. Use this only if A and B don't fit.
 
-::: code-group
-```python [Strawberry]
+```python
 import strawberry
 from graphql import build_schema, print_schema
 from graphql_mcp import GraphQLMCP
@@ -195,48 +171,10 @@ for field_name, sb_field in sb_schema._schema.query_type.fields.items():
 server = GraphQLMCP(schema=rebuilt)
 ```
 
-```python [Graphene]
-import graphene
-from graphql import build_schema, print_schema
-from graphql_mcp import GraphQLMCP
-
-
-class Query(graphene.ObjectType):
-    greet = graphene.String(name=graphene.String(required=True))
-
-    def resolve_greet(self, info, name):
-        return f"Hello, {name}!"
-
-
-g_schema = graphene.Schema(query=Query)
-core_schema = g_schema.graphql_schema
-
-MCP_DIRECTIVE = """
-directive @mcp(
-    name: String
-    description: String
-    hidden: Boolean
-) on FIELD_DEFINITION | ARGUMENT_DEFINITION
-"""
-
-sdl = MCP_DIRECTIVE + print_schema(core_schema).replace(
-    "greet(name: String!): String",
-    'greet(name: String! @mcp(name: "user_name")): String @mcp(name: "say_hi")',
-)
-
-rebuilt = build_schema(sdl)
-for field_name, g_field in core_schema.query_type.fields.items():
-    if field_name in rebuilt.query_type.fields:
-        rebuilt.query_type.fields[field_name].resolve = g_field.resolve
-
-server = GraphQLMCP(schema=rebuilt)
-```
-:::
-
 ::: warning Caveats for Path C
 
 - The `.replace(...)` is **fragile**: if the field signature changes (added argument, renamed, type changed), the replacement silently becomes a no-op and your `@mcp` directive quietly stops being applied. Consider asserting the replacement took effect, or use Path B instead.
-- Copying resolvers works because Strawberry and Graphene resolvers don't depend on the schema object — but watch for resolvers that close over the original schema (unusual but possible).
+- Copying resolvers works because Strawberry resolvers don't depend on the schema object — but watch for resolvers that close over the original schema (unusual but possible).
 
 :::
 

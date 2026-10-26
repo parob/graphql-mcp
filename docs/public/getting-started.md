@@ -66,7 +66,7 @@ The inspector runs alongside GraphiQL — both are available at `/graphql`.
 
 <a class="hero-card" href="/python-libraries">
 <h3>I use a Python GraphQL library</h3>
-<p>Works alongside Strawberry, Ariadne, Graphene, graphql-api, or any graphql-core schema.</p>
+<p>Works alongside Strawberry, Ariadne, graphql-api, or any graphql-core schema.</p>
 </a>
 
 <a class="hero-card" href="/existing-apis">

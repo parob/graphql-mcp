@@ -18,7 +18,7 @@ hero:
       link: "https://pypi.org/project/graphql-mcp/1.7.7/"
 ---
 
-Install graphql-mcp, point it at a graphql-core schema or a remote endpoint, and get a running MCP server. Works with Strawberry, Ariadne, Graphene, graphql-api, or any GraphQL API over HTTP.
+Install graphql-mcp, point it at a graphql-core schema or a remote endpoint, and get a running MCP server. Works with Strawberry, Ariadne, graphql-api, or any GraphQL API over HTTP.
 
 ## Try it with zero setup — Bridge
 
@@ -95,7 +95,7 @@ server = GraphQLMCP.from_api(api, name="My API")
 app = server.http_app()
 ```
 
-Compatible with any library that produces a graphql-core schema: Strawberry, Ariadne, Graphene, graphql-api.
+Compatible with any library that produces a graphql-core schema: Strawberry, Ariadne, graphql-api.
 
 <a href="/python-libraries">Python library guide &rarr;</a>
 
@@ -125,7 +125,7 @@ Requires the remote API to have introspection enabled.
 
 <a class="hero-card" href="/python-libraries">
 <h3>Python Libraries</h3>
-<p>Setup guides for Strawberry, Ariadne, Graphene, and graphql-api.</p>
+<p>Setup guides for Strawberry, Ariadne, and graphql-api.</p>
 </a>
 
 <a class="hero-card" href="/existing-apis">

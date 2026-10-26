@@ -44,7 +44,7 @@ export default defineConfig({
             { text: 'Remote APIs', link: '/existing-apis' },
             { text: 'Configuration', link: '/configuration' },
             { text: 'MCP Inspector', link: '/mcp-inspector' },
-            { text: 'Strawberry & Graphene', link: '/strawberry-graphene' },
+            { text: 'Strawberry', link: '/strawberry-graphene' },
           ]
         },
         {

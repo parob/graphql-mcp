@@ -2,7 +2,7 @@
 Tests for GraphQL library examples from README.
 
 This test file ensures that the examples shown in the README work properly
-with Strawberry, Ariadne, and Graphene GraphQL libraries.
+with Strawberry and Ariadne GraphQL libraries.
 """
 
 import json
@@ -99,40 +99,6 @@ async def test_ariadne_example():
         # Test with custom parameter
         result = await client.call_tool("hello", {"name": "Ariadne"})
         assert get_result_text(result) == "Hello, Ariadne!"
-
-
-@pytest.mark.asyncio
-async def test_graphene_example():
-    """Test the Graphene example from the README."""
-    try:
-        import graphene
-    except ImportError:
-        pytest.skip("graphene not installed")
-
-    class Query(graphene.ObjectType):
-        hello = graphene.String(name=graphene.String(default_value="World"))
-
-        def resolve_hello(self, info, name):
-            return f"Hello, {name}!"
-
-    schema = graphene.Schema(query=Query)
-
-    # Expose as MCP tools
-    server = GraphQLMCP(schema=schema.graphql_schema, name="Graphene API")
-
-    async with Client(server) as client:
-        # Test tool listing
-        tools = await client.list_tools()
-        tool_names = {t.name for t in tools}
-        assert "hello" in tool_names
-
-        # Test with default parameter
-        result = await client.call_tool("hello", {})
-        assert get_result_text(result) == "Hello, World!"
-
-        # Test with custom parameter
-        result = await client.call_tool("hello", {"name": "Graphene"})
-        assert get_result_text(result) == "Hello, Graphene!"
 
 
 @pytest.mark.asyncio
@@ -252,76 +218,6 @@ async def test_ariadne_with_complex_types():
 
 
 @pytest.mark.asyncio
-async def test_graphene_with_complex_types():
-    """Test Graphene with complex object types and arguments."""
-    try:
-        import graphene
-    except ImportError:
-        pytest.skip("graphene not installed")
-
-    # In-memory user data
-    users_data = {
-        "1": {"id": "1", "name": "Alice", "email": "alice@example.com"},
-        "2": {"id": "2", "name": "Bob", "email": "bob@example.com"},
-    }
-
-    class User(graphene.ObjectType):
-        id = graphene.ID()
-        name = graphene.String()
-        email = graphene.String()
-
-    class Query(graphene.ObjectType):
-        users = graphene.List(User, description="Get all users")
-        user = graphene.Field(User, id=graphene.ID(required=True), description="Get a user by ID")
-
-        def resolve_users(self, info):
-            return [User(**u) for u in users_data.values()]
-
-        def resolve_user(self, info, id):
-            user_data = users_data.get(id)
-            return User(**user_data) if user_data else None
-
-    class Mutation(graphene.ObjectType):
-        create_user = graphene.Field(
-            User,
-            name=graphene.String(required=True),
-            email=graphene.String(required=True),
-            description="Create a new user"
-        )
-
-        def resolve_create_user(self, info, name, email):
-            new_id = str(len(users_data) + 1)
-            new_user = {"id": new_id, "name": name, "email": email}
-            users_data[new_id] = new_user
-            return User(**new_user)
-
-    schema = graphene.Schema(query=Query, mutation=Mutation)
-    server = GraphQLMCP(schema=schema.graphql_schema, name="Users API")
-
-    async with Client(server) as client:
-        # Test listing users
-        result = await client.call_tool("users", {})
-        data = json.loads(get_result_text(result))
-        assert len(data) == 2
-
-        # Test getting specific user
-        result = await client.call_tool("user", {"id": "1"})
-        data = json.loads(get_result_text(result))
-        assert data["name"] == "Alice"
-        assert data["email"] == "alice@example.com"
-
-        # Test creating a user
-        result = await client.call_tool("create_user", {
-            "name": "Charlie",
-            "email": "charlie@example.com"
-        })
-        data = json.loads(get_result_text(result))
-        assert data["name"] == "Charlie"
-        assert data["email"] == "charlie@example.com"
-        assert data["id"] == "3"
-
-
-@pytest.mark.asyncio
 async def test_all_libraries_produce_same_tools():
     """Test that different libraries produce equivalent MCP tools for the same API."""
 
@@ -329,9 +225,8 @@ async def test_all_libraries_produce_same_tools():
     try:
         import strawberry
         from ariadne import make_executable_schema, QueryType
-        import graphene
     except ImportError:
-        pytest.skip("Not all libraries (strawberry, ariadne, graphene) are installed")
+        pytest.skip("Not all libraries (strawberry, ariadne) are installed")
 
     # Strawberry version
     @strawberry.type
@@ -359,20 +254,7 @@ async def test_all_libraries_produce_same_tools():
     ariadne_schema = make_executable_schema(ariadne_type_defs, ariadne_query)
     ariadne_server = GraphQLMCP(schema=ariadne_schema, name="Ariadne")
 
-    # Graphene version
-    class GrapheneQuery(graphene.ObjectType):
-        greet = graphene.String(
-            name=graphene.String(required=True),
-            description="Greet someone by name."
-        )
-
-        def resolve_greet(self, info, name):
-            return f"Hello, {name}!"
-
-    graphene_schema = graphene.Schema(query=GrapheneQuery)
-    graphene_server = GraphQLMCP(schema=graphene_schema.graphql_schema, name="Graphene")
-
-    # Test all three produce the same result
+    # Test both produce the same result
     async with Client(strawberry_server) as client:
         result = await client.call_tool("greet", {"name": "Test"})
         strawberry_result = get_result_text(result)
@@ -381,9 +263,5 @@ async def test_all_libraries_produce_same_tools():
         result = await client.call_tool("greet", {"name": "Test"})
         ariadne_result = get_result_text(result)
 
-    async with Client(graphene_server) as client:
-        result = await client.call_tool("greet", {"name": "Test"})
-        graphene_result = get_result_text(result)
-
     # All should produce the same output
-    assert strawberry_result == ariadne_result == graphene_result == "Hello, Test!"
+    assert strawberry_result == ariadne_result == "Hello, Test!"
