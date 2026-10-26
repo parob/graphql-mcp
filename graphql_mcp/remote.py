@@ -6,9 +6,14 @@ import ssl
 
 from typing import Any, Dict, Optional, Callable
 from graphql import (
+    GraphQLInterfaceType,
+    GraphQLObjectType,
     GraphQLSchema,
     build_client_schema,
-    get_introspection_query
+    get_introspection_query,
+    get_named_type,
+    get_nullable_type,
+    is_list_type,
 )
 from graphql.pyutils import Undefined
 
@@ -133,7 +138,8 @@ class RemoteGraphQLClient:
         token_refresh_callback: Optional[Callable[[], str]] = None,
         verify_ssl: bool = True,
         undefined_strategy: str = "remove",
-        debug: bool = False
+        debug: bool = False,
+        schema: Optional[GraphQLSchema] = None,
     ):
         """
         Initialize a remote GraphQL client with schema introspection for type-aware transformations.
@@ -147,6 +153,10 @@ class RemoteGraphQLClient:
             verify_ssl: Whether to verify SSL certificates (default: True, set to False for development)
             undefined_strategy: How to handle Undefined variables ("remove" or "null", default: "remove")
             debug: Enable verbose debug logging (default: False)
+            schema: The remote server's schema, when the caller already has
+                it. The client otherwise introspects the server on its first
+                query, sending only its own headers, to learn which fields
+                are lists.
         """
         self.url = url
         self.headers = headers or {}
@@ -163,6 +173,8 @@ class RemoteGraphQLClient:
         self._array_fields_cache = {}
         self._field_type_map = {}  # Maps field names to their return type names
         self._introspected = False
+        if schema is not None:
+            self._cache_field_types(schema)
 
         # Add bearer token to headers if provided
         if self.bearer_token:
@@ -526,6 +538,20 @@ class RemoteGraphQLClient:
             logger.warning(f"Schema introspection failed: {e}")
             # Fall back to heuristic approach if introspection fails
             self._introspected = True
+
+    def _cache_field_types(self, schema: GraphQLSchema) -> None:
+        """Fill the caches ``_introspect_schema`` fills, from a schema in hand."""
+        for type_name, graphql_type in schema.type_map.items():
+            if not isinstance(graphql_type, (GraphQLObjectType, GraphQLInterfaceType)):
+                continue
+            self._array_fields_cache[type_name] = {}
+            for field_name, field in graphql_type.fields.items():
+                self._array_fields_cache[type_name][field_name] = is_list_type(
+                    get_nullable_type(field.type))
+                return_type_name = get_named_type(field.type).name
+                self._field_type_map[f"{type_name}.{field_name}"] = return_type_name
+                self._field_type_map.setdefault(field_name, return_type_name)
+        self._introspected = True
 
     def _is_list_type(self, field_type: Dict) -> bool:
         """Check if a GraphQL field type represents a list."""

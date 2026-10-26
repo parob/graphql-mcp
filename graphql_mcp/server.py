@@ -1269,9 +1269,11 @@ def build_remote_mcp(
         **kwargs,
     )
 
+    # The client gets the schema too: it needs to know which fields are lists,
+    # and would otherwise introspect again on the first tool call.
     client = RemoteGraphQLClient(
         url, request_headers, timeout,
-        bearer_token=bearer_token, verify_ssl=verify_ssl,
+        bearer_token=bearer_token, verify_ssl=verify_ssl, schema=schema,
     )
 
     instance.remote_client = client
