@@ -27,7 +27,8 @@ try:
             "description": GraphQLArgument(GraphQLString),
             "hidden": GraphQLArgument(GraphQLBoolean),
             # MCP tool annotation hints (see spec). Defaults are inferred:
-            # queries default to readOnly: true; mutations use spec defaults.
+            # queries get readOnly: true; mutations get readOnly: false and
+            # destructive: true.
             "readOnly": GraphQLArgument(GraphQLBoolean),
             "destructive": GraphQLArgument(GraphQLBoolean),
             "idempotent": GraphQLArgument(GraphQLBoolean),
