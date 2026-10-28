@@ -168,6 +168,12 @@ GraphQL MCP automatically:
 - Supports the `@mcp` directive to customize how fields and arguments
   are exposed to MCP — see below
 
+Local tools reuse parsed, validated operations in a bounded cache (128 argument
+combinations per tool). Variables, request context, results, and mutation effects
+are evaluated on every invocation. Treat a registered schema as fixed; recreate
+the server after changing it. See [performance measurements and profiling](benchmarks/README.md)
+for a reproducible benchmark of the MCP, API, and HTTP paths.
+
 ## Customizing MCP Exposure with `@mcp`
 
 A unified `@mcp` directive lets schema authors override how each field or

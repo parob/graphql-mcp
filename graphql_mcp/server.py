@@ -11,6 +11,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any, Callable, List, Literal, Optional, Dict, Union
 
 from fastmcp import FastMCP, Context
@@ -46,11 +47,14 @@ from graphql import (
     GraphQLBoolean,
     GraphQLID,
     GraphQLError,
+    ExecutionResult,
+    execute,
     get_named_type,
-    graphql,
     is_leaf_type,
     is_required_argument,
     GraphQLObjectType,
+    validate,
+    validate_schema,
 )
 from graphql.language import (
     REMOVE,
@@ -751,7 +755,9 @@ def _convert_enum_names_to_values_in_output(data, graphql_return_type):
                 return [_convert_enum_names_to_values_in_output(item, current_type.of_type) for item in data]
             return data
 
-        named_type = get_named_type(current_type)
+        # NonNull was unwrapped above and lists already returned, so this is
+        # a named type. Avoid re-inspecting it for every scalar in the result.
+        named_type = current_type
 
         if isinstance(named_type, GraphQLEnumType):
             # Convert enum name to value
@@ -1370,6 +1376,40 @@ def add_tools_from_schema_with_remote(
     return server
 
 
+def _local_operation_executor(schema: GraphQLSchema) -> Callable:
+    """Cache documents, never variables or results, for one generated tool.
+
+    A tool's schema is fixed after registration. Bound the cache because callers
+    can supply different combinations of optional arguments. Keeping it on the
+    tool also lets its schema and documents be collected when the tool is gone.
+    """
+    schema_errors = validate_schema(schema)
+
+    @lru_cache(maxsize=128)
+    def prepare(query: str):
+        document = parse(query)
+        errors = validate(schema, document)
+        if errors:
+            # Raised exceptions are not cached. A wrapper raises the first
+            # error, so retaining it would also retain its request traceback.
+            raise errors[0]
+        return document
+
+    async def run(query: str, variables: dict) -> ExecutionResult:
+        if schema_errors:
+            return ExecutionResult(data=None, errors=list(schema_errors))
+        try:
+            document = prepare(query)
+        except GraphQLError as error:
+            return ExecutionResult(data=None, errors=[error])
+        result = execute(schema, document, variable_values=variables)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+
+    return run
+
+
 def _create_tool_function(
     field_name: str,
     field: GraphQLField,
@@ -1425,6 +1465,10 @@ def _create_tool_function(
                               annotation=annotation_type)
         )
         arg_defs[arg_name] = f"${arg_name}: {_get_graphql_type_name(arg_def.type)}"
+
+    execute_operation = _local_operation_executor(schema)
+    selection_set = _build_selection_set(field.type)
+    expected_type = _map_graphql_type_to_python_type(field.type)
 
     async def wrapper(**kwargs):
         # Optional arguments the caller left out arrive as Undefined (their
@@ -1727,16 +1771,17 @@ def _create_tool_function(
         # Only declare and pass the arguments the caller supplied; an omitted
         # nullable argument is left out of the operation entirely so the
         # schema default applies (and "omitted" stays distinct from "null").
-        arg_str = ", ".join(f"{name}: ${name}" for name in kwargs)
-        used_arg_defs = [arg_defs[name] for name in kwargs]
-        selection_set = _build_selection_set(field.type)
+        # Canonical order shares the document for equivalent keyword orderings.
+        argument_names = sorted(kwargs)
+        arg_str = ", ".join(f"{name}: ${name}" for name in argument_names)
+        used_arg_defs = [arg_defs[name] for name in argument_names]
 
         query_str = f"{operation_type} ({', '.join(used_arg_defs)}) {{ {field_name}({arg_str}) {selection_set} }}"
         if not used_arg_defs:
             query_str = f"{operation_type} {{ {field_name} {selection_set} }}"
 
         try:
-            result = await graphql(schema, query_str, variable_values=processed_kwargs)
+            result = await execute_operation(query_str, processed_kwargs)
         except Exception as e:
             print(f"Error executing GraphQL query: {e}")
             print(f"Query: {query_str}")
@@ -1759,8 +1804,6 @@ def _create_tool_function(
                 raw_data, field.type)
 
             # If the return type is dict (JSON scalar) and we got a string, parse it
-            # Check inline since return_type is calculated outside the wrapper
-            expected_type = _map_graphql_type_to_python_type(field.type)
             if expected_type == dict and isinstance(processed_data, str):
                 try:
                     processed_data = json.loads(processed_data)
@@ -2040,6 +2083,7 @@ def _create_recursive_tool_function(
         f"{operation_type} ({arg_def_str})" if arg_def_str else operation_type
     )
     query_str = f"{operation_header} {{ {graphql_body} }}"
+    execute_operation = _local_operation_executor(schema)
 
     # Tool wrapper
     async def wrapper(**kwargs):
@@ -2119,7 +2163,7 @@ def _create_recursive_tool_function(
                                     except Exception:
                                         continue
 
-        result = await graphql(schema, query_str, variable_values=processed_kwargs)
+        result = await execute_operation(query_str, processed_kwargs)
 
         if result.errors:
             raise result.errors[0]
