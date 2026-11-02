@@ -47,6 +47,11 @@ waiting in its profile; an isolated rerun measured 0.81 ms. Those observations
 are retained alongside the final paired samples, rather than discarded.
 These figures describe framework overhead, not production response times.
 
+The baseline above is the previous library implementation on graphql-core
+3.3.1, not the older dependency stack previously deployed by consumers. The
+table therefore isolates these patches; it does not establish the effect of
+upgrading an application's entire dependency stack.
+
 ## Reproduce
 
 Run from the graphql-mcp checkout with sibling graphql-api and graphql-http
@@ -125,10 +130,20 @@ those costs or measure SQL query counts in production. Further work should use
 representative application traces and repair the graphql-db performance tests
 before drawing conclusions about ORM batching.
 
-These are local changes, not releases or deployments. Outeract and Natter's
-checked lockfiles still selected older library majors during this investigation.
-Outeract's `api/graphql_http.py` also refers to `execution_context_class`, whereas
-the current shared libraries use `executor_class`; resolve that compatibility
-issue before upgrading its HTTP transport. Homecast Cloud already had an
-in-progress dependency upgrade, which was left intact. Release the shared
-libraries and then update/verify consumers through the normal release process.
+The patches were subsequently released as graphql-mcp 3.2.1 and graphql-api
+2.0.1 and deployed to consumers on 2026-10-28. That rollout also upgraded older
+library majors in some consumers and resolved the HTTP adapter's
+`execution_context_class` / `executor_class` incompatibility.
+
+Production verification has **not established an end-to-end application
+speedup**. Historical latency windows were mixed. A bounded, alternating
+comparison of the old and new deployed revisions produced similar HTTP client
+latencies and slightly higher MCP client medians on the new revision. These
+small samples do not establish the cause of the difference. The generated
+document cache was confirmed to receive hits in the live process, and the
+read-only MCP comparisons returned identical results.
+
+Further performance claims require representative application requests against
+the exact deployed dependency versions, with database and transport timings
+measured separately. The local reductions above must not be presented as
+production latency reductions.
